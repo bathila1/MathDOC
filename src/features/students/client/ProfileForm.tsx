@@ -1,0 +1,102 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { saveProfile } from "@/features/students/server/actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+
+const fields = [
+  { name: "full_name", label: "Full name", placeholder: "A. B. Perera" },
+  { name: "school", label: "School", placeholder: "Your school" },
+  { name: "grade", label: "Grade / Year", placeholder: "Grade 11" },
+  { name: "guardian_name", label: "Parent / guardian name", placeholder: "" },
+  {
+    name: "guardian_phone",
+    label: "Parent / guardian phone",
+    placeholder: "0771234567",
+  },
+] as const;
+
+export function ProfileForm() {
+  const router = useRouter();
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [topError, setTopError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function set(name: string, value: string) {
+    setValues((v) => ({ ...v, [name]: value }));
+  }
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErrors({});
+    setTopError(null);
+    startTransition(async () => {
+      const res = await saveProfile(values);
+      if (!res.ok) {
+        setErrors(res.fieldErrors ?? {});
+        setTopError(res.fieldErrors ? null : res.error);
+        return;
+      }
+      router.push("/student/exam");
+      router.refresh();
+    });
+  }
+
+  return (
+    <Card className="w-full max-w-lg">
+      <CardHeader>
+        <CardTitle>Tell us about yourself</CardTitle>
+        <CardDescription>
+          Sir uses these details to prepare for your sessions. Next you&apos;ll
+          take a short quiz so he knows where to start.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="space-y-4">
+          {fields.map((f) => (
+            <div key={f.name} className="space-y-2">
+              <Label htmlFor={f.name}>{f.label}</Label>
+              <Input
+                id={f.name}
+                placeholder={f.placeholder}
+                value={values[f.name] ?? ""}
+                onChange={(e) => set(f.name, e.target.value)}
+              />
+              {errors[f.name] && (
+                <p className="text-sm text-destructive">{errors[f.name]}</p>
+              )}
+            </div>
+          ))}
+          <div className="space-y-2">
+            <Label htmlFor="address">Home address</Label>
+            <Textarea
+              id="address"
+              rows={2}
+              value={values.address ?? ""}
+              onChange={(e) => set("address", e.target.value)}
+            />
+            {errors.address && (
+              <p className="text-sm text-destructive">{errors.address}</p>
+            )}
+          </div>
+          {topError && <p className="text-sm text-destructive">{topError}</p>}
+          <Button type="submit" className="w-full" disabled={pending}>
+            {pending ? "Saving…" : "Continue to the quiz"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
