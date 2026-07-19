@@ -17,13 +17,20 @@ when the plan is complete.
 1. Log in with a phone number — one-time SMS code (OTP), no password.
 2. Register: personal details + a short **placement quiz** (auto-graded; Sir
    uses the score to categorize the student: Beginner / Intermediate / Advanced).
-3. Book a session — in person or online — from Sir's free time slots.
+3. Book a session — in person or online — on a **Google-Calendar-style week
+   view**: free times appear as cards on the grid; tap one to select it.
+   (Sir creates availability the same way: click an empty space on his
+   calendar → an event-creation dialog pops up.)
 4. Payment page appears (UI only for now — **"Skip payment" bypass button**
    until a payment gateway is linked).
 5. SMS arrives with all details + a link to the **invoice** (view / print /
    download PDF from the site — no email involved).
-6. After the session, Sir assigns ordered tasks. The dashboard shows a **big
-   progress bar**; tasks unlock strictly one at a time.
+6. After the session, Sir assigns ordered tasks. The dashboard shows a
+   **game-style journey track** — one milestone circle per task with %
+   labels and hover tooltips; only the **current task and the next one** are
+   shown as cards. Tasks unlock strictly one at a time, **across all
+   sessions**: booking another appointment appends new tasks to the same
+   journey (each task carries a "Session N" tag; nothing is ever removed).
 7. For each task the student clicks **Upload proof** (photos/PDF of their
    work). Sir accepts it (next task unlocks) or rejects it with a note
    (student fixes and resubmits).
@@ -61,6 +68,15 @@ when the plan is complete.
 | PDFs | `@react-pdf/renderer` server-side (invoice + certificate) |
 | Payments | Deferred — mock payment UI with a bypass button |
 | Hosting | Vercel |
+
+**Branding**: red-orange gradient theme matched to the MathDoc logo, Nunito
+font, playful animations. The logo is recreated as an inline SVG
+(`src/components/brand/Logo.tsx`); drop the teacher's photo at
+**`public/sir.jpg`** to replace the placeholder avatar on the landing page.
+
+**⚠ TESTING MODE — forms are not compulsory right now**: the registration
+form, quiz and proof uploads all accept empty/partial submissions so the flow
+can be clicked through quickly. Re-tighten before launch (see Roadmap).
 
 **Dev simulation modes** (until third-party services are connected):
 - No SMSLenz keys → SMS is printed to the terminal **and previewed on-screen**
@@ -225,6 +241,7 @@ scripts/create-admin.mjs  # creates/promotes the teacher's admin account
 
 ## Roadmap / TODO
 
+- [ ] **Re-enable required form fields** (profile, quiz answers, proof files) — currently relaxed for testing (`src/lib/shared/schemas.ts`).
 - [ ] Link a real payment gateway (PayHere / Stripe) and remove the bypass.
 - [ ] Connect SMSLenz + configure the Supabase Send-SMS hook (remove simulate button reliance).
 - [ ] Set up Cloudflare R2 for production file storage.

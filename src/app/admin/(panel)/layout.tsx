@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/server/auth";
 import { LogoutButton } from "@/features/auth/client/LogoutButton";
+import { Logo } from "@/components/brand/Logo";
 import {
   LayoutDashboard,
   CalendarClock,
@@ -29,7 +30,12 @@ export default async function AdminLayout({
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-56 shrink-0 flex-col border-r bg-muted/30 sm:flex">
-        <div className="px-4 py-4 text-lg font-bold">MathDoc Admin</div>
+        <div className="px-4 py-4">
+          <Logo iconClassName="size-8" textClassName="text-lg" />
+          <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
+            Teacher panel
+          </p>
+        </div>
         <nav className="flex flex-1 flex-col gap-1 px-2">
           {nav.map((item) => (
             <Link

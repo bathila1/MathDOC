@@ -57,10 +57,10 @@ export function ProfileForm() {
   return (
     <Card className="w-full max-w-lg">
       <CardHeader>
-        <CardTitle>Tell us about yourself</CardTitle>
+        <CardTitle>Tell us about yourself ✨</CardTitle>
         <CardDescription>
-          Sir uses these details to prepare for your sessions. Next you&apos;ll
-          take a short quiz so he knows where to start.
+          Sir uses these details to prepare for your sessions. Everything is
+          optional — fill what you like, you can come back later.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -92,8 +92,33 @@ export function ProfileForm() {
             )}
           </div>
           {topError && <p className="text-sm text-destructive">{topError}</p>}
-          <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Saving…" : "Continue to the quiz"}
+          <Button
+            type="submit"
+            className="w-full bg-brand-gradient border-0 text-white"
+            disabled={pending}
+          >
+            {pending ? "Saving…" : "Continue to the quiz →"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            disabled={pending}
+            onClick={() => {
+              setErrors({});
+              setTopError(null);
+              startTransition(async () => {
+                const res = await saveProfile({});
+                if (!res.ok) {
+                  setTopError(res.error);
+                  return;
+                }
+                router.push("/student/exam");
+                router.refresh();
+              });
+            }}
+          >
+            Skip for now
           </Button>
         </form>
       </CardContent>

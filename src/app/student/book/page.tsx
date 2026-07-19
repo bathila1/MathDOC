@@ -1,6 +1,6 @@
 import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
-import { SlotPicker } from "@/features/booking/client/SlotPicker";
+import { StudentSlotCalendar } from "@/features/booking/client/calendar/StudentSlotCalendar";
 import type { AvailabilitySlot } from "@/lib/shared/types";
 import { z } from "zod";
 
@@ -28,16 +28,16 @@ export default async function BookPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">
-          {followUpTaskId ? "Book your follow-up with Sir" : "Book a session"}
+        <h1 className="text-3xl font-extrabold">
+          {followUpTaskId ? "🤝 Book your follow-up with Sir" : "📅 Book a session"}
         </h1>
         <p className="text-muted-foreground">
           {followUpTaskId
-            ? "Pick a free time to discuss your progress. Follow-up meetings are free."
-            : "Pick how you want to meet and choose a free time."}
+            ? "Pick a free time to talk about your progress. Follow-up meetings are free."
+            : "Choose how you want to meet, then tap a free time on the calendar."}
         </p>
       </div>
-      <SlotPicker
+      <StudentSlotCalendar
         slots={(data ?? []) as AvailabilitySlot[]}
         followUpTaskId={followUpTaskId}
       />

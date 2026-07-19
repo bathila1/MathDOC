@@ -31,12 +31,6 @@ export function ExamForm({
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (unanswered > 0) {
-      setError(
-        `Please answer all questions — ${unanswered} left.`
-      );
-      return;
-    }
     startTransition(async () => {
       const res = await submitExam({ answers });
       if (!res.ok) {
@@ -100,8 +94,17 @@ export function ExamForm({
         </Card>
       ))}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? "Submitting…" : "Submit my answers"}
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full bg-brand-gradient border-0 text-white"
+        disabled={pending}
+      >
+        {pending
+          ? "Submitting…"
+          : unanswered > 0
+            ? `Submit (${unanswered} unanswered)`
+            : "Submit my answers 🎯"}
       </Button>
     </form>
   );

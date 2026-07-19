@@ -51,33 +51,23 @@ export const adminLoginSchema = z.object({
 
 // ---------- Student profile / registration ----------
 
+// TESTING MODE: nothing is compulsory for now — every field may be left
+// empty. Re-tighten these before going live (see README roadmap).
+const optionalText = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, `${label} is too long.`)
+    .optional()
+    .transform((v) => (v ? v : null));
+
 export const profileSchema = z.object({
-  full_name: z
-    .string()
-    .trim()
-    .min(2, "Please enter your full name.")
-    .max(100, "Name is too long (max 100 characters)."),
-  school: z
-    .string()
-    .trim()
-    .min(2, "Please enter your school.")
-    .max(120, "School name is too long."),
-  grade: z
-    .string()
-    .trim()
-    .min(1, "Please select your grade / year.")
-    .max(30, "Grade is too long."),
-  guardian_name: z
-    .string()
-    .trim()
-    .min(2, "Please enter a parent or guardian's name.")
-    .max(100, "Guardian name is too long."),
-  guardian_phone: phoneField,
-  address: z
-    .string()
-    .trim()
-    .min(5, "Please enter your address.")
-    .max(300, "Address is too long."),
+  full_name: optionalText(100, "Name"),
+  school: optionalText(120, "School name"),
+  grade: optionalText(30, "Grade"),
+  guardian_name: optionalText(100, "Guardian name"),
+  guardian_phone: optionalText(30, "Guardian phone"),
+  address: optionalText(300, "Address"),
 });
 
 export const categorySchema = z.object({
@@ -171,8 +161,9 @@ export const taskSchema = z.object({
   description: z
     .string()
     .trim()
-    .min(2, "Please describe what the student should do.")
-    .max(5000, "Description is too long."),
+    .max(5000, "Description is too long.")
+    .optional()
+    .transform((v) => v ?? ""),
   attachment_key: z.string().max(500).optional().nullable(),
 });
 
@@ -182,9 +173,9 @@ export const taskEditSchema = taskSchema
 
 export const proofSubmitSchema = z.object({
   task_id: z.string().uuid(),
+  // TESTING MODE: files optional for now (min 1 again before going live)
   file_keys: z
     .array(z.string().min(1).max(500))
-    .min(1, "Please attach at least one photo or PDF of your work.")
     .max(10, "Maximum 10 files per proof."),
   student_note: z.string().trim().max(1000, "Note is too long.").optional(),
 });

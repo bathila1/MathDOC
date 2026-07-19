@@ -3,6 +3,7 @@ import { requireStudent } from "@/lib/server/auth";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/features/auth/client/LogoutButton";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/brand/Logo";
 
 export default async function StudentLayout({
   children,
@@ -16,8 +17,8 @@ export default async function StudentLayout({
     <div className="flex min-h-screen flex-col">
       <header className="border-b bg-background">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-          <Link href="/student" className="text-lg font-bold">
-            MathDoc
+          <Link href="/student">
+            <Logo iconClassName="size-8" textClassName="text-lg" />
           </Link>
           <nav className="flex items-center gap-1">
             <Button variant="ghost" size="sm" render={<Link href="/student" />}>
