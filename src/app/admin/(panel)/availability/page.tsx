@@ -20,7 +20,7 @@ export default async function AvailabilityPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-extrabold">🗓️ My availability</h1>
+        <h1 className="text-3xl">My availability</h1>
         <p className="text-muted-foreground">
           Click any empty space on the calendar to add a free time — students
           book from these.

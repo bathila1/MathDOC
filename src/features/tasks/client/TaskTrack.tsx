@@ -74,7 +74,7 @@ export function TaskTrack({ tasks }: { tasks: TrackTask[] }) {
                   )}
                   <span
                     className={cn(
-                      "relative z-10 flex size-10 items-center justify-center rounded-full border-4 border-background shadow-md transition-transform hover:scale-110",
+                      "relative z-10 flex size-10 items-center justify-center rounded-full border-4 border-background shadow-sm transition-transform hover:scale-105",
                       reached && "bg-brand-gradient text-white",
                       isCurrent && "bg-card text-primary ring-3 ring-primary",
                       !reached &&
@@ -115,7 +115,7 @@ export function TaskTrack({ tasks }: { tasks: TrackTask[] }) {
                     <p className="text-xs opacity-80">
                       Session {t.sessionNo} ·{" "}
                       {t.status === "approved"
-                        ? "Done ✔"
+                        ? "Done"
                         : t.status === "proof_submitted"
                           ? "Waiting for Sir's review"
                           : t.status === "active"
@@ -129,10 +129,10 @@ export function TaskTrack({ tasks }: { tasks: TrackTask[] }) {
           })}
         </ol>
       </div>
-      <p className="mt-1 text-center text-sm font-semibold text-muted-foreground">
+      <p className="mt-1 text-center text-sm text-muted-foreground">
         {progress === 100
-          ? "🏆 100% complete — you did it!"
-          : `⭐ ${approved} of ${total} milestones reached — ${progress}%`}
+          ? "100% complete — you did it!"
+          : `${progress}% of your journey complete`}
       </p>
     </div>
   );

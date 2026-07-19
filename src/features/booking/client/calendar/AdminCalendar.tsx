@@ -94,7 +94,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
         if (!res.fieldErrors) toast.error(res.error);
         return;
       }
-      toast.success("Free time added 🎉");
+      toast.success("Free time added.");
       setCreateOpen(false);
     });
   }
@@ -119,8 +119,8 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
         onAnchorChange={setAnchor}
         onCellClick={openCreate}
         legend={
-          <p className="text-xs font-semibold text-muted-foreground">
-            ✨ Click any empty space to add a free time
+          <p className="text-xs font-medium text-muted-foreground">
+            Click any empty space to add a free time
           </p>
         }
         renderDay={(day) => (
@@ -141,7 +141,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
                     className={cn(
                       "pointer-events-auto absolute inset-x-1 z-10 overflow-hidden rounded-lg border-l-4 px-1.5 py-1 text-left text-[11px] leading-tight font-bold shadow-sm transition-transform hover:scale-[1.02]",
                       booked
-                        ? "bg-brand-gradient border-white text-white"
+                        ? "bg-primary border-primary-foreground text-primary-foreground"
                         : "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                     )}
                   >
@@ -161,7 +161,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <span className="flex size-8 items-center justify-center rounded-lg bg-brand-gradient text-white">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <CalendarPlus className="size-4" />
               </span>
               Add free time
@@ -225,19 +225,15 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="either">🤝💻 Either</SelectItem>
-                  <SelectItem value="physical">🤝 In person only</SelectItem>
-                  <SelectItem value="online">💻 Online only</SelectItem>
+                  <SelectItem value="either">Either</SelectItem>
+                  <SelectItem value="physical">In person only</SelectItem>
+                  <SelectItem value="online">Online only</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button
-              className="bg-brand-gradient border-0 text-white"
-              disabled={pending}
-              onClick={saveDraft}
-            >
+            <Button disabled={pending} onClick={saveDraft}>
               {pending ? "Saving…" : "Save"}
             </Button>
           </DialogFooter>
@@ -270,7 +266,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
                 </p>
                 {managed.status === "booked" ? (
                   <p className="mt-2 rounded-lg bg-muted p-2 font-semibold">
-                    📌 Booked by {bookedBy(managed) ?? "a student"}
+                    Booked by {bookedBy(managed) ?? "a student"}
                   </p>
                 ) : (
                   <p className="mt-2 text-muted-foreground">

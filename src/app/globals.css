@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-fraunces);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -74,7 +74,7 @@
   --chart-3: oklch(0.65 0.15 160);
   --chart-4: oklch(0.55 0.12 270);
   --chart-5: oklch(0.6 0.1 220);
-  --radius: 1rem;
+  --radius: 0.75rem;
   --sidebar: oklch(0.975 0.015 70);
   --sidebar-foreground: oklch(0.26 0.03 35);
   --sidebar-primary: oklch(0.62 0.2 32);
@@ -138,6 +138,14 @@
   html {
     @apply font-sans;
   }
+  /* Editorial voice: serif display headings, tight tracking */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-fraunces), Georgia, serif;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
 }
 
 @layer utilities {
@@ -162,34 +170,23 @@
     color: transparent;
   }
 
-  .animate-float {
-    animation: md-float 3.5s ease-in-out infinite;
-  }
+  /* One entrance animation, used sparingly (journey milestones, rewards) */
   .animate-pop-in {
     animation: md-pop-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
-  .animate-wiggle {
-    animation: md-wiggle 1.2s ease-in-out infinite;
-  }
-  /* Card lift on hover — used to make the UI feel playful */
-  .hover-lift {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .hover-lift:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 24px -12px oklch(0.55 0.21 25 / 35%);
+
+  /* Graph-paper texture — a quiet nod to maths exercise books */
+  .bg-graph {
+    background-image: linear-gradient(
+        to right,
+        oklch(0.62 0.2 32 / 6%) 1px,
+        transparent 1px
+      ),
+      linear-gradient(to bottom, oklch(0.62 0.2 32 / 6%) 1px, transparent 1px);
+    background-size: 28px 28px;
   }
 }
 
-@keyframes md-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-7px);
-  }
-}
 @keyframes md-pop-in {
   from {
     opacity: 0;
@@ -198,14 +195,5 @@
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
-  }
-}
-@keyframes md-wiggle {
-  0%,
-  100% {
-    transform: rotate(-2deg);
-  }
-  50% {
-    transform: rotate(2deg);
   }
 }

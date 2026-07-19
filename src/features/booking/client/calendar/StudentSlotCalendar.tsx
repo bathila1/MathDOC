@@ -76,8 +76,8 @@ export function StudentSlotCalendar({
         anchor={anchor}
         onAnchorChange={setAnchor}
         legend={
-          <p className="text-xs font-semibold text-muted-foreground">
-            🟠 Tap a free time to pick it
+          <p className="text-xs font-medium text-muted-foreground">
+            Tap a free time to pick it
           </p>
         }
         renderDay={(day) => (
@@ -98,13 +98,13 @@ export function StudentSlotCalendar({
                     className={cn(
                       "pointer-events-auto absolute inset-x-1 z-10 overflow-hidden rounded-lg border-l-4 px-1.5 py-1 text-left text-[11px] leading-tight font-bold shadow-sm transition-all",
                       isSelected
-                        ? "scale-[1.03] bg-brand-gradient border-white text-white shadow-lg"
+                        ? "bg-primary border-primary-foreground text-primary-foreground shadow-md"
                         : "border-primary bg-primary/10 text-primary hover:bg-primary/20"
                     )}
                   >
                     {format(new Date(s.starts_at), "h:mm a")}
                     <span className="block font-medium opacity-80">
-                      {isSelected ? "Selected ✔" : "Free"}
+                      {isSelected ? "Selected" : "Free"}
                     </span>
                   </button>
                 );
@@ -123,7 +123,7 @@ export function StudentSlotCalendar({
       <div className="sticky bottom-4 z-30">
         <Button
           size="lg"
-          className="w-full bg-brand-gradient border-0 text-white shadow-xl disabled:opacity-60"
+          className="w-full shadow-lg"
           disabled={!selected || pending}
           onClick={confirm}
         >
@@ -131,7 +131,7 @@ export function StudentSlotCalendar({
             ? "Booking…"
             : selected
               ? `${followUpTaskId ? "Book follow-up" : "Continue"} — ${format(new Date(selected.starts_at), "EEE d MMM, h:mm a")}`
-              : "Pick a time above ☝️"}
+              : "Pick a time above"}
         </Button>
       </div>
     </div>

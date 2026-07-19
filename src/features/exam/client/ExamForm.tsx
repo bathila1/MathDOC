@@ -94,17 +94,12 @@ export function ExamForm({
         </Card>
       ))}
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full bg-brand-gradient border-0 text-white"
-        disabled={pending}
-      >
+      <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending
           ? "Submitting…"
           : unanswered > 0
             ? `Submit (${unanswered} unanswered)`
-            : "Submit my answers 🎯"}
+            : "Submit my answers"}
       </Button>
     </form>
   );

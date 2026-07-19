@@ -57,7 +57,7 @@ export function ProfileForm() {
   return (
     <Card className="w-full max-w-lg">
       <CardHeader>
-        <CardTitle>Tell us about yourself ✨</CardTitle>
+        <CardTitle className="text-xl">Tell us about yourself</CardTitle>
         <CardDescription>
           Sir uses these details to prepare for your sessions. Everything is
           optional — fill what you like, you can come back later.
@@ -92,12 +92,8 @@ export function ProfileForm() {
             )}
           </div>
           {topError && <p className="text-sm text-destructive">{topError}</p>}
-          <Button
-            type="submit"
-            className="w-full bg-brand-gradient border-0 text-white"
-            disabled={pending}
-          >
-            {pending ? "Saving…" : "Continue to the quiz →"}
+          <Button type="submit" className="w-full" disabled={pending}>
+            {pending ? "Saving…" : "Continue to the quiz"}
           </Button>
           <Button
             type="button"

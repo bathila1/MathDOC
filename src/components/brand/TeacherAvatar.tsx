@@ -4,8 +4,8 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Shows the teacher's photo from /sir.jpg (drop the image into public/sir.jpg).
- * Falls back to a friendly gradient avatar until the file exists.
+ * The teacher's photo, loaded from /sir.jpg (put the image at public/sir.jpg).
+ * Until that file exists, a quiet serif monogram placeholder is shown.
  */
 export function TeacherAvatar({ className }: { className?: string }) {
   const [failed, setFailed] = useState(false);
@@ -14,12 +14,17 @@ export function TeacherAvatar({ className }: { className?: string }) {
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-brand-gradient text-5xl",
+          "flex flex-col items-center justify-center gap-1 bg-secondary text-secondary-foreground",
           className
         )}
         aria-label="Sir"
       >
-        🧑‍🏫
+        <span className="font-heading text-6xl" style={{ fontFamily: "var(--font-fraunces), serif" }}>
+          S
+        </span>
+        <span className="text-xs font-medium tracking-widest uppercase opacity-70">
+          add public/sir.jpg
+        </span>
       </div>
     );
   }

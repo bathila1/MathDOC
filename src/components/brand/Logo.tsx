@@ -58,9 +58,10 @@ export function Logo({
       <LogoIcon className={iconClassName} />
       <span
         className={cn(
-          "text-xl font-extrabold tracking-tight text-brand-gradient",
+          "text-xl font-semibold tracking-tight text-brand-gradient",
           textClassName
         )}
+        style={{ fontFamily: "var(--font-fraunces), Georgia, serif" }}
       >
         MathDoc
       </span>

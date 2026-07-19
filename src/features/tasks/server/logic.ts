@@ -41,7 +41,11 @@ export async function recalcTaskStatuses(appointmentId: string): Promise<void> {
 
   const { data } = await admin
     .from("tasks")
-    .select("*, appointments(created_at), proof_submissions(id, status)")
+    // tasks has TWO fks to appointments — name the one we mean, or the
+    // embed is ambiguous and the whole query errors out.
+    .select(
+      "*, appointments!tasks_appointment_id_fkey(created_at), proof_submissions(id, status)"
+    )
     .eq("student_id", appt.student_id);
 
   const tasks = orderTasks((data ?? []) as TaskRow[]);

@@ -38,7 +38,7 @@ export function WeekCalendar({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-extrabold">
+        <h2 className="text-lg">
           {format(days[0], "MMMM yyyy")}
         </h2>
         <div className="flex items-center gap-1">
@@ -86,8 +86,8 @@ export function WeekCalendar({
                   </p>
                   <p
                     className={cn(
-                      "mx-auto mt-0.5 flex size-8 items-center justify-center rounded-full text-sm font-extrabold",
-                      isToday && "bg-brand-gradient text-white shadow"
+                      "mx-auto mt-0.5 flex size-8 items-center justify-center rounded-full text-sm font-semibold",
+                      isToday && "bg-primary text-primary-foreground"
                     )}
                   >
                     {format(day, "d")}

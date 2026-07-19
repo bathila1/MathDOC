@@ -105,13 +105,9 @@ export function ProofUploader({ taskId }: { taskId: string }) {
           onChange={(e) => setNote(e.target.value)}
         />
       </div>
-      <Button
-        className="w-full bg-brand-gradient border-0 text-white"
-        disabled={pending || uploading}
-        onClick={submit}
-      >
+      <Button className="w-full" disabled={pending || uploading} onClick={submit}>
         <Upload className="size-4" />
-        {pending ? "Sending…" : "Send proof to Sir 🚀"}
+        {pending ? "Sending…" : "Send proof to Sir"}
       </Button>
     </div>
   );

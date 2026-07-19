@@ -62,7 +62,7 @@ export default async function AdminStudentPage({
         .order("created_at", { ascending: false }),
       supabase
         .from("tasks")
-        .select("*, appointments(created_at)")
+        .select("*, appointments!tasks_appointment_id_fkey(created_at)")
         .eq("student_id", id),
       supabase.from("mcq_questions").select("*"),
     ]);
