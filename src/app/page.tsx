@@ -43,18 +43,27 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-5xl px-4 py-16 text-center sm:py-24">
-        <h1 className="mx-auto max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl">
-          Personal attention for every maths student
-        </h1>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-          One-to-one sessions with Sir, a personal improvement plan after every
-          meeting, and a certificate when you complete it.
-        </p>
-        <div className="mt-8 flex justify-center gap-3">
-          <Button size="lg" render={<Link href="/login" />}>
-            Get started
-          </Button>
+      <section className="bg-gradient-to-b from-primary/10 via-primary/5 to-transparent">
+        <div className="mx-auto max-w-5xl px-4 py-16 text-center sm:py-24">
+          <span className="inline-block rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+            📐 One-to-one maths coaching
+          </span>
+          <h1 className="mx-auto mt-6 max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl">
+            Personal attention for every maths student
+          </h1>
+          <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
+            Meet Sir one-to-one, get a plan made just for you, and watch your
+            progress grow — one task at a time.
+          </p>
+          <div className="mt-8 flex justify-center gap-3">
+            <Button
+              size="lg"
+              className="shadow-lg shadow-primary/25"
+              render={<Link href="/login" />}
+            >
+              Get started — it&apos;s easy
+            </Button>
+          </div>
         </div>
       </section>
 

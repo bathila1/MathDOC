@@ -1,8 +1,21 @@
 ﻿-- =====================================================================
--- MathDoc — FULL Supabase setup (paste this whole file into the
--- Supabase SQL Editor and click RUN once, on a fresh project).
+-- MathDoc — FULL Supabase setup.
+-- Paste this WHOLE file into the Supabase SQL Editor and click RUN.
+-- Safe to re-run: the reset block below first removes any existing
+-- MathDoc tables (and their data) so you always get a clean install.
 -- Generated from supabase/migrations/*.sql + seed.sql
 -- =====================================================================
+
+-- ============ RESET (drops existing MathDoc objects) ============
+drop table if exists certificates, proof_submissions, tasks, invoices,
+  appointments, availability_slots, mcq_attempts, mcq_questions,
+  settings, profiles cascade;
+drop type if exists user_role, slot_mode, appointment_mode,
+  appointment_status, invoice_status, task_type, task_status,
+  proof_status, slot_status cascade;
+drop function if exists handle_new_user() cascade;
+drop function if exists is_admin() cascade;
+drop function if exists set_updated_at() cascade;
 
 -- ============ supabase\migrations\001_schema.sql ============
 -- MathDoc schema. Run this first in the Supabase SQL editor.
@@ -413,8 +426,45 @@ create policy "certificates: own read" on certificates
   for select using (student_id = auth.uid() or is_admin());
 -- Issued server-side (service role) when all tasks are approved.
 
+-- ============ supabase\migrations\004_grants.sql ============
+-- MathDoc access grants. Run after 003_rls.sql.
+-- Supabase normally adds these automatically, but if tables were created
+-- through a non-standard connection they can be missing â€” this makes it
+-- explicit. RLS (003) still controls which ROWS each user can touch.
+
+grant usage on schema public to authenticated, service_role;
+
+-- The service role is trusted server code â€” full access (bypasses RLS anyway).
+grant all privileges on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role;
+
+-- Logged-in users: table-level access, with RLS deciding row visibility.
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
+
+-- Future tables created by this role get the same grants automatically.
+alter default privileges in schema public
+  grant all privileges on tables to service_role;
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to authenticated;
+
 -- ============ supabase\seed.sql ============
 -- MathDoc sample data. Run after the migrations (optional but recommended for dev).
+
+-- Backfill profiles for any auth users that were created BEFORE the
+-- on_auth_user_created trigger existed (safe to re-run).
+insert into profiles (id, phone, role)
+select
+  u.id,
+  case when u.phone is not null and u.phone <> '' then '+' || u.phone end,
+  'student'
+from auth.users u
+on conflict (id) do nothing;
+
+-- Promote the teacher account to admin (username "sir" on the login page).
+update profiles
+set role = 'admin', full_name = 'Sir', profile_completed = true
+where id in (select id from auth.users where email = 'sir@mathdoc.local');
 
 insert into settings (key, value) values
   ('appointment_price', '2000'),

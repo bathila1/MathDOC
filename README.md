@@ -56,7 +56,7 @@ when the plan is complete.
 | Student auth | Supabase phone OTP; OTP SMS delivered via **Send-SMS auth hook → SMSLenz** |
 | Admin auth | Supabase email + password (profile `role = 'admin'`) |
 | File storage | **Cloudflare R2** private bucket, presigned upload/download URLs |
-| Rate limiting | **Upstash Redis** on all client-facing actions |
+| Rate limiting | Built-in in-memory sliding window on all client-facing actions (can swap to Upstash Redis later — one file: `src/lib/server/ratelimit.ts`) |
 | SMS | **SMSLenz** (booking confirmations, certificate link, OTP) — no email anywhere |
 | PDFs | `@react-pdf/renderer` server-side (invoice + certificate) |
 | Payments | Deferred — mock payment UI with a bypass button |
@@ -67,7 +67,6 @@ when the plan is complete.
   (amber cards); the login page shows a **🧪 Simulate OTP login** button
   (dev builds only) that skips the SMS entirely.
 - No R2 keys → uploads are stored in `public/uploads/` locally.
-- No Upstash keys → rate limiting is disabled (with a console warning).
 
 ---
 
@@ -97,13 +96,16 @@ copy .env.example .env.local    # then fill in the Supabase values
 Minimum required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
 `SUPABASE_SERVICE_ROLE_KEY` (Dashboard → Project Settings → API).
 
-### 4. Create the teacher's login
+### 4. Teacher's login
+
+The SQL setup auto-promotes the account `sir@mathdoc.local` to admin, so the
+teacher just logs in at **`/admin/login`** with username **`sir`** (or the full
+email) and their password. To create or reset that account:
 
 ```bash
-node scripts/create-admin.mjs sir@example.com "AStrongPassword" "Sir's Name"
+node scripts/create-admin.mjs sir@mathdoc.local "THE-PASSWORD" "Sir"
 ```
 
-Then log in at **`/admin/login`** with that email + password.
 (Students log in at **`/login`** with their phone number.)
 
 ### 5. Run
@@ -146,11 +148,6 @@ needed.
    ]
    ```
    (The browser uploads directly to R2 with short-lived presigned URLs.)
-
-### Upstash Redis (rate limiting — required in production)
-1. Create a free Redis database at [upstash.com](https://upstash.com).
-2. Copy the REST URL + token into `UPSTASH_REDIS_REST_URL` /
-   `UPSTASH_REDIS_REST_TOKEN`.
 
 ### Payment gateway
 Not integrated yet — the payment page is UI-only with a
@@ -204,9 +201,10 @@ scripts/create-admin.mjs  # creates/promotes the teacher's admin account
   headers + CSP in `next.config.ts`.
 - **Validation**: every form/action validates with Zod on the client *and*
   the server, returning friendly field-level messages.
-- **Rate limits** (Upstash sliding window): OTP 3/15 min per phone, login
+- **Rate limits** (in-memory sliding window): OTP 3/15 min per phone, login
   8/15 min, bookings 10/10 min, uploads 30/10 min, public invoice/certificate
-  pages 60/10 min per IP, etc. (`src/lib/server/ratelimit.ts`).
+  pages 60/10 min per IP, etc. (`src/lib/server/ratelimit.ts` — swap the store
+  for Upstash Redis if the app moves to multi-instance serverless).
 - **Files**: R2 bucket is private; uploads/downloads only via short-lived
   presigned URLs after auth + ownership checks; type/size validated
   (PDF/JPG/PNG/WebP, ≤ 10 MB).
@@ -229,6 +227,8 @@ scripts/create-admin.mjs  # creates/promotes the teacher's admin account
 
 - [ ] Link a real payment gateway (PayHere / Stripe) and remove the bypass.
 - [ ] Connect SMSLenz + configure the Supabase Send-SMS hook (remove simulate button reliance).
-- [ ] Set up Cloudflare R2 + Upstash for production.
+- [ ] Set up Cloudflare R2 for production file storage.
+- [ ] Change the teacher's password to a strong one before going live.
+- [ ] Re-add Upstash Redis rate limiting when deploying to serverless (Vercel) at scale.
 - [ ] Deploy to Vercel (`NEXT_PUBLIC_APP_URL` must be the real domain).
 - [ ] Optional: admin setting page for session price & location (currently in `settings` table, editable via SQL/Studio).

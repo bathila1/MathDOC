@@ -26,8 +26,9 @@ if (!email || !password) {
   process.exit(1);
 }
 if (password.length < 8) {
-  console.error("Please use a password of at least 8 characters.");
-  process.exit(1);
+  console.warn(
+    "⚠ Short password — fine for local testing, but change it before going live."
+  );
 }
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

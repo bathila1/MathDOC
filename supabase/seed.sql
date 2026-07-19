@@ -1,5 +1,20 @@
 -- MathDoc sample data. Run after the migrations (optional but recommended for dev).
 
+-- Backfill profiles for any auth users that were created BEFORE the
+-- on_auth_user_created trigger existed (safe to re-run).
+insert into profiles (id, phone, role)
+select
+  u.id,
+  case when u.phone is not null and u.phone <> '' then '+' || u.phone end,
+  'student'
+from auth.users u
+on conflict (id) do nothing;
+
+-- Promote the teacher account to admin (username "sir" on the login page).
+update profiles
+set role = 'admin', full_name = 'Sir', profile_completed = true
+where id in (select id from auth.users where email = 'sir@mathdoc.local');
+
 insert into settings (key, value) values
   ('appointment_price', '2000'),
   ('location', 'No. 12, Temple Road, Kandy')  -- shown in SMS for physical meetings

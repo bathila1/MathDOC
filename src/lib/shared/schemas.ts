@@ -38,7 +38,14 @@ export const otpVerifySchema = z.object({
 });
 
 export const adminLoginSchema = z.object({
-  email: z.string().trim().email("Please enter a valid email address."),
+  // Accepts a plain username ("sir") or a full email address; usernames are
+  // stored internally as <username>@mathdoc.local in Supabase Auth.
+  email: z
+    .string()
+    .trim()
+    .min(1, "Please enter your username or email.")
+    .transform((v) => (v.includes("@") ? v : `${v.toLowerCase()}@mathdoc.local`))
+    .pipe(z.string().email("Please enter a valid username or email.")),
   password: z.string().min(1, "Please enter your password."),
 });
 

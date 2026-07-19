@@ -1,61 +1,35 @@
 import "server-only";
-import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { headers } from "next/headers";
 
 /**
- * Upstash-backed rate limiting for every client-facing mutation.
- * Without Upstash env vars (local dev) it becomes a no-op with a console warning.
+ * Simple in-memory sliding-window rate limiter — no external service needed.
+ * Good enough for a single-server deployment. If the app later runs on
+ * serverless (Vercel) at scale, swap the store for Upstash Redis; every
+ * call site already goes through this one rateLimit() function.
  */
 
 type LimiterName =
-  | "otp" // OTP request: strict — 3 per 15 min per phone
+  | "otp" // OTP request: strict — per phone
   | "otp_verify" // code entry attempts
-  | "login" // admin email+password attempts
+  | "login" // admin password attempts
   | "form" // profile save, MCQ submit, review actions...
   | "booking" // slot booking + payment bypass
   | "upload" // presign requests
-  | "public_page"; // invoice / certificate token pages per IP
+  | "public_page"; // invoice / certificate pages per IP
 
-const configs: Record<LimiterName, { requests: number; window: `${number} ${"s" | "m" | "h"}` }> = {
-  otp: { requests: 3, window: "15 m" },
-  otp_verify: { requests: 8, window: "15 m" },
-  login: { requests: 8, window: "15 m" },
-  form: { requests: 30, window: "10 m" },
-  booking: { requests: 10, window: "10 m" },
-  upload: { requests: 30, window: "10 m" },
-  public_page: { requests: 60, window: "10 m" },
+const configs: Record<LimiterName, { requests: number; windowMs: number }> = {
+  otp: { requests: 3, windowMs: 15 * 60_000 },
+  otp_verify: { requests: 8, windowMs: 15 * 60_000 },
+  login: { requests: 8, windowMs: 15 * 60_000 },
+  form: { requests: 30, windowMs: 10 * 60_000 },
+  booking: { requests: 10, windowMs: 10 * 60_000 },
+  upload: { requests: 30, windowMs: 10 * 60_000 },
+  public_page: { requests: 60, windowMs: 10 * 60_000 },
 };
 
-const limiters = new Map<LimiterName, Ratelimit>();
-let warned = false;
-
-function upstashConfigured() {
-  return Boolean(
-    process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-  );
-}
-
-function getLimiter(name: LimiterName): Ratelimit | null {
-  if (!upstashConfigured()) {
-    if (!warned) {
-      console.warn("[ratelimit] Upstash env vars missing — rate limiting DISABLED (dev only).");
-      warned = true;
-    }
-    return null;
-  }
-  let limiter = limiters.get(name);
-  if (!limiter) {
-    const cfg = configs[name];
-    limiter = new Ratelimit({
-      redis: Redis.fromEnv(),
-      limiter: Ratelimit.slidingWindow(cfg.requests, cfg.window),
-      prefix: `mathdoc:rl:${name}`,
-    });
-    limiters.set(name, limiter);
-  }
-  return limiter;
-}
+// key -> timestamps of recent hits (pruned on every check)
+const hits = new Map<string, number[]>();
+const MAX_KEYS = 10_000;
 
 export async function clientIp(): Promise<string> {
   const h = await headers();
@@ -80,15 +54,31 @@ export async function rateLimit(
   name: LimiterName,
   key: string
 ): Promise<RateLimitResult> {
-  const limiter = getLimiter(name);
-  if (!limiter) return { allowed: true };
+  const { requests, windowMs } = configs[name];
+  const now = Date.now();
+  const mapKey = `${name}:${key}`;
 
-  const { success, reset } = await limiter.limit(key);
-  if (success) return { allowed: true };
+  const recent = (hits.get(mapKey) ?? []).filter((t) => now - t < windowMs);
 
-  const minutes = Math.max(1, Math.ceil((reset - Date.now()) / 60000));
-  return {
-    allowed: false,
-    message: `Too many attempts. Please wait ${minutes} minute${minutes === 1 ? "" : "s"} and try again.`,
-  };
+  if (recent.length >= requests) {
+    hits.set(mapKey, recent);
+    const oldest = recent[0];
+    const minutes = Math.max(1, Math.ceil((oldest + windowMs - now) / 60_000));
+    return {
+      allowed: false,
+      message: `Too many attempts. Please wait ${minutes} minute${minutes === 1 ? "" : "s"} and try again.`,
+    };
+  }
+
+  recent.push(now);
+  hits.set(mapKey, recent);
+
+  // Basic memory guard: drop the oldest entries if the map grows too large.
+  if (hits.size > MAX_KEYS) {
+    for (const k of hits.keys()) {
+      hits.delete(k);
+      if (hits.size <= MAX_KEYS / 2) break;
+    }
+  }
+  return { allowed: true };
 }
