@@ -47,7 +47,7 @@ export function OtpVerifyForm({ phone }: { phone: string }) {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-lg">
       <CardHeader>
         <CardTitle>Enter the code</CardTitle>
         <CardDescription>

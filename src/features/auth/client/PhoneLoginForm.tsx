@@ -49,7 +49,7 @@ export function PhoneLoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-lg">
       <CardHeader>
         <CardTitle>Student login</CardTitle>
         <CardDescription>

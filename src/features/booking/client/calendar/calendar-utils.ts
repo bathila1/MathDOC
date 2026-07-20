@@ -1,9 +1,9 @@
 import { addDays, startOfWeek } from "date-fns";
 
-/** Visible day range of the calendar (07:00 → 21:00). */
-export const DAY_START_HOUR = 7;
-export const DAY_END_HOUR = 21;
-export const HOUR_PX = 48; // pixel height of one hour row
+/** Visible day range of the calendar (08:00 → 20:00). */
+export const DAY_START_HOUR = 8;
+export const DAY_END_HOUR = 20;
+export const HOUR_PX = 44; // pixel height of one hour row
 
 export function weekDaysFor(anchor: Date): Date[] {
   const monday = startOfWeek(anchor, { weekStartsOn: 1 });

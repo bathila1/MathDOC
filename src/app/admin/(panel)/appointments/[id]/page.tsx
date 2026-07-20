@@ -8,7 +8,7 @@ import {
   StatusButtons,
 } from "@/features/booking/client/AppointmentAdminForms";
 import { TaskManager, type AdminTask } from "@/features/tasks/client/TaskManager";
-import { orderTasks } from "@/features/tasks/server/logic";
+import { orderTasks, sessionNumbers } from "@/features/tasks/server/logic";
 import type {
   Appointment,
   AvailabilitySlot,
@@ -62,22 +62,13 @@ export default async function AdminAppointmentPage({
     .from("tasks")
     .select("*, appointments!tasks_appointment_id_fkey(created_at)")
     .eq("student_id", appt.student_id);
-  const journey = orderTasks(
-    (taskRows ?? []) as (Task & { appointments: { created_at: string } | null })[]
-  );
-  const sessionNos = new Map<string, number>();
-  for (const t of journey) {
-    if (!sessionNos.has(t.appointment_id)) {
-      sessionNos.set(t.appointment_id, sessionNos.size + 1);
-    }
-  }
-  const tasks: AdminTask[] = journey.map((t) => ({
+  const rows = (taskRows ?? []) as (Task & {
+    appointments: { created_at: string } | null;
+  })[];
+  const sessionNos = sessionNumbers(rows);
+  const tasks: AdminTask[] = orderTasks(rows).map((t) => ({
     ...t,
     sessionNo: sessionNos.get(t.appointment_id) ?? 1,
-    sessionLabel: `Session ${sessionNos.get(t.appointment_id) ?? 1} — ${format(
-      new Date(t.appointments?.created_at ?? appt.created_at),
-      "d MMM yyyy"
-    )}`,
   }));
 
   return (
@@ -156,7 +147,11 @@ export default async function AdminAppointmentPage({
 
       <Separator />
 
-      <TaskManager appointmentId={appt.id} tasks={tasks} />
+      <TaskManager
+        appointmentId={appt.id}
+        tasks={tasks}
+        heading="Already existing tasks"
+      />
     </div>
   );
 }

@@ -47,28 +47,48 @@ function defaultSelection(tasks: BoardTask[]): string {
 
 /**
  * The game board from the sketch: a milestone rail on top, and the selected
- * task shown in a box right below it — no separate page. Clicking an
- * unlocked circle swaps what the box shows.
+ * task shown in a box right below it. Clicking an unlocked circle swaps
+ * what the box shows.
  */
 export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
   const [selectedId, setSelectedId] = useState(() => defaultSelection(tasks));
-  const selected = tasks.find((t) => t.id === selectedId) ?? null;
+  const selectedIndex = tasks.findIndex((t) => t.id === selectedId);
+  const selected = selectedIndex >= 0 ? tasks[selectedIndex] : null;
 
   const total = tasks.length;
   const approved = tasks.filter((t) => t.status === "approved").length;
   const progress = total ? Math.round((approved / total) * 100) : 0;
+  // Where the student currently stands on the rail (0-based).
+  const currentIndex = Math.max(
+    0,
+    tasks.findIndex((t) => t.status === "active" || t.status === "proof_submitted")
+  );
+  const markerIndex = approved === total ? total - 1 : currentIndex;
+  const markerLeftPct = total > 1 ? (markerIndex / (total - 1)) * 100 : 100;
 
   return (
     <div className="space-y-4">
       {/* ---- the rail ---- */}
       <div className="overflow-x-auto pb-1">
         <div
-          className="relative mx-auto px-2 pt-7 pb-1"
+          className="relative mx-auto px-2 pt-9 pb-1"
           style={{ minWidth: `${Math.max(total * 64, 280)}px` }}
         >
-          <div className="absolute top-[calc(1.75rem+1.25rem)] right-6 left-6 h-2 -translate-y-1/2 rounded-full bg-muted" />
+          {/* single "you are here" percentage bubble */}
           <div
-            className="absolute top-[calc(1.75rem+1.25rem)] left-6 h-2 -translate-y-1/2 rounded-full bg-brand-gradient transition-all duration-700"
+            className="absolute top-0 -translate-x-1/2 transition-all duration-500"
+            style={{ left: `calc(1.5rem + (100% - 3rem) * ${markerLeftPct / 100})` }}
+          >
+            <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-sm">
+              {progress}%
+            </span>
+          </div>
+
+          {/* track */}
+          <div className="absolute top-[calc(2.25rem+1.25rem)] right-6 left-6 h-4 -translate-y-1/2 rounded-full bg-muted" />
+          {/* filled track */}
+          <div
+            className="absolute top-[calc(2.25rem+1.25rem)] left-6 h-4 -translate-y-1/2 rounded-full bg-brand-gradient transition-all duration-700"
             style={{
               width:
                 total > 1
@@ -79,8 +99,7 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
             }}
           />
           <ol className="relative flex items-start justify-between">
-            {tasks.map((t, i) => {
-              const pct = Math.round(((i + 1) / total) * 100);
+            {tasks.map((t) => {
               const isCurrent = t.status === "active";
               const submitted = t.status === "proof_submitted";
               const reached = t.status === "approved";
@@ -97,31 +116,19 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
                           disabled={locked}
                           onClick={() => setSelectedId(t.id)}
                           className={cn(
-                            "flex w-16 flex-col items-center gap-1 outline-none",
+                            "flex w-16 justify-center outline-none",
                             locked && "cursor-not-allowed"
                           )}
                         />
                       }
                     >
-                      <span
-                        className={cn(
-                          "text-[11px] font-bold tabular-nums",
-                          reached
-                            ? "text-primary"
-                            : isCurrent || submitted
-                              ? "text-foreground"
-                              : "text-muted-foreground/60"
-                        )}
-                      >
-                        {pct}%
-                      </span>
-                      <span className="relative flex size-10 items-center justify-center">
+                      <span className="relative flex size-11 items-center justify-center">
                         {isCurrent && (
                           <span className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
                         )}
                         <span
                           className={cn(
-                            "relative z-10 flex size-10 items-center justify-center rounded-full border-4 border-background shadow-sm transition-transform",
+                            "relative z-10 flex size-11 items-center justify-center rounded-full border-4 border-background shadow-sm transition-transform",
                             !locked && "hover:scale-105",
                             reached && "bg-brand-gradient text-white",
                             (isCurrent || submitted) &&
@@ -165,18 +172,21 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
         </div>
         <p className="mt-1 text-center text-sm text-muted-foreground">
           {progress === 100
-            ? "100% complete — you did it!"
-            : `${progress}% of your journey complete`}
+            ? "All tasks complete — you did it!"
+            : `${approved} of ${total} tasks done`}
         </p>
       </div>
 
-      {/* ---- the box (from the sketch) ---- */}
+      {/* ---- the task box ---- */}
       {selected && (
         <div
           key={selected.id}
           className="animate-pop-in rounded-xl border-2 border-primary/40 bg-card p-5 sm:p-6"
         >
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold tracking-wider text-primary uppercase">
+              Task {selectedIndex + 1} of {total}
+            </span>
             <Badge variant="outline">Session {selected.sessionNo}</Badge>
             {selected.type === "meet_sir" && (
               <Badge variant="secondary">
@@ -198,7 +208,7 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
 
           <h3 className="mt-3 text-xl">{selected.title}</h3>
           {selected.description && (
-            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
               {selected.description}
             </p>
           )}
@@ -245,7 +255,7 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
                     <strong>
                       {format(new Date(selected.followUpAt), "EEEE d MMMM, h:mm a")}
                     </strong>
-                    . He&apos;ll unlock the next step after you meet.
+                    . Carry on with your next task in the meantime.
                   </p>
                 ) : (
                   selected.status === "active" && (

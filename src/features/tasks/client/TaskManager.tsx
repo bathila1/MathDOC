@@ -7,6 +7,7 @@ import {
   updateTask,
   deleteTask,
   moveTask,
+  reorderTasks,
   approveTask,
 } from "@/features/tasks/server/actions";
 import { uploadFile } from "@/lib/client/upload";
@@ -26,10 +27,12 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
   ArrowDown,
   ArrowUp,
   CheckCircle2,
+  GripVertical,
   Handshake,
   Paperclip,
   Pencil,
@@ -37,11 +40,8 @@ import {
   Trash2,
 } from "lucide-react";
 
-/** Task enriched with journey/session info for the admin view. */
-export type AdminTask = Task & {
-  sessionNo: number;
-  sessionLabel: string; // e.g. "Session 2 — 14 Jul 2026"
-};
+/** Task plus its session tag (sessions are only a label, not the order). */
+export type AdminTask = Task & { sessionNo: number };
 
 const statusLabels: Record<
   Task["status"],
@@ -125,8 +125,8 @@ function TaskEditor({
           </Tabs>
           {state.type === "meet_sir" && (
             <p className="text-sm text-muted-foreground">
-              A checkpoint — the student books a free follow-up meeting with you
-              to discuss progress before continuing.
+              A checkpoint — the student books a free follow-up meeting with
+              you. They can keep working on the next task meanwhile.
             </p>
           )}
           <div className="space-y-2">
@@ -205,22 +205,35 @@ function TaskEditor({
 }
 
 /**
- * Admin task board for one student, shown inside an appointment.
- * Displays the WHOLE journey (every session's tasks); previous sessions'
- * tasks can be edited, deleted and reordered here too. "Add task" always
- * adds to the appointment currently open.
+ * The student's whole journey as one editable, drag-sortable list.
+ * Sessions are shown as a tag on each card, not as separate groups.
+ * `appointmentId` (when given) is where newly added tasks go.
  */
 export function TaskManager({
   appointmentId,
   tasks,
+  heading = "Task journey",
 }: {
-  appointmentId: string;
+  appointmentId?: string;
   tasks: AdminTask[];
+  heading?: string;
 }) {
   const [, startTransition] = useTransition();
-  const [showOthers, setShowOthers] = useState(true);
+  // Local copy so drag reordering feels instant.
+  const [items, setItems] = useState(tasks);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
+  // Re-sync when the server sends a fresh list (React's adjust-during-render
+  // pattern — no effect needed).
+  const [syncedTasks, setSyncedTasks] = useState(tasks);
+  if (syncedTasks !== tasks) {
+    setSyncedTasks(tasks);
+    setItems(tasks);
+  }
 
   async function create(state: EditorState): Promise<boolean> {
+    if (!appointmentId) return false;
     const res = await addTask({ appointment_id: appointmentId, ...state });
     if (!res.ok) {
       toast.error(res.fieldErrors ? Object.values(res.fieldErrors)[0] : res.error);
@@ -240,42 +253,44 @@ export function TaskManager({
     return true;
   }
 
-  // Group by session, preserving journey order
-  const groups: { key: string; label: string; isCurrent: boolean; items: AdminTask[] }[] = [];
-  for (const t of tasks) {
-    const last = groups[groups.length - 1];
-    if (last && last.key === t.appointment_id) last.items.push(t);
-    else
-      groups.push({
-        key: t.appointment_id,
-        label: t.sessionLabel,
-        isCurrent: t.appointment_id === appointmentId,
-        items: [t],
-      });
+  function commitOrder(next: AdminTask[]) {
+    setItems(next);
+    startTransition(async () => {
+      const res = await reorderTasks(next.map((t) => t.id));
+      if (!res.ok) {
+        toast.error(res.error);
+        setItems(tasks); // put it back
+      }
+    });
   }
-  const done = tasks.filter((t) => t.status === "approved").length;
-  const otherCount = tasks.filter((t) => t.appointment_id !== appointmentId).length;
+
+  function handleDrop(targetId: string) {
+    if (!dragId || dragId === targetId) return;
+    const from = items.findIndex((t) => t.id === dragId);
+    const to = items.findIndex((t) => t.id === targetId);
+    if (from < 0 || to < 0) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    commitOrder(next);
+  }
+
+  const done = items.filter((t) => t.status === "approved").length;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg">
-          Student&apos;s journey ({done}/{tasks.length} done)
-        </h2>
-        <div className="flex items-center gap-2">
-          {otherCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowOthers((v) => !v)}
-            >
-              {showOthers
-                ? "Hide other sessions"
-                : `View existing tasks (${otherCount})`}
-            </Button>
-          )}
+        <div>
+          <h2 className="text-lg">{heading}</h2>
+          <p className="text-sm text-muted-foreground">
+            {items.length === 0
+              ? "No tasks yet."
+              : `${done} of ${items.length} approved · drag the handle to reorder`}
+          </p>
+        </div>
+        {appointmentId && (
           <TaskEditor
-            title="Add a task to this session"
+            title="Add a task"
             initial={{ type: "task", title: "", description: "", attachment_key: null }}
             onSave={create}
             trigger={
@@ -284,131 +299,152 @@ export function TaskManager({
               </Button>
             }
           />
-        </div>
+        )}
       </div>
 
-      {tasks.length === 0 && (
+      {items.length === 0 && (
         <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-          No tasks yet. After talking with the student, add the tasks they
-          should complete one by one.
+          {appointmentId
+            ? "After talking with the student, add the tasks they should complete one by one."
+            : "No tasks yet. Open one of their sessions to add tasks."}
         </p>
       )}
 
-      {groups.map((group) => {
-        if (!group.isCurrent && !showOthers) return null;
-        return (
-          <div key={group.key} className="space-y-2">
-            <div className="flex items-center gap-2 pt-1">
-              <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                {group.label}
-              </p>
-              {group.isCurrent && <Badge variant="secondary">This session</Badge>}
-            </div>
-            {group.items.map((t, i) => {
-              const status = statusLabels[t.status];
-              return (
-                <Card
-                  key={t.id}
-                  className={group.isCurrent ? "" : "bg-muted/30"}
-                >
-                  <CardContent className="flex items-start gap-3 py-4">
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        disabled={i === 0}
-                        onClick={() =>
-                          startTransition(async () => {
-                            await moveTask(t.id, "up");
-                          })
-                        }
-                      >
-                        <ArrowUp className="size-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7"
-                        disabled={i === group.items.length - 1}
-                        onClick={() =>
-                          startTransition(async () => {
-                            await moveTask(t.id, "down");
-                          })
-                        }
-                      >
-                        <ArrowDown className="size-4" />
-                      </Button>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{t.title}</span>
-                        {t.type === "meet_sir" && (
-                          <Badge variant="outline">
-                            <Handshake className="size-3" /> Meet with Sir
-                          </Badge>
-                        )}
-                        <Badge variant={status.variant}>{status.label}</Badge>
-                        {t.attachment_key && (
-                          <Paperclip className="size-3.5 text-muted-foreground" />
-                        )}
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">
-                        {t.description}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {(t.status === "active" || t.status === "proof_submitted") && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            startTransition(async () => {
-                              const res = await approveTask(t.id);
-                              if (!res.ok) toast.error(res.error);
-                              else toast.success("Task approved.");
-                            })
-                          }
-                        >
-                          <CheckCircle2 className="size-4" /> Approve
-                        </Button>
+      <ol className="space-y-2">
+        {items.map((t, i) => {
+          const status = statusLabels[t.status];
+          const isDragging = dragId === t.id;
+          const isOver = overId === t.id && dragId !== t.id;
+          return (
+            <li
+              key={t.id}
+              draggable
+              onDragStart={() => setDragId(t.id)}
+              onDragEnd={() => {
+                setDragId(null);
+                setOverId(null);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setOverId(t.id);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleDrop(t.id);
+                setDragId(null);
+                setOverId(null);
+              }}
+              className={cn(
+                "transition-opacity",
+                isDragging && "opacity-40",
+                isOver && "ring-2 ring-primary ring-offset-2 rounded-xl"
+              )}
+            >
+              <Card>
+                <CardContent className="flex items-start gap-3 py-4">
+                  <div className="flex flex-col items-center gap-0.5 pt-0.5">
+                    <GripVertical className="size-4 cursor-grab text-muted-foreground active:cursor-grabbing" />
+                    <span className="text-xs font-bold text-muted-foreground tabular-nums">
+                      {i + 1}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      disabled={i === 0}
+                      onClick={() =>
+                        startTransition(async () => {
+                          await moveTask(t.id, "up");
+                        })
+                      }
+                    >
+                      <ArrowUp className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6"
+                      disabled={i === items.length - 1}
+                      onClick={() =>
+                        startTransition(async () => {
+                          await moveTask(t.id, "down");
+                        })
+                      }
+                    >
+                      <ArrowDown className="size-3.5" />
+                    </Button>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{t.title}</span>
+                      <Badge variant="outline">Session {t.sessionNo}</Badge>
+                      {t.type === "meet_sir" && (
+                        <Badge variant="secondary">
+                          <Handshake className="size-3" /> Meet with Sir
+                        </Badge>
                       )}
-                      <TaskEditor
-                        title="Edit task"
-                        initial={{
-                          type: t.type,
-                          title: t.title,
-                          description: t.description,
-                          attachment_key: t.attachment_key,
-                        }}
-                        onSave={(s) => edit(t.id, s)}
-                        trigger={
-                          <Button variant="ghost" size="icon">
-                            <Pencil className="size-4" />
-                          </Button>
-                        }
-                      />
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                      {t.attachment_key && (
+                        <Paperclip className="size-3.5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">
+                      {t.description}
+                    </p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-1">
+                    {(t.status === "active" || t.status === "proof_submitted") && (
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="outline"
+                        size="sm"
                         onClick={() =>
                           startTransition(async () => {
-                            if (!confirm("Delete this task?")) return;
-                            const res = await deleteTask(t.id);
+                            const res = await approveTask(t.id);
                             if (!res.ok) toast.error(res.error);
+                            else toast.success("Task approved.");
                           })
                         }
                       >
-                        <Trash2 className="size-4 text-destructive" />
+                        <CheckCircle2 className="size-4" /> Approve
                       </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        );
-      })}
+                    )}
+                    <TaskEditor
+                      title="Edit task"
+                      initial={{
+                        type: t.type,
+                        title: t.title,
+                        description: t.description,
+                        attachment_key: t.attachment_key,
+                      }}
+                      onSave={(s) => edit(t.id, s)}
+                      trigger={
+                        <Button variant="ghost" size="icon">
+                          <Pencil className="size-4" />
+                        </Button>
+                      }
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        startTransition(async () => {
+                          if (!confirm("Delete this task?")) return;
+                          const res = await deleteTask(t.id);
+                          if (!res.ok) toast.error(res.error);
+                        })
+                      }
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

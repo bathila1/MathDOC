@@ -74,19 +74,20 @@ export function WeekCalendar({
         {legend}
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border bg-card shadow-sm">
-        <div className="min-w-[860px]">
+      {/* fixed width — the whole week always fits, no inner scrollbars */}
+      <div className="rounded-2xl border bg-card shadow-sm">
+        <div>
           {/* day headers */}
-          <div className="grid grid-cols-[3.5rem_repeat(7,1fr)] border-b">
+          <div className="grid grid-cols-[2.25rem_repeat(7,1fr)] border-b sm:grid-cols-[3rem_repeat(7,1fr)]">
             <div />
             {days.map((day) => {
               const isToday = sameDay(day, today);
               return (
                 <div
                   key={day.toISOString()}
-                  className="border-l px-2 py-2 text-center"
+                  className="border-l px-0.5 py-2 text-center"
                 >
-                  <p className="text-xs font-semibold text-muted-foreground">
+                  <p className="text-[10px] font-semibold text-muted-foreground sm:text-xs">
                     {format(day, "EEE")}
                   </p>
                   <p
@@ -103,7 +104,7 @@ export function WeekCalendar({
           </div>
 
           {/* time grid */}
-          <div className="grid grid-cols-[3.5rem_repeat(7,1fr)]">
+          <div className="grid grid-cols-[2.25rem_repeat(7,1fr)] sm:grid-cols-[3rem_repeat(7,1fr)]">
             {/* gutter */}
             <div className="relative">
               {hours.map((h) => (
@@ -112,8 +113,11 @@ export function WeekCalendar({
                   style={{ height: HOUR_PX }}
                   className="relative border-b border-dashed border-border/60"
                 >
-                  <span className="absolute -top-2 right-1.5 text-[10px] font-semibold text-muted-foreground">
-                    {format(new Date(2000, 0, 1, h), "h a")}
+                  <span className="absolute -top-2 right-1 text-[9px] font-semibold text-muted-foreground sm:text-[10px]">
+                    {format(new Date(2000, 0, 1, h), "h")}
+                    <span className="hidden sm:inline">
+                      {format(new Date(2000, 0, 1, h), " a")}
+                    </span>
                   </span>
                 </div>
               ))}

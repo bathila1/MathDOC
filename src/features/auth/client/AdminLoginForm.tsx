@@ -39,7 +39,7 @@ export function AdminLoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-lg">
       <CardHeader>
         <CardTitle>Teacher login</CardTitle>
         <CardDescription>Admin panel access for Sir only.</CardDescription>

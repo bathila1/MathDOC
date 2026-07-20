@@ -139,15 +139,15 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
                       height: heightOf(s.starts_at, s.ends_at),
                     }}
                     className={cn(
-                      "pointer-events-auto absolute inset-x-1 z-10 overflow-hidden rounded-lg border-l-4 px-1.5 py-1 text-left text-[11px] leading-tight font-bold shadow-sm transition-transform hover:scale-[1.02]",
+                      "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-md border-l-4 px-1 py-0.5 text-left text-[10px] leading-tight font-bold shadow-sm sm:inset-x-1 sm:px-1.5 sm:text-[11px]",
                       booked
                         ? "bg-primary border-primary-foreground text-primary-foreground"
                         : "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                     )}
                   >
-                    {format(new Date(s.starts_at), "h:mm a")}
-                    <span className="block font-medium opacity-85">
-                      {booked ? (bookedBy(s) ?? "Booked") : `Free · ${modeLabels[s.mode]}`}
+                    {format(new Date(s.starts_at), "h:mm")}
+                    <span className="block truncate font-medium opacity-85">
+                      {booked ? (bookedBy(s) ?? "Booked") : modeLabels[s.mode]}
                     </span>
                   </button>
                 );

@@ -96,13 +96,13 @@ export function StudentSlotCalendar({
                       height: heightOf(s.starts_at, s.ends_at),
                     }}
                     className={cn(
-                      "pointer-events-auto absolute inset-x-1 z-10 overflow-hidden rounded-lg border-l-4 px-1.5 py-1 text-left text-[11px] leading-tight font-bold shadow-sm transition-all",
+                      "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-md border-l-4 px-1 py-0.5 text-left text-[10px] leading-tight font-bold shadow-sm transition-all sm:inset-x-1 sm:px-1.5 sm:text-[11px]",
                       isSelected
                         ? "bg-primary border-primary-foreground text-primary-foreground shadow-md"
                         : "border-primary bg-primary/10 text-primary hover:bg-primary/20"
                     )}
                   >
-                    {format(new Date(s.starts_at), "h:mm a")}
+                    {format(new Date(s.starts_at), "h:mm")}
                     <span className="block font-medium opacity-80">
                       {isSelected ? "Selected" : "Free"}
                     </span>

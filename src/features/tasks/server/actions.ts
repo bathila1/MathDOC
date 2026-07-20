@@ -45,10 +45,11 @@ export async function addTask(input: unknown): Promise<ActionResult<undefined>> 
     .maybeSingle();
   if (!appt) return fail("We couldn't find that appointment.");
 
+  // The journey is one global sequence per student — append to the end.
   const { data: last } = await supabase
     .from("tasks")
     .select("sort_order")
-    .eq("appointment_id", appointment_id)
+    .eq("student_id", appt.student_id)
     .order("sort_order", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -129,15 +130,16 @@ export async function moveTask(
   const supabase = await createSupabaseServer();
   const { data: current } = await supabase
     .from("tasks")
-    .select("id, appointment_id, sort_order")
+    .select("id, appointment_id, student_id, sort_order")
     .eq("id", id.data)
     .maybeSingle();
   if (!current) return fail("Unknown task.");
 
+  // Neighbour anywhere in the student's journey (sessions are just tags).
   const query = supabase
     .from("tasks")
     .select("id, sort_order")
-    .eq("appointment_id", current.appointment_id)
+    .eq("student_id", current.student_id)
     .order("sort_order", { ascending: direction === "down" })
     .limit(1);
   const { data: neighbour } = await (direction === "down"
@@ -157,6 +159,46 @@ export async function moveTask(
 
   await recalcTaskStatuses(current.appointment_id);
   refresh(current.appointment_id);
+  return ok(undefined);
+}
+
+/**
+ * Persist a drag-and-drop reorder: `taskIds` is the student's whole journey
+ * in its new order. Rewrites sort_order 1..n, then recalculates unlocks.
+ */
+export async function reorderTasks(
+  taskIds: string[]
+): Promise<ActionResult<undefined>> {
+  const { user } = await requireAdmin();
+  const rl = await rateLimit("form", `user:${user.id}`);
+  if (!rl.allowed) return fail(rl.message!);
+
+  const parsed = z.array(z.string().uuid()).min(1).max(200).safeParse(taskIds);
+  if (!parsed.success) return fail("Couldn't save the new order.");
+
+  const admin = createSupabaseAdmin();
+  const { data: existing } = await admin
+    .from("tasks")
+    .select("id, student_id, appointment_id")
+    .in("id", parsed.data);
+
+  // All tasks must exist and belong to a single student.
+  if (!existing || existing.length !== parsed.data.length) {
+    return fail("Couldn't save the new order — please refresh and try again.");
+  }
+  const studentIds = new Set(existing.map((t) => t.student_id));
+  if (studentIds.size !== 1) return fail("Tasks must belong to one student.");
+
+  for (const [index, taskId] of parsed.data.entries()) {
+    await admin
+      .from("tasks")
+      .update({ sort_order: index + 1 })
+      .eq("id", taskId);
+  }
+
+  await recalcTaskStatuses(existing[0].appointment_id);
+  refresh(existing[0].appointment_id);
+  revalidatePath(`/admin/students/${existing[0].student_id}`);
   return ok(undefined);
 }
 

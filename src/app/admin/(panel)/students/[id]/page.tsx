@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/server/auth";
 import { CategorySelect } from "@/features/students/client/CategorySelect";
-import { orderTasks } from "@/features/tasks/server/logic";
+import { orderTasks, sessionNumbers } from "@/features/tasks/server/logic";
+import { TaskManager, type AdminTask } from "@/features/tasks/client/TaskManager";
 import type {
   Appointment,
   AvailabilitySlot,
@@ -68,30 +69,19 @@ export default async function AdminStudentPage({
     ]);
 
   const appointments = (appts ?? []) as AppointmentWithSlot[];
-  const studentTasks = orderTasks(
-    (tasks ?? []) as (Task & { appointments: { created_at: string } | null })[]
-  );
+  const taskRows = (tasks ?? []) as (Task & {
+    appointments: { created_at: string } | null;
+  })[];
+  const sessionNos = sessionNumbers(taskRows);
+  const studentTasks: AdminTask[] = orderTasks(taskRows).map((t) => ({
+    ...t,
+    sessionNo: sessionNos.get(t.appointment_id) ?? 1,
+  }));
   const approved = studentTasks.filter((t) => t.status === "approved").length;
   const progress =
     studentTasks.length > 0
       ? Math.round((approved / studentTasks.length) * 100)
       : null;
-  // Session number per appointment (1 = oldest session with tasks)
-  const sessionRank = new Map<string, number>();
-  for (const t of studentTasks) {
-    if (!sessionRank.has(t.appointment_id)) {
-      sessionRank.set(t.appointment_id, sessionRank.size + 1);
-    }
-  }
-  const taskStatusVariant: Record<
-    Task["status"],
-    "default" | "secondary" | "outline" | "destructive"
-  > = {
-    locked: "outline",
-    active: "default",
-    proof_submitted: "destructive",
-    approved: "secondary",
-  };
   const questionById = new Map(
     ((questions ?? []) as McqQuestion[]).map((q) => [q.id, q])
   );
@@ -163,55 +153,17 @@ export default async function AdminStudentPage({
         </Card>
       </div>
 
-      {progress != null && (
-        <Card>
-          <CardHeader>
-            <CardTitle>All tasks — {progress}% complete</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Progress value={progress} />
-            <p className="text-sm text-muted-foreground">
-              {approved} of {studentTasks.length} tasks approved, across{" "}
-              {sessionRank.size} session{sessionRank.size === 1 ? "" : "s"}.
-            </p>
-            <ol className="space-y-2">
-              {studentTasks.map((t, i) => (
-                <li
-                  key={t.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="font-semibold">
-                      {i + 1}. {t.title}
-                    </p>
-                    <p className="line-clamp-1 text-sm text-muted-foreground">
-                      {t.description}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <Badge variant="outline">
-                      Session {sessionRank.get(t.appointment_id)}
-                    </Badge>
-                    {t.type === "meet_sir" && (
-                      <Badge variant="secondary">Meet with Sir</Badge>
-                    )}
-                    <Badge variant={taskStatusVariant[t.status]}>
-                      {t.status.replace("_", " ")}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      render={<Link href={`/admin/appointments/${t.appointment_id}`} />}
-                    >
-                      Open session
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Task journey{progress != null ? ` — ${progress}% complete` : ""}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {progress != null && <Progress value={progress} />}
+          <TaskManager tasks={studentTasks} heading="All tasks" />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

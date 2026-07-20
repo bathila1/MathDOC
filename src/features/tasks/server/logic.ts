@@ -8,18 +8,44 @@ type TaskRow = Task & {
   proof_submissions: { id: string; status: string }[];
 };
 
-/** Global game order: session (appointment) age first, then task order. */
-export function orderTasks<T extends { sort_order: number; appointment_id: string; appointments?: { created_at: string } | null }>(
-  tasks: T[]
-): T[] {
+type OrderableTask = {
+  sort_order: number;
+  appointment_id: string;
+  created_at?: string;
+  appointments?: { created_at: string } | null;
+};
+
+/**
+ * The journey is ONE global sequence per student: `sort_order` alone decides
+ * the order, so the teacher can drag a task from a follow-up session in
+ * front of an older one. New tasks are appended at the end.
+ */
+export function orderTasks<T extends OrderableTask>(tasks: T[]): T[] {
   return [...tasks].sort((a, b) => {
-    const ca = a.appointments?.created_at ?? "";
-    const cb = b.appointments?.created_at ?? "";
-    if (ca !== cb) return ca < cb ? -1 : 1;
-    if (a.appointment_id !== b.appointment_id)
-      return a.appointment_id < b.appointment_id ? -1 : 1;
-    return a.sort_order - b.sort_order;
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+    return (a.created_at ?? "") < (b.created_at ?? "") ? -1 : 1;
   });
+}
+
+/**
+ * Session numbers are based on when each appointment happened (oldest = 1),
+ * independent of task order — they are just a tag on the card.
+ */
+export function sessionNumbers<T extends OrderableTask>(
+  tasks: T[]
+): Map<string, number> {
+  const created = new Map<string, string>();
+  for (const t of tasks) {
+    const c = t.appointments?.created_at ?? "";
+    const existing = created.get(t.appointment_id);
+    if (existing === undefined || c < existing) {
+      created.set(t.appointment_id, c);
+    }
+  }
+  const ordered = [...created.entries()].sort((a, b) =>
+    a[1] === b[1] ? (a[0] < b[0] ? -1 : 1) : a[1] < b[1] ? -1 : 1
+  );
+  return new Map(ordered.map(([id], i) => [id, i + 1]));
 }
 
 /**
@@ -51,26 +77,32 @@ export async function recalcTaskStatuses(appointmentId: string): Promise<void> {
   const tasks = orderTasks((data ?? []) as TaskRow[]);
   if (tasks.length === 0) return;
 
-  // Submitting a proof already unlocks the next task — the student never
-  // waits on Sir's review to keep moving. Rejection pulls the task back to
-  // `active`, making it the current task again.
-  let unlocked = true; // first task that is neither approved nor submitted
+  // Journey rules:
+  //  - submitting a proof unlocks the next task straight away (no waiting
+  //    on Sir's review); a rejection pulls the task back to `active`
+  //  - "Meet with Sir" checkpoints never block progress — the student books
+  //    the meeting and carries on with the next task meanwhile
+  let blocked = false;
   const finalStatus = new Map<string, Task["status"]>();
   for (const task of tasks) {
-    let next: Task["status"];
     const hasPendingProof = task.proof_submissions?.some(
       (p) => p.status === "pending"
     );
+    let next: Task["status"];
+
     if (task.status === "approved") {
       next = "approved";
+    } else if (blocked) {
+      next = "locked";
     } else if (hasPendingProof) {
       next = "proof_submitted";
-    } else if (unlocked) {
-      next = "active";
-      unlocked = false;
+    } else if (task.type === "meet_sir") {
+      next = "active"; // open, but doesn't stop the next task unlocking
     } else {
-      next = "locked";
+      next = "active";
+      blocked = true; // regular tasks hold the line until proof is sent
     }
+
     finalStatus.set(task.id, next);
     if (next !== task.status) {
       await admin.from("tasks").update({ status: next }).eq("id", task.id);

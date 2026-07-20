@@ -67,7 +67,7 @@ export function ProfileForm({
   }
 
   return (
-    <Card className="w-full max-w-lg">
+    <Card className="w-full max-w-xl">
       <CardHeader>
         <CardTitle className="text-xl">Tell us about yourself</CardTitle>
         <CardDescription>
