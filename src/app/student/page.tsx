@@ -2,7 +2,11 @@ import Link from "next/link";
 import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { getAttemptForStudent } from "@/features/exam/server/queries";
-import { orderTasks, recalcTaskStatuses } from "@/features/tasks/server/logic";
+import {
+  needsRecalc,
+  orderTasks,
+  recalcTaskStatuses,
+} from "@/features/tasks/server/logic";
 import { getDownloadUrl } from "@/lib/server/files";
 import {
   JourneyBoard,
@@ -46,12 +50,19 @@ export default async function StudentDashboard() {
   ]);
 
   let allTasks = orderTasks((taskRes.data ?? []) as TaskRow[]);
+  const certificates = (certRes.data ?? []) as Certificate[];
+  const proofs = (proofRes.data ?? []) as ProofSubmission[];
 
-  // Self-heal stuck statuses (e.g. nothing active mid-journey).
+  // Self-heal: repair any status that disagrees with the journey rules
+  // (e.g. tasks left locked behind a Meet-with-Sir checkpoint).
+  const pendingByTask = new Set(
+    proofs.filter((p) => p.status === "pending").map((p) => p.task_id)
+  );
   if (
     allTasks.length > 0 &&
-    !allTasks.some((t) => t.status === "active" || t.status === "proof_submitted") &&
-    !allTasks.every((t) => t.status === "approved")
+    needsRecalc(
+      allTasks.map((t) => ({ ...t, hasPendingProof: pendingByTask.has(t.id) }))
+    )
   ) {
     await recalcTaskStatuses(allTasks[0].appointment_id);
     const again = await supabase
@@ -60,9 +71,6 @@ export default async function StudentDashboard() {
       .eq("student_id", user.id);
     allTasks = orderTasks((again.data ?? []) as TaskRow[]);
   }
-
-  const certificates = (certRes.data ?? []) as Certificate[];
-  const proofs = (proofRes.data ?? []) as ProofSubmission[];
 
   // Session number per appointment, in journey order
   const sessionRank = new Map<string, number>();

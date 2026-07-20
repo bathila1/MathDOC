@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { format } from "date-fns";
 import { createSlot, deleteSlot } from "@/features/booking/server/actions";
 import { Button } from "@/components/ui/button";
@@ -24,9 +24,10 @@ import { cn } from "@/lib/utils";
 import { CalendarPlus, Clock, Laptop, Trash2, Users } from "lucide-react";
 import { WeekCalendar } from "./WeekCalendar";
 import {
-  DAY_END_HOUR,
-  DAY_START_HOUR,
+  DEFAULT_END_HOUR,
+  DEFAULT_START_HOUR,
   heightOf,
+  rangeForSlots,
   sameDay,
   topOf,
 } from "./calendar-utils";
@@ -44,9 +45,9 @@ const modeLabels: Record<string, string> = {
 
 function timeOptions(): string[] {
   const out: string[] = [];
-  for (let h = DAY_START_HOUR; h <= DAY_END_HOUR; h++) {
+  for (let h = DEFAULT_START_HOUR; h <= DEFAULT_END_HOUR; h++) {
     out.push(`${String(h).padStart(2, "0")}:00`);
-    if (h < DAY_END_HOUR) out.push(`${String(h).padStart(2, "0")}:30`);
+    if (h < DEFAULT_END_HOUR) out.push(`${String(h).padStart(2, "0")}:30`);
   }
   return out;
 }
@@ -58,6 +59,8 @@ function timeOptions(): string[] {
 export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
   const [anchor, setAnchor] = useState(new Date());
   const [pending, startTransition] = useTransition();
+  // Widen the grid so early/late slots stay inside the calendar box.
+  const range = useMemo(() => rangeForSlots(slots), [slots]);
 
   // create dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -74,7 +77,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
 
   function openCreate(day: Date, hour: number) {
     const start = `${String(hour).padStart(2, "0")}:00`;
-    const end = `${String(Math.min(hour + 1, DAY_END_HOUR)).padStart(2, "0")}:00`;
+    const end = `${String(Math.min(hour + 1, DEFAULT_END_HOUR)).padStart(2, "0")}:00`;
     setDraft({
       date: format(day, "yyyy-MM-dd"),
       start_time: start,
@@ -118,6 +121,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
         anchor={anchor}
         onAnchorChange={setAnchor}
         onCellClick={openCreate}
+        range={range}
         legend={
           <p className="text-xs font-medium text-muted-foreground">
             Click any empty space to add a free time
@@ -135,7 +139,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
                     type="button"
                     onClick={() => setManaged(s)}
                     style={{
-                      top: topOf(s.starts_at),
+                      top: topOf(s.starts_at, range),
                       height: heightOf(s.starts_at, s.ends_at),
                     }}
                     className={cn(

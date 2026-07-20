@@ -48,12 +48,60 @@ export function sessionNumbers<T extends OrderableTask>(
   return new Map(ordered.map(([id], i) => [id, i + 1]));
 }
 
+export interface StatusInput {
+  id: string;
+  status: Task["status"];
+  type: Task["type"];
+  sort_order: number;
+  appointment_id: string;
+  created_at?: string;
+  appointments?: { created_at: string } | null;
+  hasPendingProof?: boolean;
+}
+
 /**
- * The task-game rule, applied after every change, across ALL of the
- * student's appointments (old tasks are never removed — new sessions
- * append to the same journey): everything before the first unfinished
- * task is approved; that task is `active` (or `proof_submitted` while a
- * proof awaits review); everything after stays `locked`.
+ * The single source of truth for the journey rules (pure — no database):
+ *  - tasks run in one global order per student
+ *  - submitting a proof unlocks the next task straight away; a rejection
+ *    pulls the task back to `active`
+ *  - "Meet with Sir" checkpoints never block progress: the student books
+ *    the meeting and carries on with the next task meanwhile
+ */
+export function computeJourneyStatuses<T extends StatusInput>(
+  tasks: T[]
+): Map<string, Task["status"]> {
+  const ordered = orderTasks(tasks);
+  const result = new Map<string, Task["status"]>();
+  let blocked = false;
+
+  for (const task of ordered) {
+    let next: Task["status"];
+    if (task.status === "approved") {
+      next = "approved";
+    } else if (blocked) {
+      next = "locked";
+    } else if (task.hasPendingProof) {
+      next = "proof_submitted";
+    } else if (task.type === "meet_sir") {
+      next = "active"; // open, but doesn't stop the next task unlocking
+    } else {
+      next = "active";
+      blocked = true; // regular tasks hold the line until proof is sent
+    }
+    result.set(task.id, next);
+  }
+  return result;
+}
+
+/** True when any stored status disagrees with the rules above. */
+export function needsRecalc<T extends StatusInput>(tasks: T[]): boolean {
+  const expected = computeJourneyStatuses(tasks);
+  return tasks.some((t) => expected.get(t.id) !== t.status);
+}
+
+/**
+ * Recompute and PERSIST the whole journey for the student who owns
+ * `appointmentId`, then issue certificates for any fully-approved session.
  */
 export async function recalcTaskStatuses(appointmentId: string): Promise<void> {
   const admin = createSupabaseAdmin();
@@ -77,34 +125,16 @@ export async function recalcTaskStatuses(appointmentId: string): Promise<void> {
   const tasks = orderTasks((data ?? []) as TaskRow[]);
   if (tasks.length === 0) return;
 
-  // Journey rules:
-  //  - submitting a proof unlocks the next task straight away (no waiting
-  //    on Sir's review); a rejection pulls the task back to `active`
-  //  - "Meet with Sir" checkpoints never block progress — the student books
-  //    the meeting and carries on with the next task meanwhile
-  let blocked = false;
-  const finalStatus = new Map<string, Task["status"]>();
+  const finalStatus = computeJourneyStatuses(
+    tasks.map((t) => ({
+      ...t,
+      hasPendingProof: t.proof_submissions?.some((p) => p.status === "pending"),
+    }))
+  );
+
   for (const task of tasks) {
-    const hasPendingProof = task.proof_submissions?.some(
-      (p) => p.status === "pending"
-    );
-    let next: Task["status"];
-
-    if (task.status === "approved") {
-      next = "approved";
-    } else if (blocked) {
-      next = "locked";
-    } else if (hasPendingProof) {
-      next = "proof_submitted";
-    } else if (task.type === "meet_sir") {
-      next = "active"; // open, but doesn't stop the next task unlocking
-    } else {
-      next = "active";
-      blocked = true; // regular tasks hold the line until proof is sent
-    }
-
-    finalStatus.set(task.id, next);
-    if (next !== task.status) {
+    const next = finalStatus.get(task.id);
+    if (next && next !== task.status) {
       await admin.from("tasks").update({ status: next }).eq("id", task.id);
     }
   }

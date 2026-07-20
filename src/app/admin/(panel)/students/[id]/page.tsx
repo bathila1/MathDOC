@@ -82,6 +82,20 @@ export default async function AdminStudentPage({
     studentTasks.length > 0
       ? Math.round((approved / studentTasks.length) * 100)
       : null;
+
+  // Newest non-cancelled session — where tasks added from this page go.
+  const latestAppointment = appointments
+    .filter((a) => a.status !== "cancelled")
+    .sort(
+      (a, b) =>
+        new Date(b.availability_slots.starts_at).getTime() -
+        new Date(a.availability_slots.starts_at).getTime()
+    )[0];
+  const latestAppointmentId = latestAppointment?.id;
+  const latestSessionDate = latestAppointment
+    ? format(new Date(latestAppointment.availability_slots.starts_at), "d MMM yyyy")
+    : null;
+
   const questionById = new Map(
     ((questions ?? []) as McqQuestion[]).map((q) => [q.id, q])
   );
@@ -153,6 +167,7 @@ export default async function AdminStudentPage({
         </Card>
       </div>
 
+      {/* One place to manage every task this student has, from any session */}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -161,7 +176,18 @@ export default async function AdminStudentPage({
         </CardHeader>
         <CardContent className="space-y-4">
           {progress != null && <Progress value={progress} />}
-          <TaskManager tasks={studentTasks} heading="All tasks" />
+          <TaskManager
+            appointmentId={latestAppointmentId}
+            tasks={studentTasks}
+            heading="All tasks"
+          />
+          {latestAppointmentId && (
+            <p className="text-xs text-muted-foreground">
+              New tasks are added to the latest session
+              {latestSessionDate ? ` (${latestSessionDate})` : ""}. Drag any card
+              to change the order of the whole journey.
+            </p>
+          )}
         </CardContent>
       </Card>
 

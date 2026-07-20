@@ -6,12 +6,11 @@ import { format } from "date-fns";
 import { bookSlot } from "@/features/booking/server/actions";
 import type { AvailabilitySlot } from "@/lib/shared/types";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Laptop, Users } from "lucide-react";
+import { Check, Laptop, Users } from "lucide-react";
 import { WeekCalendar } from "./WeekCalendar";
-import { heightOf, sameDay, topOf } from "./calendar-utils";
+import { heightOf, rangeForSlots, sameDay, topOf } from "./calendar-utils";
 
 /** Google-Calendar-style slot picker: tap a card on the week grid to select. */
 export function StudentSlotCalendar({
@@ -31,6 +30,8 @@ export function StudentSlotCalendar({
     () => slots.filter((s) => s.mode === "either" || s.mode === mode),
     [slots, mode]
   );
+  // Widen the grid so early/late slots stay inside the calendar box.
+  const range = useMemo(() => rangeForSlots(visible), [visible]);
 
   function confirm() {
     if (!selected) return;
@@ -55,26 +56,69 @@ export function StudentSlotCalendar({
 
   return (
     <div className="space-y-4">
-      <Tabs
-        value={mode}
-        onValueChange={(v) => {
-          setMode(v as typeof mode);
-          setSelected(null);
-        }}
-      >
-        <TabsList className="grid w-full max-w-xs grid-cols-2">
-          <TabsTrigger value="physical">
-            <Users className="size-4" /> In person
-          </TabsTrigger>
-          <TabsTrigger value="online">
-            <Laptop className="size-4" /> Online
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* How do you want to meet? — big, obvious choice */}
+      <div>
+        <p className="mb-2 text-sm font-semibold">How would you like to meet?</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {(
+            [
+              {
+                value: "physical" as const,
+                icon: Users,
+                title: "In person",
+                hint: "Meet Sir face to face",
+              },
+              {
+                value: "online" as const,
+                icon: Laptop,
+                title: "Online",
+                hint: "Join by video call",
+              },
+            ]
+          ).map((opt) => {
+            const active = mode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  setMode(opt.value);
+                  setSelected(null);
+                }}
+                className={cn(
+                  "flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-colors",
+                  active
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40 hover:bg-muted/50"
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex size-12 shrink-0 items-center justify-center rounded-lg",
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  <opt.icon className="size-6" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-base font-bold">{opt.title}</span>
+                  <span className="block text-sm text-muted-foreground">
+                    {opt.hint}
+                  </span>
+                </span>
+                {active && <Check className="size-5 shrink-0 text-primary" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <WeekCalendar
         anchor={anchor}
         onAnchorChange={setAnchor}
+        range={range}
         legend={
           <p className="text-xs font-medium text-muted-foreground">
             Tap a free time to pick it
@@ -92,7 +136,7 @@ export function StudentSlotCalendar({
                     type="button"
                     onClick={() => setSelected(isSelected ? null : s)}
                     style={{
-                      top: topOf(s.starts_at),
+                      top: topOf(s.starts_at, range),
                       height: heightOf(s.starts_at, s.ends_at),
                     }}
                     className={cn(

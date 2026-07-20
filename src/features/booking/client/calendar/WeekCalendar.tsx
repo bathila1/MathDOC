@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  DAY_START_HOUR,
+  DEFAULT_RANGE,
   HOUR_PX,
   hoursOfDay,
   sameDay,
   weekDaysFor,
+  type HourRange,
 } from "./calendar-utils";
 
 /**
@@ -24,15 +25,18 @@ export function WeekCalendar({
   renderDay,
   onCellClick,
   legend,
+  range = DEFAULT_RANGE,
 }: {
   anchor: Date;
   onAnchorChange: (d: Date) => void;
   renderDay: (day: Date) => React.ReactNode;
   onCellClick?: (day: Date, hour: number) => void;
   legend?: React.ReactNode;
+  /** Visible hour window — widened by callers so no slot falls outside. */
+  range?: HourRange;
 }) {
   const days = weekDaysFor(anchor);
-  const hours = hoursOfDay();
+  const hours = hoursOfDay(range);
   const today = new Date();
   const startOfToday = new Date(
     today.getFullYear(),
@@ -153,20 +157,22 @@ export function WeekCalendar({
                     />
                   );
                 })}
-                {/* slot cards re-enable pointer events on themselves */}
-                <div className="pointer-events-none absolute inset-0">
+                {/* slot cards re-enable pointer events on themselves;
+                    overflow-hidden keeps any stray card inside the grid */}
+                <div className="pointer-events-none absolute inset-0 overflow-hidden">
                   {renderDay(day)}
                 </div>
                 {/* "now" line */}
                 {sameDay(day, today) &&
-                  today.getHours() >= DAY_START_HOUR && (
+                  today.getHours() >= range.start &&
+                  today.getHours() < range.end && (
                     <div
                       className="pointer-events-none absolute right-0 left-0 z-20 border-t-2 border-red-500"
                       style={{
                         top:
                           (today.getHours() +
                             today.getMinutes() / 60 -
-                            DAY_START_HOUR) *
+                            range.start) *
                           HOUR_PX,
                       }}
                     >
