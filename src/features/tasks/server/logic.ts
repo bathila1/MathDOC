@@ -51,17 +51,22 @@ export async function recalcTaskStatuses(appointmentId: string): Promise<void> {
   const tasks = orderTasks((data ?? []) as TaskRow[]);
   if (tasks.length === 0) return;
 
-  let unlocked = true; // first non-approved task becomes active
+  // Submitting a proof already unlocks the next task — the student never
+  // waits on Sir's review to keep moving. Rejection pulls the task back to
+  // `active`, making it the current task again.
+  let unlocked = true; // first task that is neither approved nor submitted
   const finalStatus = new Map<string, Task["status"]>();
   for (const task of tasks) {
     let next: Task["status"];
+    const hasPendingProof = task.proof_submissions?.some(
+      (p) => p.status === "pending"
+    );
     if (task.status === "approved") {
       next = "approved";
+    } else if (hasPendingProof) {
+      next = "proof_submitted";
     } else if (unlocked) {
-      const hasPendingProof = task.proof_submissions?.some(
-        (p) => p.status === "pending"
-      );
-      next = hasPendingProof ? "proof_submitted" : "active";
+      next = "active";
       unlocked = false;
     } else {
       next = "locked";

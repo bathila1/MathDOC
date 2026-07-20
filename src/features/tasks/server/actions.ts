@@ -229,7 +229,6 @@ export async function submitProof(input: unknown): Promise<ActionResult<undefine
     await recalcTaskStatuses(task.appointment_id);
     refresh(task.appointment_id);
   }
-  revalidatePath(`/student/tasks/${task_id}`);
   return ok(undefined);
 }
 
@@ -276,7 +275,6 @@ export async function reviewProof(input: unknown): Promise<ActionResult<undefine
     }
     await recalcTaskStatuses(task.appointment_id);
     refresh(task.appointment_id);
-    revalidatePath(`/student/tasks/${task.id}`);
   }
   return ok(undefined);
 }

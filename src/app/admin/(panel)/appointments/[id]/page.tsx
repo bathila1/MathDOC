@@ -7,7 +7,8 @@ import {
   DiagnosisForm,
   StatusButtons,
 } from "@/features/booking/client/AppointmentAdminForms";
-import { TaskManager } from "@/features/tasks/client/TaskManager";
+import { TaskManager, type AdminTask } from "@/features/tasks/client/TaskManager";
+import { orderTasks } from "@/features/tasks/server/logic";
 import type {
   Appointment,
   AvailabilitySlot,
@@ -55,12 +56,29 @@ export default async function AdminAppointmentPage({
   const student = appt.profiles;
   const invoice = appt.invoices?.[0];
 
+  // The student's WHOLE journey — tasks from every session, so previous
+  // tasks can be viewed and managed from a follow-up appointment too.
   const { data: taskRows } = await supabase
     .from("tasks")
-    .select("*")
-    .eq("appointment_id", id)
-    .order("sort_order", { ascending: true });
-  const tasks = (taskRows ?? []) as Task[];
+    .select("*, appointments!tasks_appointment_id_fkey(created_at)")
+    .eq("student_id", appt.student_id);
+  const journey = orderTasks(
+    (taskRows ?? []) as (Task & { appointments: { created_at: string } | null })[]
+  );
+  const sessionNos = new Map<string, number>();
+  for (const t of journey) {
+    if (!sessionNos.has(t.appointment_id)) {
+      sessionNos.set(t.appointment_id, sessionNos.size + 1);
+    }
+  }
+  const tasks: AdminTask[] = journey.map((t) => ({
+    ...t,
+    sessionNo: sessionNos.get(t.appointment_id) ?? 1,
+    sessionLabel: `Session ${sessionNos.get(t.appointment_id) ?? 1} — ${format(
+      new Date(t.appointments?.created_at ?? appt.created_at),
+      "d MMM yyyy"
+    )}`,
+  }));
 
   return (
     <div className="space-y-6">

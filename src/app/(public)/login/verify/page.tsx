@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AuthSplit } from "@/components/site/AuthSplit";
 import { OtpVerifyForm } from "@/features/auth/client/OtpVerifyForm";
 
 export const metadata = { title: "Enter code" };
@@ -11,8 +12,8 @@ export default async function VerifyPage({
   const { phone } = await searchParams;
   if (!phone) redirect("/login");
   return (
-    <main className="flex flex-1 items-center justify-center p-4">
+    <AuthSplit>
       <OtpVerifyForm phone={phone} />
-    </main>
+    </AuthSplit>
   );
 }

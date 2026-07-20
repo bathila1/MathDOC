@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { LogoutButton } from "@/features/auth/client/LogoutButton";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/Logo";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CalendarDays, CircleUser } from "lucide-react";
 
 export default async function StudentLayout({
   children,
@@ -20,13 +22,41 @@ export default async function StudentLayout({
           <Link href="/student">
             <Logo iconClassName="size-8" textClassName="text-lg" />
           </Link>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-0.5">
             <Button variant="ghost" size="sm" render={<Link href="/student" />}>
               My plan
             </Button>
             <Button variant="ghost" size="sm" render={<Link href="/student/book" />}>
-              Book a session
+              Book
             </Button>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    render={<Link href="/student/sessions" aria-label="Upcoming sessions" />}
+                  >
+                    <CalendarDays className="size-5" />
+                  </Button>
+                }
+              />
+              <TooltipContent>Upcoming sessions</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    render={<Link href="/student/profile" aria-label="My profile" />}
+                  >
+                    <CircleUser className="size-5" />
+                  </Button>
+                }
+              />
+              <TooltipContent>My profile</TooltipContent>
+            </Tooltip>
             <LogoutButton />
           </nav>
         </div>

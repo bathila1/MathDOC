@@ -27,9 +27,21 @@ const fields = [
   },
 ] as const;
 
-export function ProfileForm() {
+export function ProfileForm({
+  initial,
+  mode = "register",
+}: {
+  initial?: Partial<Record<(typeof fields)[number]["name"] | "address", string | null>>;
+  mode?: "register" | "edit";
+}) {
   const router = useRouter();
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const v: Record<string, string> = {};
+    for (const [k, val] of Object.entries(initial ?? {})) {
+      if (val) v[k] = val;
+    }
+    return v;
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [topError, setTopError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -49,7 +61,7 @@ export function ProfileForm() {
         setTopError(res.fieldErrors ? null : res.error);
         return;
       }
-      router.push("/student/exam");
+      router.push(mode === "edit" ? "/student/profile" : "/student/exam");
       router.refresh();
     });
   }
@@ -93,29 +105,35 @@ export function ProfileForm() {
           </div>
           {topError && <p className="text-sm text-destructive">{topError}</p>}
           <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Saving…" : "Continue to the quiz"}
+            {pending
+              ? "Saving…"
+              : mode === "edit"
+                ? "Save changes"
+                : "Continue to the quiz"}
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full"
-            disabled={pending}
-            onClick={() => {
-              setErrors({});
-              setTopError(null);
-              startTransition(async () => {
-                const res = await saveProfile({});
-                if (!res.ok) {
-                  setTopError(res.error);
-                  return;
-                }
-                router.push("/student/exam");
-                router.refresh();
-              });
-            }}
-          >
-            Skip for now
-          </Button>
+          {mode === "register" && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              disabled={pending}
+              onClick={() => {
+                setErrors({});
+                setTopError(null);
+                startTransition(async () => {
+                  const res = await saveProfile({});
+                  if (!res.ok) {
+                    setTopError(res.error);
+                    return;
+                  }
+                  router.push("/student/exam");
+                  router.refresh();
+                });
+              }}
+            >
+              Skip for now
+            </Button>
+          )}
         </form>
       </CardContent>
     </Card>

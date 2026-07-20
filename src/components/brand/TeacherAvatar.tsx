@@ -19,9 +19,7 @@ export function TeacherAvatar({ className }: { className?: string }) {
         )}
         aria-label="Sir"
       >
-        <span className="font-heading text-6xl" style={{ fontFamily: "var(--font-fraunces), serif" }}>
-          S
-        </span>
+        <span className="font-heading text-6xl font-bold">S</span>
         <span className="text-xs font-medium tracking-widest uppercase opacity-70">
           add public/sir.jpg
         </span>

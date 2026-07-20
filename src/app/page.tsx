@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/Logo";
 import { TeacherAvatar } from "@/components/brand/TeacherAvatar";
+import { SiteFooter } from "@/components/site/Footer";
 import { Button } from "@/components/ui/button";
 
 const steps = [
@@ -70,10 +71,7 @@ export default function LandingPage() {
             <figure className="rotate-2 rounded-sm border bg-card p-3 pb-4 shadow-lg transition-transform duration-300 hover:rotate-0">
               <TeacherAvatar className="aspect-square w-full rounded-sm" />
               <figcaption className="pt-3 text-center">
-                <span
-                  className="text-lg italic"
-                  style={{ fontFamily: "var(--font-fraunces), serif" }}
-                >
+                <span className="font-heading text-lg font-semibold">
                   Sir — your coach
                 </span>
               </figcaption>
@@ -86,10 +84,7 @@ export default function LandingPage() {
         <div className="grid gap-10 sm:grid-cols-3">
           {steps.map((s) => (
             <div key={s.no} className="border-t-2 border-primary/60 pt-5">
-              <p
-                className="text-3xl text-primary/70"
-                style={{ fontFamily: "var(--font-fraunces), serif" }}
-              >
+              <p className="font-heading text-3xl font-bold text-primary/70">
                 {s.no}
               </p>
               <h3 className="mt-2 text-xl">{s.title}</h3>
@@ -101,9 +96,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} MathDoc
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

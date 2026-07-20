@@ -34,6 +34,11 @@ export function WeekCalendar({
   const days = weekDaysFor(anchor);
   const hours = hoursOfDay();
   const today = new Date();
+  const startOfToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
 
   return (
     <div className="space-y-3">
@@ -114,20 +119,36 @@ export function WeekCalendar({
               ))}
             </div>
             {/* day columns */}
-            {days.map((day) => (
-              <div key={day.toISOString()} className="relative border-l">
-                {hours.map((h) => (
-                  <div
-                    key={h}
-                    style={{ height: HOUR_PX }}
-                    className={cn(
-                      "border-b border-dashed border-border/60",
-                      onCellClick &&
-                        "cursor-pointer transition-colors hover:bg-primary/5"
-                    )}
-                    onClick={() => onCellClick?.(day, h)}
-                  />
-                ))}
+            {days.map((day) => {
+              const isPastDay = day < startOfToday;
+              return (
+              <div
+                key={day.toISOString()}
+                className={cn("relative border-l", isPastDay && "bg-muted/50")}
+              >
+                {hours.map((h) => {
+                  // past cells are shaded and can't be clicked
+                  const cellPast =
+                    isPastDay ||
+                    (sameDay(day, today) &&
+                      h < today.getHours());
+                  return (
+                    <div
+                      key={h}
+                      style={{ height: HOUR_PX }}
+                      className={cn(
+                        "border-b border-border/50",
+                        cellPast && "bg-muted/40",
+                        onCellClick &&
+                          !cellPast &&
+                          "cursor-pointer transition-colors hover:bg-primary/5"
+                      )}
+                      onClick={() => {
+                        if (!cellPast) onCellClick?.(day, h);
+                      }}
+                    />
+                  );
+                })}
                 {/* slot cards re-enable pointer events on themselves */}
                 <div className="pointer-events-none absolute inset-0">
                   {renderDay(day)}
@@ -149,7 +170,8 @@ export function WeekCalendar({
                     </div>
                   )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
