@@ -58,45 +58,32 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
   const total = tasks.length;
   const approved = tasks.filter((t) => t.status === "approved").length;
   const progress = total ? Math.round((approved / total) * 100) : 0;
-  // Where the student currently stands on the rail (0-based).
-  const currentIndex = Math.max(
-    0,
-    tasks.findIndex((t) => t.status === "active" || t.status === "proof_submitted")
-  );
-  const markerIndex = approved === total ? total - 1 : currentIndex;
-  const markerLeftPct = total > 1 ? (markerIndex / (total - 1)) * 100 : 100;
+  // The bar fills by completed tasks; the label sits at the end of the fill,
+  // so the percentage always matches what the bar shows.
+  const fillFraction = total ? approved / total : 0;
 
   return (
     <div className="space-y-4">
       {/* ---- the rail ---- */}
-      <div className="overflow-x-auto pb-1">
+      <div className="pb-1">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <p className="text-sm font-semibold">
+            {progress}% complete
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {approved} of {total} tasks done
+          </p>
+        </div>
         <div
-          className="relative mx-auto px-2 pt-9 pb-1"
-          style={{ minWidth: `${Math.max(total * 64, 280)}px` }}
+          className="relative mx-auto px-2 pt-2 pb-1"
+          style={{ minWidth: `${Math.max(total * 56, 260)}px` }}
         >
-          {/* single "you are here" percentage bubble */}
-          <div
-            className="absolute top-0 -translate-x-1/2 transition-all duration-500"
-            style={{ left: `calc(1.5rem + (100% - 3rem) * ${markerLeftPct / 100})` }}
-          >
-            <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-sm">
-              {progress}%
-            </span>
-          </div>
-
           {/* track */}
-          <div className="absolute top-[calc(2.25rem+1.25rem)] right-6 left-6 h-4 -translate-y-1/2 rounded-full bg-muted" />
+          <div className="absolute top-[calc(0.5rem+1.375rem)] right-6 left-6 h-4 -translate-y-1/2 rounded-full bg-muted" />
           {/* filled track */}
           <div
-            className="absolute top-[calc(2.25rem+1.25rem)] left-6 h-4 -translate-y-1/2 rounded-full bg-brand-gradient transition-all duration-700"
-            style={{
-              width:
-                total > 1
-                  ? `calc((100% - 3rem) * ${approved === 0 ? 0 : Math.min(approved, total - 1) / (total - 1)})`
-                  : approved > 0
-                    ? "calc(100% - 3rem)"
-                    : "0px",
-            }}
+            className="absolute top-[calc(0.5rem+1.375rem)] left-6 h-4 -translate-y-1/2 rounded-full bg-brand-gradient transition-all duration-700"
+            style={{ width: `calc((100% - 3rem) * ${fillFraction})` }}
           />
           <ol className="relative flex items-start justify-between">
             {tasks.map((t) => {
@@ -116,7 +103,7 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
                           disabled={locked}
                           onClick={() => setSelectedId(t.id)}
                           className={cn(
-                            "flex w-16 justify-center outline-none",
+                            "flex w-14 justify-center outline-none",
                             locked && "cursor-not-allowed"
                           )}
                         />
@@ -170,11 +157,11 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
             })}
           </ol>
         </div>
-        <p className="mt-1 text-center text-sm text-muted-foreground">
-          {progress === 100
-            ? "All tasks complete — you did it!"
-            : `${approved} of ${total} tasks done`}
-        </p>
+        {progress === 100 && (
+          <p className="mt-2 text-center text-sm font-semibold text-primary">
+            All tasks complete — you did it!
+          </p>
+        )}
       </div>
 
       {/* ---- the task box ---- */}

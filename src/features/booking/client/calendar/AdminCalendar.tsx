@@ -2,7 +2,11 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { format } from "date-fns";
-import { createSlot, deleteSlot } from "@/features/booking/server/actions";
+import {
+  createSlot,
+  deleteSlot,
+  updateSlot,
+} from "@/features/booking/server/actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -260,22 +264,52 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
                   {format(new Date(managed.starts_at), "h:mm a")} –{" "}
                   {format(new Date(managed.ends_at), "h:mm a")}
                 </p>
-                <p className="flex items-center gap-2 text-muted-foreground">
-                  {managed.mode === "online" ? (
-                    <Laptop className="size-4" />
-                  ) : (
-                    <Users className="size-4" />
-                  )}
-                  {modeLabels[managed.mode]}
-                </p>
                 {managed.status === "booked" ? (
-                  <p className="mt-2 rounded-lg bg-muted p-2 font-semibold">
-                    Booked by {bookedBy(managed) ?? "a student"}
-                  </p>
+                  <>
+                    <p className="flex items-center gap-2 text-muted-foreground">
+                      {managed.mode === "online" ? (
+                        <Laptop className="size-4" />
+                      ) : (
+                        <Users className="size-4" />
+                      )}
+                      {modeLabels[managed.mode]}
+                    </p>
+                    <p className="mt-2 rounded-lg bg-muted p-2 font-semibold">
+                      Booked by {bookedBy(managed) ?? "a student"}
+                    </p>
+                  </>
                 ) : (
-                  <p className="mt-2 text-muted-foreground">
-                    This time is free — students can book it.
-                  </p>
+                  <div className="space-y-2 pt-1">
+                    <Label>Meeting type</Label>
+                    <Select
+                      value={managed.mode}
+                      onValueChange={(v) => {
+                        if (!v || v === managed.mode) return;
+                        const mode = v as AdminSlot["mode"];
+                        setManaged({ ...managed, mode });
+                        startTransition(async () => {
+                          const res = await updateSlot({
+                            slot_id: managed.id,
+                            mode,
+                          });
+                          if (!res.ok) toast.error(res.error);
+                          else toast.success("Slot updated.");
+                        });
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="either">Either</SelectItem>
+                        <SelectItem value="physical">In person only</SelectItem>
+                        <SelectItem value="online">Online only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-muted-foreground">
+                      This time is free — students can book it.
+                    </p>
+                  </div>
                 )}
               </div>
               {managed.status === "free" && (

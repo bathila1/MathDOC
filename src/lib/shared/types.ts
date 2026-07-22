@@ -113,6 +113,14 @@ export interface ProofSubmission {
   reviewed_at: string | null;
 }
 
+export interface SessionNote {
+  id: string;
+  appointment_id: string;
+  student_id: string;
+  body: string;
+  created_at: string;
+}
+
 export interface Certificate {
   id: string;
   student_id: string;

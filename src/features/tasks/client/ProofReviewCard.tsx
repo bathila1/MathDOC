@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { reviewProof } from "@/features/tasks/server/actions";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,9 @@ export interface ProofForReview {
   submitted_at: string;
   student_note: string | null;
   student_name: string;
+  /** Where this proof came from — links shown on the card. */
+  studentHref?: string;
+  sessionHref?: string | null;
   task_title: string;
   files: { name: string; url: string }[];
 }
@@ -60,6 +64,24 @@ export function ProofReviewCard({ proof }: { proof: ProofForReview }) {
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Submitted {format(new Date(proof.submitted_at), "d MMM yyyy, h:mm a")}
+        </p>
+        <p className="flex flex-wrap gap-x-3 text-sm">
+          {proof.studentHref && (
+            <Link
+              href={proof.studentHref}
+              className="text-primary underline underline-offset-2"
+            >
+              View student
+            </Link>
+          )}
+          {proof.sessionHref && (
+            <Link
+              href={proof.sessionHref}
+              className="text-primary underline underline-offset-2"
+            >
+              View session
+            </Link>
+          )}
         </p>
       </CardHeader>
       <CardContent className="space-y-3">

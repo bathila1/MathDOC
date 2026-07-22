@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
+import {
+  Pagination,
+  PAGE_SIZE,
+  pageFrom,
+  rangeFor,
+} from "@/components/site/Pagination";
 import type {
   Appointment,
   AvailabilitySlot,
@@ -22,7 +28,7 @@ export const metadata = { title: "Appointments" };
 
 type Row = Appointment & {
   availability_slots: AvailabilitySlot;
-  profiles: Pick<Profile, "full_name" | "phone">;
+  profiles: Pick<Profile, "id" | "full_name" | "phone">;
 };
 
 const statusVariant: Record<
@@ -35,14 +41,23 @@ const statusVariant: Record<
   cancelled: "destructive",
 };
 
-export default async function AdminAppointmentsPage() {
+export default async function AdminAppointmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   await requireAdmin();
+  const page = pageFrom((await searchParams).page);
+  const [from, to] = rangeFor(page);
+
   const supabase = await createSupabaseServer();
-  const { data } = await supabase
+  const { data, count } = await supabase
     .from("appointments")
-    .select("*, availability_slots(*), profiles(full_name, phone)")
+    .select("*, availability_slots(*), profiles(id, full_name, phone)", {
+      count: "exact",
+    })
     .order("created_at", { ascending: false })
-    .limit(100);
+    .range(from, to);
 
   const rows = (data ?? []) as Row[];
 
@@ -54,54 +69,71 @@ export default async function AdminAppointmentsPage() {
           No appointments yet.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>When</TableHead>
-                <TableHead>Student</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell>
-                    {format(
-                      new Date(a.availability_slots.starts_at),
-                      "EEE d MMM, h:mm a"
-                    )}
-                    {a.is_follow_up && (
-                      <Badge variant="outline" className="ml-2">
-                        Follow-up
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {a.profiles?.full_name ?? "—"}
-                  </TableCell>
-                  <TableCell className="capitalize">{a.mode}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant[a.status] ?? "outline"}>
-                      {a.status.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      render={<Link href={`/admin/appointments/${a.id}`} />}
-                    >
-                      Open
-                    </Button>
-                  </TableCell>
+        <>
+          <div className="overflow-x-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>When</TableHead>
+                  <TableHead>Student</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {rows.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell>
+                      {format(
+                        new Date(a.availability_slots.starts_at),
+                        "EEE d MMM, h:mm a"
+                      )}
+                      {a.is_follow_up && (
+                        <Badge variant="outline" className="ml-2">
+                          Follow-up
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {a.profiles?.id ? (
+                        <Link
+                          href={`/admin/students/${a.profiles.id}`}
+                          className="text-primary underline underline-offset-2"
+                        >
+                          {a.profiles.full_name ?? "Student"}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="capitalize">{a.mode}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant[a.status] ?? "outline"}>
+                        {a.status.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        render={<Link href={`/admin/appointments/${a.id}`} />}
+                      >
+                        Open
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <Pagination
+            page={page}
+            total={count ?? rows.length}
+            basePath="/admin/appointments"
+            size={PAGE_SIZE}
+          />
+        </>
       )}
     </div>
   );

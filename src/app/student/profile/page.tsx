@@ -5,6 +5,7 @@ import type {
   Appointment,
   AvailabilitySlot,
   Certificate,
+  SessionNote,
 } from "@/lib/shared/types";
 import {
   Card,
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BackLink } from "@/components/site/BackLink";
 import { format } from "date-fns";
 import { formatPhone } from "@/lib/shared/phone";
 import { Award, ChevronRight } from "lucide-react";
@@ -26,7 +28,7 @@ export default async function ProfilePage() {
   const { user, profile } = await requireStudent();
   const supabase = await createSupabaseServer();
 
-  const [apptRes, certRes] = await Promise.all([
+  const [apptRes, certRes, noteRes] = await Promise.all([
     supabase
       .from("appointments")
       .select("*, availability_slots(*)")
@@ -36,6 +38,11 @@ export default async function ProfilePage() {
       .select("*")
       .eq("student_id", user.id)
       .order("issued_at", { ascending: false }),
+    supabase
+      .from("session_notes")
+      .select("*")
+      .eq("student_id", user.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   const past = ((apptRes.data ?? []) as ApptRow[])
@@ -51,6 +58,10 @@ export default async function ProfilePage() {
         new Date(a.availability_slots.starts_at).getTime()
     );
   const certificates = (certRes.data ?? []) as Certificate[];
+  const notes = (noteRes.data ?? []) as SessionNote[];
+  const apptById = new Map(
+    ((apptRes.data ?? []) as ApptRow[]).map((a) => [a.id, a])
+  );
 
   const details: [string, string | null][] = [
     ["Full name", profile.full_name],
@@ -74,6 +85,8 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-6">
+      <BackLink href="/student" label="My plan" />
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-semibold tracking-[0.25em] text-primary uppercase">
@@ -101,6 +114,41 @@ export default async function ProfilePage() {
               </div>
             ))}
           </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notes from Sir</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {notes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Notes Sir writes during your sessions will appear here.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {notes.map((n) => {
+                const from = apptById.get(n.appointment_id);
+                return (
+                  <li key={n.id} className="flex items-start gap-2 text-sm">
+                    <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+                    <div className="min-w-0 flex-1">
+                      <p className="whitespace-pre-line">{n.body}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(n.created_at), "d MMM yyyy")}
+                        {from &&
+                          ` · from your session on ${format(
+                            new Date(from.availability_slots.starts_at),
+                            "d MMM"
+                          )}`}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </CardContent>
       </Card>
 

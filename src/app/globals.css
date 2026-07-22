@@ -51,7 +51,7 @@
 /* MathDoc brand theme, matched to the logo: energetic red-orange gradient
    palette, warm cream background, big friendly rounded corners. */
 :root {
-  --background: oklch(0.985 0.008 80);
+  --background: oklch(1 0 0);
   --foreground: oklch(0.26 0.03 35);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.26 0.03 35);
@@ -61,7 +61,7 @@
   --primary-foreground: oklch(0.99 0.005 80);
   --secondary: oklch(0.95 0.04 60);
   --secondary-foreground: oklch(0.45 0.13 35);
-  --muted: oklch(0.955 0.012 75);
+  --muted: oklch(0.968 0.004 75);
   --muted-foreground: oklch(0.5 0.03 40);
   --accent: oklch(0.93 0.05 55);
   --accent-foreground: oklch(0.45 0.13 35);

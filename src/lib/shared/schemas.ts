@@ -143,6 +143,22 @@ export const meetingLinkSchema = z.object({
     .or(z.literal("")),
 });
 
+export const sessionNoteSchema = z.object({
+  appointment_id: z.string().uuid(),
+  body: z
+    .string()
+    .trim()
+    .min(1, "Please write the note first.")
+    .max(1000, "Note is too long (max 1000 characters)."),
+});
+
+export const slotUpdateSchema = z.object({
+  slot_id: z.string().uuid(),
+  mode: z.enum(["physical", "online", "either"], {
+    message: "Please choose physical, online, or either.",
+  }),
+});
+
 export const diagnosisSchema = z.object({
   appointment_id: z.string().uuid(),
   diagnosis_notes: z.string().trim().max(5000, "Notes are too long.").optional(),

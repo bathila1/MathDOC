@@ -8,86 +8,65 @@ const steps = [
   {
     no: "01",
     title: "Book a session",
-    text: "Register with your phone number, sit a short placement quiz, and pick a time that suits you — in person or online.",
+    text: "Register with your phone number, sit a short placement quiz, and pick a time that suits you.",
   },
   {
     no: "02",
     title: "Follow your plan",
-    text: "After every session Sir sets a personal series of tasks. Finish them one at a time and upload your working as proof.",
+    text: "After every session Sir sets tasks made for you. Finish them one at a time and upload your work.",
   },
   {
     no: "03",
     title: "Earn your certificate",
-    text: "Your journey track fills as Sir approves each task. Reach the end and your certificate is issued automatically.",
+    text: "Your progress fills as Sir approves each task. Reach the end and your certificate is issued.",
   },
 ];
 
 export default function LandingPage() {
   return (
     <main className="flex-1">
-      <header className="border-b bg-background">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+      <header className="border-b">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
           <Logo />
-          <nav className="flex items-center gap-3">
-            <Link
-              href="/admin/login"
-              className="text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
-            >
-              Teacher
-            </Link>
-            <Button size="sm" render={<Link href="/login" />}>
-              Student login
-            </Button>
-          </nav>
+          <Button size="sm" render={<Link href="/login" />}>
+            Student login
+          </Button>
         </div>
       </header>
 
-      <section className="bg-graph border-b">
-        <div className="mx-auto grid max-w-5xl items-center gap-12 px-4 py-16 sm:py-24 lg:grid-cols-[1.15fr_1fr]">
+      <section className="mx-auto max-w-4xl px-6 py-20 sm:py-28">
+        <div className="grid items-center gap-12 sm:grid-cols-[1.3fr_1fr]">
           <div>
-            <p className="text-xs font-semibold tracking-[0.25em] text-primary uppercase">
-              One-to-one maths coaching
-            </p>
-            <h1 className="mt-4 max-w-xl text-4xl leading-tight sm:text-5xl">
+            <h1 className="max-w-lg text-4xl leading-tight sm:text-5xl">
               Every student deserves a plan of their own.
             </h1>
-            <p className="mt-5 max-w-lg text-lg text-muted-foreground">
-              Sit down with Sir, talk through what&apos;s holding you back, and
-              leave with a step-by-step plan built just for you — tracked,
-              checked, and certified.
+            <p className="mt-5 max-w-md text-lg text-muted-foreground">
+              One-to-one maths coaching with Sir — talk through what&apos;s
+              holding you back, then work through a plan built just for you.
             </p>
-            <div className="mt-8 flex items-center gap-4">
+            <div className="mt-8">
               <Button size="lg" render={<Link href="/login" />}>
                 Get started
               </Button>
-              <span className="text-sm text-muted-foreground">
-                Log in with just your phone number.
-              </span>
             </div>
           </div>
-
-          {/* Sir — polaroid-style frame */}
-          <div className="mx-auto w-full max-w-[19rem]">
-            <figure className="rotate-2 rounded-sm border bg-card p-3 pb-4 shadow-lg transition-transform duration-300 hover:rotate-0">
-              <TeacherAvatar className="aspect-square w-full rounded-sm" />
-              <figcaption className="pt-3 text-center">
-                <span className="font-heading text-lg font-semibold">
-                  Sir — your coach
-                </span>
-              </figcaption>
-            </figure>
+          <div className="mx-auto w-full max-w-[15rem]">
+            <TeacherAvatar className="aspect-square w-full rounded-lg border object-cover" />
+            <p className="mt-3 text-center text-sm text-muted-foreground">
+              Sir — your coach
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-4 py-16">
-        <div className="grid gap-10 sm:grid-cols-3">
+      <section className="border-t">
+        <div className="mx-auto grid max-w-4xl gap-10 px-6 py-16 sm:grid-cols-3">
           {steps.map((s) => (
-            <div key={s.no} className="border-t-2 border-primary/60 pt-5">
-              <p className="font-heading text-3xl font-bold text-primary/70">
+            <div key={s.no}>
+              <p className="font-heading text-sm font-bold text-primary">
                 {s.no}
               </p>
-              <h3 className="mt-2 text-xl">{s.title}</h3>
+              <h3 className="mt-2 text-lg">{s.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 {s.text}
               </p>

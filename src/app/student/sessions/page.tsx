@@ -5,6 +5,7 @@ import type { Appointment, AvailabilitySlot } from "@/lib/shared/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BackLink } from "@/components/site/BackLink";
 import { format } from "date-fns";
 import { Video, MapPin } from "lucide-react";
 
@@ -20,19 +21,40 @@ export default async function SessionsPage() {
     .from("appointments")
     .select("*, availability_slots(*)")
     .eq("student_id", user.id)
-    .in("status", ["pending_payment", "confirmed"])
+    .neq("status", "cancelled")
     .order("created_at", { ascending: false });
 
+  // "Upcoming" = still to happen AND not already ticked off by Sir, so the
+  // student sees the same state the teacher does.
   const upcoming = ((data ?? []) as ApptRow[])
-    .filter((a) => new Date(a.availability_slots.ends_at) > new Date())
+    .filter(
+      (a) =>
+        a.status !== "completed" &&
+        new Date(a.availability_slots.ends_at) > new Date()
+    )
     .sort(
       (a, b) =>
         new Date(a.availability_slots.starts_at).getTime() -
         new Date(b.availability_slots.starts_at).getTime()
     );
 
+  const finished = ((data ?? []) as ApptRow[])
+    .filter(
+      (a) =>
+        a.status === "completed" ||
+        new Date(a.availability_slots.ends_at) <= new Date()
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.availability_slots.starts_at).getTime() -
+        new Date(a.availability_slots.starts_at).getTime()
+    )
+    .slice(0, 5);
+
   return (
     <div className="space-y-6">
+      <BackLink href="/student" label="My plan" />
+
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-semibold tracking-[0.25em] text-primary uppercase">
@@ -106,6 +128,43 @@ export default async function SessionsPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {finished.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-xl">Recently finished</h2>
+          {finished.map((a) => (
+            <Card key={a.id} className="bg-muted/30">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+                <div>
+                  <p className="font-semibold">
+                    {format(
+                      new Date(a.availability_slots.starts_at),
+                      "EEE d MMM yyyy, h:mm a"
+                    )}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {a.mode === "online" ? "Online" : "In person"}
+                    {a.is_follow_up && " · Follow-up with Sir"}
+                  </p>
+                </div>
+                <Badge variant={a.status === "completed" ? "default" : "outline"}>
+                  {a.status === "completed" ? "Completed" : "Finished"}
+                </Badge>
+              </CardContent>
+            </Card>
+          ))}
+          <p className="text-sm text-muted-foreground">
+            See everything on your{" "}
+            <Link
+              href="/student/profile"
+              className="text-primary underline underline-offset-4"
+            >
+              profile
+            </Link>
+            .
+          </p>
+        </section>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
-﻿-- =====================================================================
--- MathDoc — FULL Supabase setup.
+-- =====================================================================
+-- MathDoc - FULL Supabase setup.
 -- Paste this WHOLE file into the Supabase SQL Editor and click RUN.
 -- Safe to re-run: the reset block below first removes any existing
 -- MathDoc tables (and their data) so you always get a clean install.
@@ -7,8 +7,8 @@
 -- =====================================================================
 
 -- ============ RESET (drops existing MathDoc objects) ============
-drop table if exists certificates, proof_submissions, tasks, invoices,
-  appointments, availability_slots, mcq_attempts, mcq_questions,
+drop table if exists session_notes, certificates, proof_submissions, tasks,
+  invoices, appointments, availability_slots, mcq_attempts, mcq_questions,
   settings, profiles cascade;
 drop type if exists user_role, slot_mode, appointment_mode,
   appointment_status, invoice_status, task_type, task_status,
@@ -360,7 +360,7 @@ create policy "mcq_questions: admin all" on mcq_questions
 -- ---------- mcq_attempts ----------
 create policy "mcq_attempts: own read" on mcq_attempts
   for select using (student_id = auth.uid() or is_admin());
--- Inserted server-side after grading (service role) â€” no client insert.
+-- Inserted server-side after grading (service role) — no client insert.
 
 -- ---------- availability_slots ----------
 create policy "slots: authenticated read" on availability_slots
@@ -429,12 +429,12 @@ create policy "certificates: own read" on certificates
 -- ============ supabase\migrations\004_grants.sql ============
 -- MathDoc access grants. Run after 003_rls.sql.
 -- Supabase normally adds these automatically, but if tables were created
--- through a non-standard connection they can be missing â€” this makes it
+-- through a non-standard connection they can be missing — this makes it
 -- explicit. RLS (003) still controls which ROWS each user can touch.
 
 grant usage on schema public to authenticated, service_role;
 
--- The service role is trusted server code â€” full access (bypasses RLS anyway).
+-- The service role is trusted server code — full access (bypasses RLS anyway).
 grant all privileges on all tables in schema public to service_role;
 grant usage, select on all sequences in schema public to service_role;
 
@@ -447,6 +447,37 @@ alter default privileges in schema public
   grant all privileges on tables to service_role;
 alter default privileges in schema public
   grant select, insert, update, delete on tables to authenticated;
+
+-- ============ supabase\migrations\005_session_notes.sql ============
+-- MathDoc: session notes (added one by one during/after a session).
+-- Run after 004_grants.sql.
+
+create table if not exists session_notes (
+  id uuid primary key default gen_random_uuid(),
+  appointment_id uuid not null references appointments (id) on delete cascade,
+  student_id uuid not null references profiles (id) on delete cascade,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists session_notes_student_idx
+  on session_notes (student_id, created_at desc);
+create index if not exists session_notes_appointment_idx
+  on session_notes (appointment_id);
+
+alter table session_notes enable row level security;
+
+-- Students read their own notes (they appear on their profile page);
+-- only the teacher writes them.
+drop policy if exists "session_notes: own read" on session_notes;
+create policy "session_notes: own read" on session_notes
+  for select using (student_id = auth.uid() or is_admin());
+
+drop policy if exists "session_notes: admin write" on session_notes;
+create policy "session_notes: admin write" on session_notes
+  for all using (is_admin()) with check (is_admin());
+
+grant select, insert, update, delete on session_notes to authenticated;
+grant all privileges on session_notes to service_role;
 
 -- ============ supabase\seed.sql ============
 -- MathDoc sample data. Run after the migrations (optional but recommended for dev).
@@ -471,17 +502,20 @@ insert into settings (key, value) values
   ('location', 'No. 12, Temple Road, Kandy')  -- shown in SMS for physical meetings
 on conflict (key) do update set value = excluded.value;
 
+-- NOTE: kept deliberately ASCII-only. Special characters (pi, degree signs,
+-- ellipses) get mangled when this file is copied through tools that assume
+-- a non-UTF-8 encoding. Type them directly in the admin panel instead.
 insert into mcq_questions (text, options, correct_index, sort_order) values
   ('What is the value of 3x when x = 4?',
    '["7", "12", "34", "1"]', 1, 1),
-  ('The angle in a semicircle is alwaysâ€¦',
-   '["45Â°", "60Â°", "90Â°", "180Â°"]', 2, 2),
+  ('The angle in a semicircle is always...',
+   '["45 degrees", "60 degrees", "90 degrees", "180 degrees"]', 2, 2),
   ('Solve: 2x + 6 = 14',
    '["x = 4", "x = 10", "x = 7", "x = 2"]', 0, 3),
-  ('The circumference of a circle with radius r isâ€¦',
-   '["Ï€rÂ²", "2Ï€r", "Ï€dÂ²", "rÂ²/2"]', 1, 4),
-  ('If a triangle has angles 50Â° and 60Â°, the third angle isâ€¦',
-   '["70Â°", "80Â°", "90Â°", "60Â°"]', 0, 5);
+  ('The circumference of a circle with radius r is...',
+   '["pi * r^2", "2 * pi * r", "pi * d^2", "r^2 / 2"]', 1, 4),
+  ('If a triangle has angles 50 and 60 degrees, the third angle is...',
+   '["70 degrees", "80 degrees", "90 degrees", "60 degrees"]', 0, 5);
 
 -- Sample free slots for the next 7 days (4pm & 5pm daily)
 insert into availability_slots (starts_at, ends_at, mode)
@@ -505,4 +539,3 @@ from generate_series(
   current_date + 7,
   interval '1 day'
 ) as d;
-

@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/server/auth";
+import {
+  Pagination,
+  PAGE_SIZE,
+  pageFrom,
+  rangeFor,
+} from "@/components/site/Pagination";
 import type { Profile } from "@/lib/shared/types";
 import { formatPhone } from "@/lib/shared/phone";
 import {
@@ -16,14 +22,22 @@ import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Students" };
 
-export default async function AdminStudentsPage() {
+export default async function AdminStudentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   await requireAdmin();
+  const page = pageFrom((await searchParams).page);
+  const [from, to] = rangeFor(page);
+
   const supabase = await createSupabaseServer();
-  const { data } = await supabase
+  const { data, count } = await supabase
     .from("profiles")
-    .select("*")
+    .select("*", { count: "exact" })
     .eq("role", "student")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
   const students = (data ?? []) as Profile[];
 
@@ -35,6 +49,7 @@ export default async function AdminStudentsPage() {
           No students have registered yet.
         </p>
       ) : (
+        <>
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
@@ -79,6 +94,13 @@ export default async function AdminStudentsPage() {
             </TableBody>
           </Table>
         </div>
+        <Pagination
+          page={page}
+          total={count ?? students.length}
+          basePath="/admin/students"
+          size={PAGE_SIZE}
+        />
+        </>
       )}
     </div>
   );

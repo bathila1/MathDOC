@@ -9,9 +9,12 @@ import { buildBookingSms } from "./sms";
 import {
   bookingSchema,
   slotSchema,
+  slotUpdateSchema,
   meetingLinkSchema,
   diagnosisSchema,
+  sessionNoteSchema,
 } from "@/lib/shared/schemas";
+import { recalcTaskStatuses } from "@/features/tasks/server/logic";
 import { z } from "zod";
 import {
   ok,
@@ -253,9 +256,10 @@ export async function setAppointmentStatus(
     .eq("id", id.data);
   if (error) return fail("Couldn't update the appointment.");
 
+  const admin = createSupabaseAdmin();
+
   // Cancelling frees the slot again
   if (status === "cancelled") {
-    const admin = createSupabaseAdmin();
     const { data: appt } = await admin
       .from("appointments")
       .select("slot_id")
@@ -269,7 +273,118 @@ export async function setAppointmentStatus(
     }
   }
 
+  // Completing a follow-up meeting ticks off its "Meet with Sir" checkpoint,
+  // so the student's journey reflects that the meeting actually happened.
+  if (status === "completed") {
+    const { data: checkpoints } = await admin
+      .from("tasks")
+      .select("id, appointment_id, status")
+      .eq("follow_up_appointment_id", id.data);
+    for (const task of checkpoints ?? []) {
+      if (task.status !== "approved") {
+        await admin
+          .from("tasks")
+          .update({ status: "approved" })
+          .eq("id", task.id);
+        await recalcTaskStatuses(task.appointment_id);
+      }
+    }
+  }
+
   revalidatePath(`/admin/appointments/${id.data}`);
   revalidatePath("/admin/appointments");
+  revalidatePath("/student");
+  revalidatePath("/student/sessions");
+  revalidatePath("/student/profile");
+  return ok(undefined);
+}
+
+// ---------------- Admin: slot editing ----------------
+
+/** Change an existing free slot between in-person / online / either. */
+export async function updateSlot(input: unknown): Promise<ActionResult<undefined>> {
+  const { user } = await requireAdmin();
+  const rl = await rateLimit("form", `user:${user.id}`);
+  if (!rl.allowed) return fail(rl.message!);
+
+  const parsed = slotUpdateSchema.safeParse(input);
+  if (!parsed.success) return fromZodError(parsed.error);
+
+  const supabase = await createSupabaseServer();
+  const { error } = await supabase
+    .from("availability_slots")
+    .update({ mode: parsed.data.mode })
+    .eq("id", parsed.data.slot_id);
+  if (error) return fail("Couldn't update the slot. Please try again.");
+
+  revalidatePath("/admin/availability");
+  return ok(undefined);
+}
+
+// ---------------- Admin: session notes ----------------
+
+/** Add one note to a session; notes also show on the student's profile. */
+export async function addSessionNote(
+  input: unknown
+): Promise<ActionResult<undefined>> {
+  const { user } = await requireAdmin();
+  const rl = await rateLimit("form", `user:${user.id}`);
+  if (!rl.allowed) return fail(rl.message!);
+
+  const parsed = sessionNoteSchema.safeParse(input);
+  if (!parsed.success) return fromZodError(parsed.error);
+
+  const supabase = await createSupabaseServer();
+  const { data: appt } = await supabase
+    .from("appointments")
+    .select("student_id")
+    .eq("id", parsed.data.appointment_id)
+    .maybeSingle();
+  if (!appt) return fail("We couldn't find that session.");
+
+  const { error } = await supabase.from("session_notes").insert({
+    appointment_id: parsed.data.appointment_id,
+    student_id: appt.student_id,
+    body: parsed.data.body,
+  });
+  if (error) {
+    console.error("addSessionNote failed:", error.message);
+    return fail("Couldn't save the note. Please try again.");
+  }
+
+  revalidatePath(`/admin/appointments/${parsed.data.appointment_id}`);
+  revalidatePath(`/admin/students/${appt.student_id}`);
+  revalidatePath("/student/profile");
+  return ok(undefined);
+}
+
+export async function deleteSessionNote(
+  noteId: string
+): Promise<ActionResult<undefined>> {
+  const { user } = await requireAdmin();
+  const rl = await rateLimit("form", `user:${user.id}`);
+  if (!rl.allowed) return fail(rl.message!);
+
+  const id = z.string().uuid().safeParse(noteId);
+  if (!id.success) return fail("Unknown note.");
+
+  const supabase = await createSupabaseServer();
+  const { data: note } = await supabase
+    .from("session_notes")
+    .select("appointment_id, student_id")
+    .eq("id", id.data)
+    .maybeSingle();
+
+  const { error } = await supabase
+    .from("session_notes")
+    .delete()
+    .eq("id", id.data);
+  if (error) return fail("Couldn't delete the note.");
+
+  if (note) {
+    revalidatePath(`/admin/appointments/${note.appointment_id}`);
+    revalidatePath(`/admin/students/${note.student_id}`);
+    revalidatePath("/student/profile");
+  }
   return ok(undefined);
 }

@@ -9,11 +9,14 @@ import {
 } from "@/features/booking/client/AppointmentAdminForms";
 import { TaskManager, type AdminTask } from "@/features/tasks/client/TaskManager";
 import { orderTasks, sessionNumbers } from "@/features/tasks/server/logic";
+import { SessionNotes } from "@/features/booking/client/SessionNotes";
+import { BackLink } from "@/components/site/BackLink";
 import type {
   Appointment,
   AvailabilitySlot,
   Invoice,
   Profile,
+  SessionNote,
   Task,
 } from "@/lib/shared/types";
 import {
@@ -62,6 +65,13 @@ export default async function AdminAppointmentPage({
     .from("tasks")
     .select("*, appointments!tasks_appointment_id_fkey(created_at)")
     .eq("student_id", appt.student_id);
+  const { data: noteRows } = await supabase
+    .from("session_notes")
+    .select("*")
+    .eq("appointment_id", id)
+    .order("created_at", { ascending: false });
+  const notes = (noteRows ?? []) as SessionNote[];
+
   const rows = (taskRows ?? []) as (Task & {
     appointments: { created_at: string } | null;
   })[];
@@ -73,6 +83,8 @@ export default async function AdminAppointmentPage({
 
   return (
     <div className="space-y-6">
+      <BackLink href="/admin/appointments" label="All appointments" />
+
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">
@@ -144,6 +156,21 @@ export default async function AdminAppointmentPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Notes added one by one — they follow the student to their profile */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Session notes
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              shown on {student.full_name ?? "the student"}&apos;s profile
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SessionNotes appointmentId={appt.id} notes={notes} />
+        </CardContent>
+      </Card>
 
       <Separator />
 
