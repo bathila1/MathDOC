@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
+import { ProfileDetailsCard } from "@/features/students/client/ProfileDetailsCard";
 import type {
   Appointment,
   AvailabilitySlot,
@@ -87,35 +88,25 @@ export default async function ProfilePage() {
     <div className="space-y-6">
       <BackLink href="/student" label="My plan" />
 
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.25em] text-primary uppercase">
-            About me
-          </p>
-          <h1 className="mt-1 text-3xl">My profile</h1>
-        </div>
-        <Button variant="outline" render={<Link href="/register" />}>
-          Edit details
-        </Button>
+      <div>
+        <p className="text-xs font-semibold tracking-[0.25em] text-primary uppercase">
+          About me
+        </p>
+        <h1 className="mt-1 text-3xl">My profile</h1>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>My details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
-            {details.map(([label, value]) => (
-              <div key={label} className="flex justify-between gap-4 border-b pb-2">
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="text-right font-medium">
-                  {value ?? <span className="text-muted-foreground/60">—</span>}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </CardContent>
-      </Card>
+      {/* Editing happens in place — no trip back to the register page */}
+      <ProfileDetailsCard
+        readOnlyRows={details}
+        values={{
+          full_name: profile.full_name,
+          school: profile.school,
+          grade: profile.grade,
+          guardian_name: profile.guardian_name,
+          guardian_phone: profile.guardian_phone,
+          address: profile.address,
+        }}
+      />
 
       <Card>
         <CardHeader>

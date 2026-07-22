@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
-const fields = [
+export const PROFILE_FIELDS = [
   { name: "full_name", label: "Full name", placeholder: "A. B. Perera" },
   { name: "school", label: "School", placeholder: "Your school" },
   { name: "grade", label: "Grade / Year", placeholder: "Grade 11" },
@@ -27,12 +27,24 @@ const fields = [
   },
 ] as const;
 
+export type ProfileValues = Partial<
+  Record<(typeof PROFILE_FIELDS)[number]["name"] | "address", string | null>
+>;
+
 export function ProfileForm({
   initial,
   mode = "register",
+  withCard = true,
+  onSaved,
+  onCancel,
 }: {
-  initial?: Partial<Record<(typeof fields)[number]["name"] | "address", string | null>>;
+  initial?: ProfileValues;
   mode?: "register" | "edit";
+  /** false renders just the fields, for embedding in an existing card */
+  withCard?: boolean;
+  /** when given, saving stays on the page instead of navigating away */
+  onSaved?: () => void;
+  onCancel?: () => void;
 }) {
   const router = useRouter();
   const [values, setValues] = useState<Record<string, string>>(() => {
@@ -61,12 +73,95 @@ export function ProfileForm({
         setTopError(res.fieldErrors ? null : res.error);
         return;
       }
-      // Editing returns to the profile; registering follows the server's
-      // suggestion (the quiz only if it hasn't been taken yet).
-      router.push(mode === "edit" ? "/student/profile" : res.data.next);
       router.refresh();
+      if (onSaved) {
+        onSaved(); // inline editing — stay where we are
+        return;
+      }
+      // Registering follows the server's suggestion (the quiz only if it
+      // hasn't been taken yet).
+      router.push(mode === "edit" ? "/student/profile" : res.data.next);
     });
   }
+
+  const body = (
+    <form onSubmit={onSubmit} className="space-y-4">
+      {PROFILE_FIELDS.map((f) => (
+        <div key={f.name} className="space-y-2">
+          <Label htmlFor={f.name}>{f.label}</Label>
+          <Input
+            id={f.name}
+            placeholder={f.placeholder}
+            value={values[f.name] ?? ""}
+            onChange={(e) => set(f.name, e.target.value)}
+          />
+          {errors[f.name] && (
+            <p className="text-sm text-destructive">{errors[f.name]}</p>
+          )}
+        </div>
+      ))}
+      <div className="space-y-2">
+        <Label htmlFor="address">Home address</Label>
+        <Textarea
+          id="address"
+          rows={2}
+          value={values.address ?? ""}
+          onChange={(e) => set("address", e.target.value)}
+        />
+        {errors.address && (
+          <p className="text-sm text-destructive">{errors.address}</p>
+        )}
+      </div>
+      {topError && <p className="text-sm text-destructive">{topError}</p>}
+
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" size="lg" className="flex-1" disabled={pending}>
+          {pending
+            ? "Saving…"
+            : mode === "edit"
+              ? "Save changes"
+              : "Continue to the quiz"}
+        </Button>
+        {onCancel && (
+          <Button
+            type="button"
+            size="lg"
+            variant="outline"
+            disabled={pending}
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
+        )}
+      </div>
+
+      {mode === "register" && (
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-full"
+          disabled={pending}
+          onClick={() => {
+            setErrors({});
+            setTopError(null);
+            startTransition(async () => {
+              const res = await saveProfile({});
+              if (!res.ok) {
+                setTopError(res.error);
+                return;
+              }
+              router.push(res.data.next);
+              router.refresh();
+            });
+          }}
+        >
+          Skip for now
+        </Button>
+      )}
+    </form>
+  );
+
+  if (!withCard) return body;
 
   return (
     <Card className="w-full max-w-xl">
@@ -77,72 +172,7 @@ export function ProfileForm({
           optional — fill what you like, you can come back later.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={onSubmit} className="space-y-4">
-          {fields.map((f) => (
-            <div key={f.name} className="space-y-2">
-              <Label htmlFor={f.name}>{f.label}</Label>
-              <Input
-                id={f.name}
-                placeholder={f.placeholder}
-                value={values[f.name] ?? ""}
-                onChange={(e) => set(f.name, e.target.value)}
-              />
-              {errors[f.name] && (
-                <p className="text-sm text-destructive">{errors[f.name]}</p>
-              )}
-            </div>
-          ))}
-          <div className="space-y-2">
-            <Label htmlFor="address">Home address</Label>
-            <Textarea
-              id="address"
-              rows={2}
-              value={values.address ?? ""}
-              onChange={(e) => set("address", e.target.value)}
-            />
-            {errors.address && (
-              <p className="text-sm text-destructive">{errors.address}</p>
-            )}
-          </div>
-          {topError && <p className="text-sm text-destructive">{topError}</p>}
-          <Button
-            type="submit"
-            size="lg"
-            className="w-full"
-            disabled={pending}
-          >
-            {pending
-              ? "Saving…"
-              : mode === "edit"
-                ? "Save changes"
-                : "Continue to the quiz"}
-          </Button>
-          {mode === "register" && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              disabled={pending}
-              onClick={() => {
-                setErrors({});
-                setTopError(null);
-                startTransition(async () => {
-                  const res = await saveProfile({});
-                  if (!res.ok) {
-                    setTopError(res.error);
-                    return;
-                  }
-                  router.push(res.data.next);
-                  router.refresh();
-                });
-              }}
-            >
-              Skip for now
-            </Button>
-          )}
-        </form>
-      </CardContent>
+      <CardContent>{body}</CardContent>
     </Card>
   );
 }
