@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { LogoutButton } from "@/features/auth/client/LogoutButton";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/brand/Logo";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CalendarDays, CircleUser } from "lucide-react";
 
 export default async function StudentLayout({
@@ -29,34 +28,26 @@ export default async function StudentLayout({
             <Button variant="ghost" size="sm" render={<Link href="/student/book" />}>
               Book
             </Button>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    render={<Link href="/student/sessions" aria-label="Upcoming sessions" />}
-                  >
-                    <CalendarDays className="size-5" />
-                  </Button>
-                }
-              />
-              <TooltipContent>Upcoming sessions</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    render={<Link href="/student/profile" aria-label="My profile" />}
-                  >
-                    <CircleUser className="size-5" />
-                  </Button>
-                }
-              />
-              <TooltipContent>My profile</TooltipContent>
-            </Tooltip>
+            {/* Plain links, not Tooltip-wrapped Buttons: nesting our Button
+                inside a Base UI trigger makes both set `data-slot`, which
+                mismatches between server and client and breaks hydration.
+                `title` gives the same hover hint natively. */}
+            <Link
+              href="/student/sessions"
+              aria-label="Upcoming sessions"
+              title="Upcoming sessions"
+              className="inline-flex size-8 items-center justify-center rounded-lg hover:bg-muted"
+            >
+              <CalendarDays className="size-5" />
+            </Link>
+            <Link
+              href="/student/profile"
+              aria-label="My profile"
+              title="My profile"
+              className="inline-flex size-8 items-center justify-center rounded-lg hover:bg-muted"
+            >
+              <CircleUser className="size-5" />
+            </Link>
             <LogoutButton />
           </nav>
         </div>

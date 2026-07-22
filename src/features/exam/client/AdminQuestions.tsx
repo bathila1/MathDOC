@@ -221,7 +221,7 @@ export function AdminQuestions({ questions }: { questions: McqQuestion[] }) {
           open={addOpen}
           setOpen={setAddOpen}
           trigger={
-            <Button>
+            <Button data-slot="dialog-trigger">
               <Plus className="size-4" /> Add question
             </Button>
           }
@@ -304,7 +304,11 @@ export function AdminQuestions({ questions }: { questions: McqQuestion[] }) {
                   open={editId === q.id}
                   setOpen={(v) => setEditId(v ? q.id : null)}
                   trigger={
-                    <Button variant="ghost" size="icon">
+                    <Button
+                      data-slot="dialog-trigger"
+                      variant="ghost"
+                      size="icon"
+                    >
                       <Pencil className="size-4" />
                     </Button>
                   }

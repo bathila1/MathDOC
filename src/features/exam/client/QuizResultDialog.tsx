@@ -50,7 +50,9 @@ export function QuizResultDialog({
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger
             render={
-              <Button variant="outline" size="sm">
+              // data-slot must match what DialogTrigger stamps on the DOM,
+              // otherwise server and client HTML disagree (hydration error).
+              <Button data-slot="dialog-trigger" variant="outline" size="sm">
                 <Eye className="size-4" /> Show answers
               </Button>
             }

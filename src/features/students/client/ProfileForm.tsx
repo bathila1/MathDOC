@@ -61,7 +61,9 @@ export function ProfileForm({
         setTopError(res.fieldErrors ? null : res.error);
         return;
       }
-      router.push(mode === "edit" ? "/student/profile" : "/student/exam");
+      // Editing returns to the profile; registering follows the server's
+      // suggestion (the quiz only if it hasn't been taken yet).
+      router.push(mode === "edit" ? "/student/profile" : res.data.next);
       router.refresh();
     });
   }
@@ -131,7 +133,7 @@ export function ProfileForm({
                     setTopError(res.error);
                     return;
                   }
-                  router.push("/student/exam");
+                  router.push(res.data.next);
                   router.refresh();
                 });
               }}

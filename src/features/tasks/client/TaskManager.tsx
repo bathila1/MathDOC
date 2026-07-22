@@ -294,7 +294,7 @@ export function TaskManager({
             initial={{ type: "task", title: "", description: "", attachment_key: null }}
             onSave={create}
             trigger={
-              <Button>
+              <Button data-slot="dialog-trigger">
                 <Plus className="size-4" /> Add task
               </Button>
             }
@@ -420,7 +420,11 @@ export function TaskManager({
                       }}
                       onSave={(s) => edit(t.id, s)}
                       trigger={
-                        <Button variant="ghost" size="icon">
+                        <Button
+                          data-slot="dialog-trigger"
+                          variant="ghost"
+                          size="icon"
+                        >
                           <Pencil className="size-4" />
                         </Button>
                       }

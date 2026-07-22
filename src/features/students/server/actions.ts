@@ -20,7 +20,7 @@ import { revalidatePath } from "next/cache";
  */
 export async function saveProfile(
   input: unknown
-): Promise<ActionResult<undefined>> {
+): Promise<ActionResult<{ next: string }>> {
   const auth = await getAuth();
   if (!auth) return fail("Please log in first.");
   if (auth.profile.role !== "student") return fail("Only students can register.");
@@ -41,8 +41,18 @@ export async function saveProfile(
     console.error("saveProfile failed:", error.message);
     return fail("We couldn't save your details. Please try again.");
   }
+
+  // Only send them to the quiz if they still owe it; otherwise straight in.
+  const { data: attempt } = await admin
+    .from("mcq_attempts")
+    .select("id")
+    .eq("student_id", auth.user.id)
+    .limit(1)
+    .maybeSingle();
+
   revalidatePath("/student");
-  return ok(undefined);
+  revalidatePath("/student/profile");
+  return ok({ next: attempt ? "/student" : "/student/exam" });
 }
 
 /** Teacher assigns a knowledge category to a student. */
