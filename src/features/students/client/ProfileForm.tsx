@@ -104,7 +104,12 @@ export function ProfileForm({
             )}
           </div>
           {topError && <p className="text-sm text-destructive">{topError}</p>}
-          <Button type="submit" className="w-full" disabled={pending}>
+          <Button
+            type="submit"
+            size="lg"
+            className="w-full"
+            disabled={pending}
+          >
             {pending
               ? "Saving…"
               : mode === "edit"

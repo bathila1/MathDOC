@@ -28,12 +28,17 @@ export function AuthSplit({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* scrollable form column */}
-      <main className="bg-graph flex min-h-screen w-full flex-col items-center justify-center gap-6 px-5 py-10 lg:ml-[63%] lg:h-screen lg:w-[37%] lg:overflow-y-auto">
-        <Link href="/" className="lg:hidden">
-          <LogoIcon className="size-12" />
-        </Link>
-        {children}
+      {/* Scrollable form column. NOTE: `my-auto` centres the content instead
+          of `justify-center` — with overflow-y-auto, justify-center clips
+          the top and bottom of anything taller than the screen (which hid
+          the register form's submit button). */}
+      <main className="bg-graph flex min-h-screen w-full flex-col items-center overflow-y-auto px-5 py-10 lg:ml-[63%] lg:h-screen lg:w-[37%]">
+        <div className="my-auto flex w-full flex-col items-center gap-6">
+          <Link href="/" className="lg:hidden">
+            <LogoIcon className="size-12" />
+          </Link>
+          {children}
+        </div>
       </main>
     </div>
   );
