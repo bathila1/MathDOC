@@ -6,8 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BackLink } from "@/components/site/BackLink";
+import { BookedSessionCard } from "@/features/booking/client/BookedSessionCard";
 import { format } from "date-fns";
-import { Video, MapPin } from "lucide-react";
 
 export const metadata = { title: "My sessions" };
 
@@ -74,58 +74,18 @@ export default async function SessionsPage() {
       ) : (
         <div className="space-y-3">
           {upcoming.map((a) => (
-            <Card key={a.id}>
-              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex size-14 flex-col items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-                    <span className="text-xs font-semibold uppercase">
-                      {format(new Date(a.availability_slots.starts_at), "MMM")}
-                    </span>
-                    <span className="font-heading text-xl font-bold leading-none">
-                      {format(new Date(a.availability_slots.starts_at), "d")}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-semibold">
-                      {format(
-                        new Date(a.availability_slots.starts_at),
-                        "EEEE, h:mm a"
-                      )}{" "}
-                      – {format(new Date(a.availability_slots.ends_at), "h:mm a")}
-                    </p>
-                    <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      {a.mode === "online" ? (
-                        <Video className="size-3.5" />
-                      ) : (
-                        <MapPin className="size-3.5" />
-                      )}
-                      {a.mode === "online" ? "Online" : "In person"}
-                      {a.is_follow_up && " · Follow-up with Sir"}
-                    </p>
-                    {a.mode === "online" && a.meeting_link && (
-                      <a
-                        href={a.meeting_link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-medium text-primary underline underline-offset-4"
-                      >
-                        Join the meeting
-                      </a>
-                    )}
-                  </div>
-                </div>
-                {a.status === "pending_payment" ? (
-                  <Button
-                    size="sm"
-                    render={<Link href={`/student/book/payment/${a.id}`} />}
-                  >
-                    Complete payment
-                  </Button>
-                ) : (
-                  <Badge variant="secondary">Confirmed</Badge>
-                )}
-              </CardContent>
-            </Card>
+            <BookedSessionCard
+              key={a.id}
+              session={{
+                id: a.id,
+                startsAt: a.availability_slots.starts_at,
+                endsAt: a.availability_slots.ends_at,
+                mode: a.mode,
+                status: a.status,
+                isFollowUp: a.is_follow_up,
+                meetingLink: a.meeting_link,
+              }}
+            />
           ))}
         </div>
       )}

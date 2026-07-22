@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { getAttemptForStudent } from "@/features/exam/server/queries";
+import { getActiveBooking } from "@/features/booking/server/queries";
+import { BookedSessionCard } from "@/features/booking/client/BookedSessionCard";
 import {
   needsRecalc,
   orderTasks,
@@ -31,8 +33,9 @@ export default async function StudentDashboard() {
   const { user, profile } = await requireStudent();
   const supabase = await createSupabaseServer();
 
-  const [attempt, taskRes, certRes, proofRes] = await Promise.all([
+  const [attempt, booking, taskRes, certRes, proofRes] = await Promise.all([
     getAttemptForStudent(user.id),
+    getActiveBooking(user.id),
     supabase
       .from("tasks")
       .select("*, appointments!tasks_appointment_id_fkey(created_at)")
@@ -154,6 +157,35 @@ export default async function StudentDashboard() {
           <CardContent>
             <Button render={<Link href="/student/exam" />}>
               Start the quiz
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* The student's one live booking */}
+      {booking ? (
+        <section className="space-y-3">
+          <h2 className="text-xl">Your next session</h2>
+          <BookedSessionCard
+            session={{
+              id: booking.id,
+              startsAt: booking.availability_slots.starts_at,
+              endsAt: booking.availability_slots.ends_at,
+              mode: booking.mode,
+              status: booking.status,
+              isFollowUp: booking.is_follow_up,
+              meetingLink: booking.meeting_link,
+            }}
+          />
+        </section>
+      ) : (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+            <p className="text-sm text-muted-foreground">
+              You have no session booked at the moment.
+            </p>
+            <Button size="sm" render={<Link href="/student/book" />}>
+              Book a session
             </Button>
           </CardContent>
         </Card>

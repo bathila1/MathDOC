@@ -1,6 +1,11 @@
+import Link from "next/link";
 import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
+import { getActiveBooking } from "@/features/booking/server/queries";
 import { StudentSlotCalendar } from "@/features/booking/client/calendar/StudentSlotCalendar";
+import { BookedSessionCard } from "@/features/booking/client/BookedSessionCard";
+import { BackLink } from "@/components/site/BackLink";
+import { Button } from "@/components/ui/button";
 import type { AvailabilitySlot } from "@/lib/shared/types";
 import { z } from "zod";
 
@@ -11,11 +16,42 @@ export default async function BookPage({
 }: {
   searchParams: Promise<{ follow_up_task?: string }>;
 }) {
-  await requireStudent();
+  const { user } = await requireStudent();
   const { follow_up_task } = await searchParams;
   const followUpTaskId = z.string().uuid().safeParse(follow_up_task).success
     ? follow_up_task
     : undefined;
+
+  // One live booking at a time — show it instead of the calendar.
+  const active = await getActiveBooking(user.id);
+  if (active) {
+    return (
+      <div className="space-y-6">
+        <BackLink href="/student" label="My plan" />
+        <div>
+          <h1 className="text-3xl">You already have a session booked</h1>
+          <p className="text-muted-foreground">
+            You can only hold one booking at a time. Cancel this one if you
+            need a different time.
+          </p>
+        </div>
+        <BookedSessionCard
+          session={{
+            id: active.id,
+            startsAt: active.availability_slots.starts_at,
+            endsAt: active.availability_slots.ends_at,
+            mode: active.mode,
+            status: active.status,
+            isFollowUp: active.is_follow_up,
+            meetingLink: active.meeting_link,
+          }}
+        />
+        <Button variant="outline" render={<Link href="/student/sessions" />}>
+          View my sessions
+        </Button>
+      </div>
+    );
+  }
 
   const supabase = await createSupabaseServer();
   const { data } = await supabase
@@ -27,6 +63,7 @@ export default async function BookPage({
 
   return (
     <div className="space-y-6">
+      <BackLink href="/student" label="My plan" />
       <div>
         <h1 className="text-3xl">
           {followUpTaskId ? "Book your follow-up with Sir" : "Book a session"}

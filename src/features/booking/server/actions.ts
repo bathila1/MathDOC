@@ -15,6 +15,7 @@ import {
   sessionNoteSchema,
 } from "@/lib/shared/schemas";
 import { recalcTaskStatuses } from "@/features/tasks/server/logic";
+import { getActiveBooking } from "./queries";
 import { z } from "zod";
 import {
   ok,
@@ -95,6 +96,14 @@ export async function bookSlot(
   const parsed = bookingSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
   const { slot_id, mode, follow_up_task_id } = parsed.data;
+
+  // One live booking per student — they must cancel before booking again.
+  const existing = await getActiveBooking(auth.user.id);
+  if (existing) {
+    return fail(
+      "You already have a session booked. Please cancel it before booking another one."
+    );
+  }
 
   const supabase = await createSupabaseServer();
   const { data, error } = await supabase.rpc("book_appointment", {
@@ -196,6 +205,74 @@ async function sendBookingSms(appointmentId: string): Promise<string | null> {
     await sendSms(phone, message);
   }
   return token;
+}
+
+/**
+ * Student cancels their own booking. Frees the slot so it can be booked
+ * again, and unlinks any "Meet with Sir" checkpoint it was made for.
+ * Uses the service role because students have no UPDATE policy on
+ * appointments — ownership is checked explicitly first.
+ */
+export async function cancelMyBooking(
+  appointmentId: string
+): Promise<ActionResult<undefined>> {
+  const auth = await getAuth();
+  if (!auth) return fail("Please log in first.");
+  if (auth.profile.role !== "student") return fail("Only students can do that.");
+
+  const rl = await rateLimit("booking", `user:${auth.user.id}`);
+  if (!rl.allowed) return fail(rl.message!);
+
+  const id = z.string().uuid().safeParse(appointmentId);
+  if (!id.success) return fail("Unknown booking.");
+
+  const admin = createSupabaseAdmin();
+  const { data: appt } = await admin
+    .from("appointments")
+    .select("id, slot_id, status, student_id, availability_slots(ends_at)")
+    .eq("id", id.data)
+    .eq("student_id", auth.user.id) // ownership check
+    .maybeSingle();
+  if (!appt) return fail("We couldn't find that booking.");
+
+  const row = appt as unknown as {
+    id: string;
+    slot_id: string;
+    status: string;
+    availability_slots: { ends_at: string } | null;
+  };
+  if (row.status === "cancelled") return fail("This booking is already cancelled.");
+  if (row.status === "completed") {
+    return fail("This session is already finished, so it can't be cancelled.");
+  }
+  if (
+    row.availability_slots &&
+    new Date(row.availability_slots.ends_at).getTime() <= Date.now()
+  ) {
+    return fail("This session has already passed.");
+  }
+
+  await admin
+    .from("appointments")
+    .update({ status: "cancelled" })
+    .eq("id", id.data);
+  await admin
+    .from("availability_slots")
+    .update({ status: "free" })
+    .eq("id", row.slot_id);
+
+  // A checkpoint meeting can be rebooked afterwards.
+  await admin
+    .from("tasks")
+    .update({ follow_up_appointment_id: null })
+    .eq("follow_up_appointment_id", id.data);
+
+  revalidatePath("/student");
+  revalidatePath("/student/sessions");
+  revalidatePath("/student/book");
+  revalidatePath("/student/profile");
+  revalidatePath("/admin/appointments");
+  return ok(undefined);
 }
 
 // ---------------- Admin: appointment management ----------------
