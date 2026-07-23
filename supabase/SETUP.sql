@@ -605,3 +605,11 @@ do $$ begin
       ('Meet with Sir', 'A quick check-in to review your progress so far.', 'meet_sir', false, null, 4);
   end if;
 end $$;
+
+
+-- ============ Phase 2, Slice 2b: multiple media per task ============
+-- (Same as migrations/008_phase2_multi_media.sql — safe to re-run.)
+alter table tasks add column if not exists youtube_url text;
+alter table tasks add column if not exists facebook_url text;
+alter table tasks add column if not exists video_key text;
+alter table tasks add column if not exists voice_key text;

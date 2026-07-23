@@ -25,7 +25,7 @@ import {
   Star,
 } from "lucide-react";
 import { format } from "date-fns";
-import type { MediaType, TaskStatus, TaskType } from "@/lib/shared/types";
+import type { TaskStatus, TaskType } from "@/lib/shared/types";
 
 export interface BoardTask {
   id: string;
@@ -41,9 +41,10 @@ export interface BoardTask {
   isPriority: boolean;
   timerSeconds: number | null;
   dueAt: string | null;
-  mediaType: MediaType | null;
-  mediaUrl: string | null; // raw link for youtube/facebook
-  mediaFileUrl: string | null; // presigned url for uploaded video/voice
+  youtubeUrl: string | null;
+  facebookUrl: string | null;
+  videoUrl: string | null; // presigned url for an uploaded video
+  voiceUrl: string | null; // presigned url for a voice note
   questionImageUrl: string | null;
 }
 
@@ -232,9 +233,10 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
 
           <div className="mt-4 space-y-4">
             <TaskMedia
-              mediaType={selected.mediaType}
-              mediaUrl={selected.mediaUrl}
-              mediaFileUrl={selected.mediaFileUrl}
+              youtubeUrl={selected.youtubeUrl}
+              facebookUrl={selected.facebookUrl}
+              videoUrl={selected.videoUrl}
+              voiceUrl={selected.voiceUrl}
               questionImageUrl={selected.questionImageUrl}
             />
 

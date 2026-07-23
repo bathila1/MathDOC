@@ -103,9 +103,11 @@ export interface Task {
   is_priority: boolean;
   timer_seconds: number | null;
   due_at: string | null;
-  media_type: MediaType | null;
-  media_url: string | null; // original link for youtube/facebook
-  media_key: string | null; // R2 key for uploaded video / voice note
+  // Media — any combination may be set on one task.
+  youtube_url: string | null;
+  facebook_url: string | null;
+  video_key: string | null; // R2 key for an uploaded video
+  voice_key: string | null; // R2 key for a voice note
   question_image_key: string | null;
   created_at: string;
   updated_at: string;

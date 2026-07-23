@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import type { DefaultTask, MediaType, Task } from "@/lib/shared/types";
+import type { DefaultTask, Task } from "@/lib/shared/types";
 import {
   addTask,
   updateTask,
@@ -16,9 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -71,9 +72,10 @@ interface EditorState {
   is_priority: boolean;
   timer_minutes: number | null;
   due_at: string | null; // datetime-local string
-  media_type: MediaType | null;
-  media_url: string | null;
-  media_key: string | null;
+  youtube_url: string | null;
+  facebook_url: string | null;
+  video_key: string | null;
+  voice_key: string | null;
   question_image_key: string | null;
 }
 
@@ -85,9 +87,10 @@ const emptyEditor: EditorState = {
   is_priority: false,
   timer_minutes: null,
   due_at: null,
-  media_type: null,
-  media_url: null,
-  media_key: null,
+  youtube_url: null,
+  facebook_url: null,
+  video_key: null,
+  voice_key: null,
   question_image_key: null,
 };
 
@@ -108,20 +111,36 @@ function taskToEditor(t: Task): EditorState {
     is_priority: t.is_priority,
     timer_minutes: t.timer_seconds ? Math.round(t.timer_seconds / 60) : null,
     due_at: t.due_at ? isoToLocalInput(t.due_at) : null,
-    media_type: t.media_type,
-    media_url: t.media_url,
-    media_key: t.media_key,
+    youtube_url: t.youtube_url,
+    facebook_url: t.facebook_url,
+    video_key: t.video_key,
+    voice_key: t.voice_key,
     question_image_key: t.question_image_key,
   };
 }
 
-const mediaOptions: { value: MediaType | null; label: string; icon: typeof Video }[] = [
-  { value: null, label: "None", icon: Paperclip },
-  { value: "youtube", label: "YouTube", icon: PlayCircle },
-  { value: "facebook", label: "Facebook", icon: MonitorPlay },
-  { value: "video", label: "Upload", icon: Video },
-  { value: "voice", label: "Voice", icon: Mic },
-];
+/** A titled block inside the editor with an uppercase label + optional hint. */
+function Section({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+          {title}
+        </p>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
 
 function TaskEditor({
   title,
@@ -183,16 +202,17 @@ function TaskEditor({
       }}
     >
       <DialogTrigger render={trigger} />
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+
+        <div className="space-y-5">
           {templates && templates.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 rounded-lg bg-muted/40 p-3">
               <Label>Start from a template (optional)</Label>
               <select
-                className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                 defaultValue=""
                 onChange={(e) => {
                   const t = templates.find((x) => x.id === e.target.value);
@@ -213,166 +233,205 @@ function TaskEditor({
             </div>
           )}
 
-          <Tabs
-            value={state.type}
-            onValueChange={(v) =>
-              setState((s) => ({ ...s, type: v as EditorState["type"] }))
-            }
-          >
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="task">Task</TabsTrigger>
-              <TabsTrigger value="meet_sir">
-                <Handshake className="size-4" /> Meet with Sir
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          {state.type === "meet_sir" && (
-            <p className="text-sm text-muted-foreground">
-              A checkpoint — the student books a free follow-up meeting with
-              you. They can keep working on the next task meanwhile.
-            </p>
-          )}
-
-          <div className="space-y-2">
-            <Label>Title</Label>
-            <Input
-              value={state.title}
-              placeholder={
-                state.type === "meet_sir"
-                  ? "Mid-plan progress check"
-                  : "e.g. Practise 10 circle-theorem questions"
+          {/* ---- Basics ---- */}
+          <Section title="Basics">
+            <Tabs
+              value={state.type}
+              onValueChange={(v) =>
+                setState((s) => ({ ...s, type: v as EditorState["type"] }))
               }
-              onChange={(e) => setState((s) => ({ ...s, title: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Description</Label>
-            <Textarea
-              rows={4}
-              value={state.description}
-              placeholder="Explain exactly what the student should do…"
-              onChange={(e) =>
-                setState((s) => ({ ...s, description: e.target.value }))
-              }
-            />
-          </div>
-
-          {/* Priority + expiry apply to any task type */}
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={state.is_priority}
-              onCheckedChange={(v: boolean) =>
-                setState((s) => ({ ...s, is_priority: Boolean(v) }))
-              }
-            />
-            <span className="font-medium">
-              Mark as priority{" "}
-              <span className="text-muted-foreground">(shown in red)</span>
-            </span>
-          </label>
-
-          <div className="space-y-2">
-            <Label>Expires on (optional)</Label>
-            <div className="flex items-center gap-2">
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="task">Task</TabsTrigger>
+                <TabsTrigger value="meet_sir">
+                  <Handshake className="size-4" /> Meet with Sir
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {state.type === "meet_sir" && (
+              <p className="text-sm text-muted-foreground">
+                A checkpoint — the student books a free follow-up meeting with
+                you. They can keep working on the next task meanwhile.
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label>Title</Label>
               <Input
-                type="datetime-local"
-                value={state.due_at ?? ""}
+                value={state.title}
+                placeholder={
+                  state.type === "meet_sir"
+                    ? "Mid-plan progress check"
+                    : "e.g. Practise 10 circle-theorem questions"
+                }
                 onChange={(e) =>
-                  setState((s) => ({ ...s, due_at: e.target.value || null }))
+                  setState((s) => ({ ...s, title: e.target.value }))
                 }
               />
-              {state.due_at && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setState((s) => ({ ...s, due_at: null }))}
-                >
-                  Clear
-                </Button>
-              )}
             </div>
-          </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                rows={3}
+                value={state.description}
+                placeholder="Explain exactly what the student should do…"
+                onChange={(e) =>
+                  setState((s) => ({ ...s, description: e.target.value }))
+                }
+              />
+            </div>
+          </Section>
+
+          <Separator />
+
+          {/* ---- Priority & scheduling ---- */}
+          <Section title="Priority & scheduling">
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">Priority task</p>
+                <p className="text-xs text-muted-foreground">
+                  Highlighted in red for the student.
+                </p>
+              </div>
+              <Switch
+                checked={state.is_priority}
+                onCheckedChange={(v) =>
+                  setState((s) => ({ ...s, is_priority: v }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Expires on (optional)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="datetime-local"
+                  value={state.due_at ?? ""}
+                  onChange={(e) =>
+                    setState((s) => ({ ...s, due_at: e.target.value || null }))
+                  }
+                />
+                {state.due_at && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setState((s) => ({ ...s, due_at: null }))}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Section>
 
           {isTask && (
             <>
-              {/* Timer for a timed paper */}
-              <div className="space-y-2">
-                <Label>Time limit in minutes (optional)</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={600}
-                  placeholder="e.g. 60 for a timed paper"
-                  value={state.timer_minutes ?? ""}
-                  onChange={(e) =>
-                    setState((s) => ({
-                      ...s,
-                      timer_minutes: e.target.value ? Number(e.target.value) : null,
-                    }))
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  The student starts a timer, does the paper, and stops it — you
-                  get the time taken with their answers.
-                </p>
-              </div>
+              <Separator />
 
-              {/* Media */}
-              <div className="space-y-2">
-                <Label>Add a video or voice note (optional)</Label>
-                <div className="flex flex-wrap gap-2">
-                  {mediaOptions.map((opt) => {
-                    const active = state.media_type === opt.value;
-                    return (
-                      <Button
-                        key={opt.label}
-                        type="button"
-                        size="sm"
-                        variant={active ? "default" : "outline"}
-                        onClick={() =>
-                          setState((s) => ({
-                            ...s,
-                            media_type: opt.value,
-                            media_url: null,
-                            media_key: null,
-                          }))
-                        }
-                      >
-                        <opt.icon className="size-4" /> {opt.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-
-                {(state.media_type === "youtube" ||
-                  state.media_type === "facebook") && (
-                  <Input
-                    placeholder={
-                      state.media_type === "youtube"
-                        ? "Paste the YouTube link"
-                        : "Paste the Facebook video link"
-                    }
-                    value={state.media_url ?? ""}
-                    onChange={(e) =>
-                      setState((s) => ({ ...s, media_url: e.target.value || null }))
+              {/* ---- Timer ---- */}
+              <Section title="Timer" hint="For a timed paper. The student starts and stops it; you get the time taken.">
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <p className="flex items-center gap-2 text-sm font-medium">
+                    <Timer className="size-4 text-primary" /> Set a time limit
+                  </p>
+                  <Switch
+                    checked={state.timer_minutes != null}
+                    onCheckedChange={(v) =>
+                      setState((s) => ({
+                        ...s,
+                        timer_minutes: v ? (s.timer_minutes ?? 60) : null,
+                      }))
                     }
                   />
+                </div>
+                {state.timer_minutes != null && (
+                  <div className="space-y-3 rounded-lg bg-primary/5 p-3">
+                    <div className="flex flex-wrap gap-2">
+                      {[15, 30, 45, 60, 90, 120].map((m) => (
+                        <Button
+                          key={m}
+                          type="button"
+                          size="sm"
+                          variant={state.timer_minutes === m ? "default" : "outline"}
+                          onClick={() =>
+                            setState((s) => ({ ...s, timer_minutes: m }))
+                          }
+                        >
+                          {m} min
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Custom:</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={600}
+                        className="w-24"
+                        value={state.timer_minutes ?? ""}
+                        onChange={(e) =>
+                          setState((s) => ({
+                            ...s,
+                            timer_minutes: e.target.value
+                              ? Number(e.target.value)
+                              : null,
+                          }))
+                        }
+                      />
+                      <span className="text-sm text-muted-foreground">minutes</span>
+                    </div>
+                  </div>
                 )}
+              </Section>
 
-                {state.media_type === "video" && (
-                  <div>
-                    <input
-                      ref={videoRef}
-                      type="file"
-                      accept="video/mp4,video/webm"
-                      className="hidden"
-                      onChange={(e) =>
-                        onUpload(e.target.files?.[0], "task_media", (key) =>
-                          setState((s) => ({ ...s, media_key: key }))
-                        )
-                      }
-                    />
+              <Separator />
+
+              {/* ---- Media (any combination) ---- */}
+              <Section
+                title="Media"
+                hint="Add any combination — a YouTube link, a Facebook link, an uploaded video and a voice note."
+              >
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <PlayCircle className="size-4" /> YouTube link
+                  </Label>
+                  <Input
+                    placeholder="https://youtu.be/…"
+                    value={state.youtube_url ?? ""}
+                    onChange={(e) =>
+                      setState((s) => ({ ...s, youtube_url: e.target.value || null }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <MonitorPlay className="size-4" /> Facebook video link
+                  </Label>
+                  <Input
+                    placeholder="https://facebook.com/…/videos/…"
+                    value={state.facebook_url ?? ""}
+                    onChange={(e) =>
+                      setState((s) => ({ ...s, facebook_url: e.target.value || null }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <Video className="size-4" /> Upload a video
+                  </Label>
+                  <input
+                    ref={videoRef}
+                    type="file"
+                    accept="video/mp4,video/webm"
+                    className="hidden"
+                    onChange={(e) =>
+                      onUpload(e.target.files?.[0], "task_media", (key) =>
+                        setState((s) => ({ ...s, video_key: key }))
+                      )
+                    }
+                  />
+                  <div className="flex items-center gap-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -383,100 +442,125 @@ function TaskEditor({
                       <Video className="size-4" />
                       {uploading
                         ? "Uploading…"
-                        : state.media_key
+                        : state.video_key
                           ? "Replace video"
-                          : "Upload a video (max 60 MB)"}
+                          : "Choose a video (max 60 MB)"}
                     </Button>
-                    {state.media_key && (
-                      <span className="ml-2 text-sm text-green-600">Video added ✓</span>
+                    {state.video_key && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setState((s) => ({ ...s, video_key: null }))}
+                      >
+                        Remove
+                      </Button>
                     )}
                   </div>
-                )}
+                </div>
 
-                {state.media_type === "voice" && (
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <Mic className="size-4" /> Voice note
+                  </Label>
                   <VoiceRecorder
-                    value={state.media_key}
-                    onChange={(key) =>
-                      setState((s) => ({ ...s, media_key: key }))
+                    value={state.voice_key}
+                    onChange={(key) => setState((s) => ({ ...s, voice_key: key }))}
+                  />
+                </div>
+              </Section>
+
+              <Separator />
+
+              {/* ---- Question image + attachment ---- */}
+              <Section title="Question & attachment">
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <ImageIcon className="size-4" /> Question as an image
+                  </Label>
+                  <input
+                    ref={imageRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) =>
+                      onUpload(e.target.files?.[0], "question_image", (key) =>
+                        setState((s) => ({ ...s, question_image_key: key }))
+                      )
                     }
                   />
-                )}
-              </div>
-
-              {/* Image-as-question */}
-              <div className="space-y-2">
-                <Label>Question as an image (optional)</Label>
-                <input
-                  ref={imageRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) =>
-                    onUpload(e.target.files?.[0], "question_image", (key) =>
-                      setState((s) => ({ ...s, question_image_key: key }))
-                    )
-                  }
-                />
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={uploading}
-                    onClick={() => imageRef.current?.click()}
-                  >
-                    <ImageIcon className="size-4" />
-                    {state.question_image_key ? "Replace image" : "Upload question image"}
-                  </Button>
-                  {state.question_image_key && (
+                  <div className="flex items-center gap-2">
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      onClick={() =>
-                        setState((s) => ({ ...s, question_image_key: null }))
-                      }
+                      disabled={uploading}
+                      onClick={() => imageRef.current?.click()}
                     >
-                      Remove
+                      <ImageIcon className="size-4" />
+                      {state.question_image_key ? "Replace image" : "Upload image"}
                     </Button>
-                  )}
+                    {state.question_image_key && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setState((s) => ({ ...s, question_image_key: null }))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Attachment (paper / PDF) */}
-              <div className="space-y-2">
-                <Label>Attachment — paper, PDF or image (optional)</Label>
-                <input
-                  ref={attachRef}
-                  type="file"
-                  accept="application/pdf,image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) =>
-                    onUpload(e.target.files?.[0], "task_attachment", (key) =>
-                      setState((s) => ({ ...s, attachment_key: key }))
-                    )
-                  }
-                />
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={uploading}
-                    onClick={() => attachRef.current?.click()}
-                  >
-                    <Paperclip className="size-4" />
-                    {state.attachment_key ? "Replace file" : "Attach file"}
-                  </Button>
-                  {state.attachment_key && (
-                    <span className="text-sm text-green-600">File attached ✓</span>
-                  )}
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <Paperclip className="size-4" /> Attachment — paper, PDF or image
+                  </Label>
+                  <input
+                    ref={attachRef}
+                    type="file"
+                    accept="application/pdf,image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) =>
+                      onUpload(e.target.files?.[0], "task_attachment", (key) =>
+                        setState((s) => ({ ...s, attachment_key: key }))
+                      )
+                    }
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={uploading}
+                      onClick={() => attachRef.current?.click()}
+                    >
+                      <Paperclip className="size-4" />
+                      {state.attachment_key ? "Replace file" : "Attach file"}
+                    </Button>
+                    {state.attachment_key && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setState((s) => ({ ...s, attachment_key: null }))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </Section>
             </>
           )}
         </div>
-        <DialogFooter>
+
+        <DialogFooter className="mt-2">
           <Button
             disabled={pending || uploading}
             onClick={() =>
@@ -494,13 +578,24 @@ function TaskEditor({
   );
 }
 
-/** Small icon summarising a task's media kind. */
-function mediaIcon(t: Task) {
-  if (t.media_type === "youtube") return <PlayCircle className="size-3.5 text-muted-foreground" />;
-  if (t.media_type === "facebook") return <MonitorPlay className="size-3.5 text-muted-foreground" />;
-  if (t.media_type === "video") return <Video className="size-3.5 text-muted-foreground" />;
-  if (t.media_type === "voice") return <Mic className="size-3.5 text-muted-foreground" />;
-  return null;
+/** Compact media chips summarising what's attached to a task. */
+function MediaChips({ t }: { t: Task }) {
+  const items: { icon: typeof Video; label: string }[] = [];
+  if (t.youtube_url) items.push({ icon: PlayCircle, label: "YouTube" });
+  if (t.facebook_url) items.push({ icon: MonitorPlay, label: "Facebook" });
+  if (t.video_key) items.push({ icon: Video, label: "Video" });
+  if (t.voice_key) items.push({ icon: Mic, label: "Voice" });
+  if (t.question_image_key) items.push({ icon: ImageIcon, label: "Image Q" });
+  if (t.attachment_key) items.push({ icon: Paperclip, label: "Attachment" });
+  return (
+    <>
+      {items.map((m) => (
+        <span key={m.label} className="inline-flex items-center gap-1">
+          <m.icon className="size-3.5" /> {m.label}
+        </span>
+      ))}
+    </>
+  );
 }
 
 /**
@@ -520,13 +615,10 @@ export function TaskManager({
   heading?: string;
 }) {
   const [, startTransition] = useTransition();
-  // Local copy so drag reordering feels instant.
   const [items, setItems] = useState(tasks);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
-  // Re-sync when the server sends a fresh list (React's adjust-during-render
-  // pattern — no effect needed).
   const [syncedTasks, setSyncedTasks] = useState(tasks);
   if (syncedTasks !== tasks) {
     setSyncedTasks(tasks);
@@ -560,7 +652,7 @@ export function TaskManager({
       const res = await reorderTasks(next.map((t) => t.id));
       if (!res.ok) {
         toast.error(res.error);
-        setItems(tasks); // put it back
+        setItems(tasks);
       }
     });
   }
@@ -717,21 +809,7 @@ export function TaskManager({
                           {new Date(t.due_at).toLocaleDateString()}
                         </span>
                       )}
-                      {t.question_image_key && (
-                        <span className="inline-flex items-center gap-1">
-                          <ImageIcon className="size-3.5" /> Image question
-                        </span>
-                      )}
-                      {mediaIcon(t) && (
-                        <span className="inline-flex items-center gap-1">
-                          {mediaIcon(t)} {t.media_type}
-                        </span>
-                      )}
-                      {t.attachment_key && (
-                        <span className="inline-flex items-center gap-1">
-                          <Paperclip className="size-3.5" /> Attachment
-                        </span>
-                      )}
+                      <MediaChips t={t} />
                     </div>
                   </div>
 

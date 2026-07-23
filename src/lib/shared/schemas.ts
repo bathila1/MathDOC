@@ -162,11 +162,9 @@ export const diagnosisSchema = z.object({
 
 // ---------- Tasks ----------
 
-export const mediaTypeEnum = z.enum(["youtube", "facebook", "video", "voice"]);
-
-// Base object shared by add + edit. Cross-field rules (media needs a url/key,
-// due date must parse) are applied in the server action so this stays a plain
-// object that .omit()/.extend() still work on.
+// Base object shared by add + edit. Cross-field rules (due date must parse)
+// are applied in the server action so this stays a plain object that
+// .omit()/.extend() still work on. Any combination of media may be attached.
 const taskBase = z.object({
   appointment_id: z.string().uuid(),
   type: z.enum(["task", "meet_sir"]),
@@ -191,9 +189,10 @@ const taskBase = z.object({
     .optional()
     .nullable(),
   due_at: z.string().trim().max(40).optional().nullable(), // datetime-local / ISO
-  media_type: mediaTypeEnum.optional().nullable(),
-  media_url: z.string().trim().max(500).optional().nullable(),
-  media_key: z.string().max(500).optional().nullable(),
+  youtube_url: z.string().trim().max(500).optional().nullable(),
+  facebook_url: z.string().trim().max(500).optional().nullable(),
+  video_key: z.string().max(500).optional().nullable(),
+  voice_key: z.string().max(500).optional().nullable(),
   question_image_key: z.string().max(500).optional().nullable(),
 });
 

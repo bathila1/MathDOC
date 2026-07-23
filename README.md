@@ -259,9 +259,11 @@ testing it.
   stops / restarts once; the time taken is sent to Sir with the proof), and an
   **expiry date** that blocks late submissions and shows an "expiring soon"
   alert on the admin dashboard. Plus **default-task templates** (managed under
-  the Placement exam tab, picked from the "Add task" box). Migration:
-  `supabase/migrations/007_phase2_task_media.sql` (needs the strict CSP
-  relaxation already in `next.config.ts` for YouTube/Facebook frames + mic).
+  the Placement exam tab, picked from the "Add task" box). A task can carry
+  **any combination** of media at once. Migrations:
+  `007_phase2_task_media.sql` then `008_phase2_multi_media.sql` (needs the
+  strict CSP relaxation already in `next.config.ts` for YouTube/Facebook
+  frames + mic).
 - [ ] **Slice 3** — proof shown under the task on the student page (pending
   badges kept in the separate tab too); **login activity** + active / partially
   active / inactive student status; **hidden Sir-only notes** on tasks;

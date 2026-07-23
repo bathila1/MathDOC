@@ -113,10 +113,6 @@ export default async function StudentDashboard() {
   const boardTasks: BoardTask[] = await Promise.all(
     allTasks.map(async (t) => {
       const proof = latestProof.get(t.id);
-      const mediaFileKey =
-        t.media_type === "video" || t.media_type === "voice"
-          ? t.media_key
-          : null;
       return {
         id: t.id,
         title: t.title,
@@ -135,9 +131,10 @@ export default async function StudentDashboard() {
         isPriority: t.is_priority,
         timerSeconds: t.timer_seconds,
         dueAt: t.due_at,
-        mediaType: t.media_type,
-        mediaUrl: t.media_url,
-        mediaFileUrl: mediaFileKey ? await getDownloadUrl(mediaFileKey) : null,
+        youtubeUrl: t.youtube_url,
+        facebookUrl: t.facebook_url,
+        videoUrl: t.video_key ? await getDownloadUrl(t.video_key) : null,
+        voiceUrl: t.voice_key ? await getDownloadUrl(t.voice_key) : null,
         questionImageUrl: t.question_image_key
           ? await getDownloadUrl(t.question_image_key)
           : null,

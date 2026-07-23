@@ -19,7 +19,6 @@ import {
   type ActionResult,
 } from "@/lib/shared/action-result";
 import { revalidatePath } from "next/cache";
-import type { MediaType } from "@/lib/shared/types";
 
 function refresh(appointmentId: string) {
   revalidatePath(`/admin/appointments/${appointmentId}`);
@@ -35,14 +34,16 @@ interface TaskFormFields {
   is_priority?: boolean;
   timer_minutes?: number | null;
   due_at?: string | null;
-  media_type?: MediaType | null;
-  media_url?: string | null;
-  media_key?: string | null;
+  youtube_url?: string | null;
+  facebook_url?: string | null;
+  video_key?: string | null;
+  voice_key?: string | null;
   question_image_key?: string | null;
 }
 
-/** Map validated form fields to task table columns (minutes→seconds, date→ISO,
- *  and drop any media field that doesn't match the chosen media type). */
+const clean = (v?: string | null) => (v && v.trim() ? v.trim() : null);
+
+/** Map validated form fields to task table columns (minutes→seconds, date→ISO). */
 function toTaskColumns(d: TaskFormFields) {
   const timer_seconds = d.timer_minutes ? d.timer_minutes * 60 : null;
 
@@ -52,32 +53,19 @@ function toTaskColumns(d: TaskFormFields) {
     if (!Number.isNaN(parsed.getTime())) due_at = parsed.toISOString();
   }
 
-  let media_type = d.media_type ?? null;
-  let media_url = d.media_url ?? null;
-  let media_key = d.media_key ?? null;
-  if (!media_type) {
-    media_url = null;
-    media_key = null;
-  } else if (media_type === "youtube" || media_type === "facebook") {
-    media_key = null;
-    if (!media_url) media_type = null; // link missing → treat as no media
-  } else {
-    media_url = null;
-    if (!media_key) media_type = null; // upload missing → treat as no media
-  }
-
   return {
     type: d.type,
     title: d.title,
     description: d.description,
-    attachment_key: d.attachment_key ?? null,
+    attachment_key: clean(d.attachment_key),
     is_priority: Boolean(d.is_priority),
     timer_seconds,
     due_at,
-    media_type,
-    media_url,
-    media_key,
-    question_image_key: d.question_image_key ?? null,
+    youtube_url: clean(d.youtube_url),
+    facebook_url: clean(d.facebook_url),
+    video_key: clean(d.video_key),
+    voice_key: clean(d.voice_key),
+    question_image_key: clean(d.question_image_key),
   };
 }
 
@@ -115,7 +103,12 @@ export async function addTask(input: unknown): Promise<ActionResult<undefined>> 
     student_id: appt.student_id,
     sort_order: (last?.sort_order ?? 0) + 1,
   });
-  if (error) return fail("Couldn't add the task. Please try again.");
+  if (error) {
+    console.error("addTask failed:", error.message);
+    return fail(
+      "Couldn't add the task. If this keeps happening, the latest database migration may not be applied yet."
+    );
+  }
 
   await recalcTaskStatuses(appointment_id);
   refresh(appointment_id);
@@ -143,7 +136,10 @@ export async function updateTask(input: unknown): Promise<ActionResult<undefined
     .from("tasks")
     .update(toTaskColumns(parsed.data))
     .eq("id", task_id);
-  if (error) return fail("Couldn't save the task. Please try again.");
+  if (error) {
+    console.error("updateTask failed:", error.message);
+    return fail("Couldn't save the task. Please try again.");
+  }
 
   await recalcTaskStatuses(existing.appointment_id);
   refresh(existing.appointment_id);
