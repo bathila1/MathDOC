@@ -1,4 +1,4 @@
--- MathDoc functions & triggers. Run after 001_schema.sql.
+-- MathDOC functions & triggers. Run after 001_schema.sql.
 
 -- True when the current session belongs to the teacher/admin.
 create or replace function is_admin()

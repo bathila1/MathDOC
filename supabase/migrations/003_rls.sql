@@ -1,4 +1,4 @@
--- MathDoc Row Level Security. Run after 002_functions.sql.
+-- MathDOC Row Level Security. Run after 002_functions.sql.
 -- Principle: students only ever see/touch their own rows; the teacher
 -- (is_admin()) has full access; sensitive writes (grading, payment bypass,
 -- task state, certificates) happen server-side via the service role, which

@@ -9,6 +9,7 @@ import {
   Users,
   FileCheck,
   ClipboardList,
+  Settings,
 } from "lucide-react";
 
 const nav = [
@@ -18,6 +19,7 @@ const nav = [
   { href: "/admin/students", label: "Students", icon: Users },
   { href: "/admin/proofs", label: "Proof reviews", icon: FileCheck },
   { href: "/admin/exam", label: "Placement exam", icon: ClipboardList },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export default async function AdminLayout({

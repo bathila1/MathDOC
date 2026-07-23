@@ -50,11 +50,11 @@ const statusText: Record<string, string> = {
 export async function renderInvoicePdf(view: InvoiceView): Promise<Buffer> {
   const { invoice, appointment, slot, student } = view;
   const doc = (
-    <Document title={`MathDoc Invoice ${invoice.id.slice(0, 8)}`}>
+    <Document title={`MathDOC Invoice ${invoice.id.slice(0, 8)}`}>
       <Page size="A4" style={styles.page}>
         <View style={styles.row}>
           <View>
-            <Text style={styles.brand}>MathDoc</Text>
+            <Text style={styles.brand}>MathDOC</Text>
             <Text style={styles.sub}>Personal Maths Coaching</Text>
           </View>
           <View>

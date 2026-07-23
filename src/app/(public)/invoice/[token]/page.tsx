@@ -51,7 +51,7 @@ export default async function InvoicePage({
       <div className="rounded-lg border p-8 shadow-sm print:border-0 print:shadow-none">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold">MathDoc</h1>
+            <h1 className="text-3xl font-bold">MathDOC</h1>
             <p className="text-sm text-muted-foreground">
               Personal Maths Coaching
             </p>

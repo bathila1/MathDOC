@@ -23,8 +23,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "MathDoc — Personal Maths Coaching",
-    template: "%s | MathDoc",
+    default: "MathDOC — Personal Maths Coaching",
+    template: "%s | MathDOC",
   },
   description:
     "Book one-to-one sessions with Sir, get a personal improvement plan, and earn your certificate.",

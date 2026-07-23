@@ -61,32 +61,28 @@ export interface StatusInput {
 
 /**
  * The single source of truth for the journey rules (pure — no database):
- *  - tasks run in one global order per student
- *  - submitting a proof unlocks the next task straight away; a rejection
- *    pulls the task back to `active`
- *  - "Meet with Sir" checkpoints never block progress: the student books
- *    the meeting and carries on with the next task meanwhile
+ *  - tasks run in one global order per student, shown as a sequence, but
+ *    NOTHING is ever locked: a student can do them in any order and, if one
+ *    is too hard, flag it and move on (see `student_flag`)
+ *  - a task with a pending proof shows as `proof_submitted` until Sir reviews
+ *  - an approved task stays `approved`
+ * The `locked` status is retained in the type only for old data; recalc never
+ * produces it, and any stored `locked` row is normalised to `active`.
  */
 export function computeJourneyStatuses<T extends StatusInput>(
   tasks: T[]
 ): Map<string, Task["status"]> {
   const ordered = orderTasks(tasks);
   const result = new Map<string, Task["status"]>();
-  let blocked = false;
 
   for (const task of ordered) {
     let next: Task["status"];
     if (task.status === "approved") {
       next = "approved";
-    } else if (blocked) {
-      next = "locked";
     } else if (task.hasPendingProof) {
       next = "proof_submitted";
-    } else if (task.type === "meet_sir") {
-      next = "active"; // open, but doesn't stop the next task unlocking
     } else {
-      next = "active";
-      blocked = true; // regular tasks hold the line until proof is sent
+      next = "active"; // every unfinished task is open — nothing blocks
     }
     result.set(task.id, next);
   }

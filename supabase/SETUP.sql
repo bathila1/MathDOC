@@ -1,12 +1,12 @@
 -- =====================================================================
--- MathDoc - FULL Supabase setup.
+-- MathDOC - FULL Supabase setup.
 -- Paste this WHOLE file into the Supabase SQL Editor and click RUN.
 -- Safe to re-run: the reset block below first removes any existing
--- MathDoc tables (and their data) so you always get a clean install.
+-- MathDOC tables (and their data) so you always get a clean install.
 -- Generated from supabase/migrations/*.sql + seed.sql
 -- =====================================================================
 
--- ============ RESET (drops existing MathDoc objects) ============
+-- ============ RESET (drops existing MathDOC objects) ============
 drop table if exists session_notes, certificates, proof_submissions, tasks,
   invoices, appointments, availability_slots, mcq_attempts, mcq_questions,
   settings, profiles cascade;
@@ -18,7 +18,7 @@ drop function if exists is_admin() cascade;
 drop function if exists set_updated_at() cascade;
 
 -- ============ supabase\migrations\001_schema.sql ============
--- MathDoc schema. Run this first in the Supabase SQL editor.
+-- MathDOC schema. Run this first in the Supabase SQL editor.
 create extension if not exists pgcrypto;
 
 -- ---------- Enums ----------
@@ -153,7 +153,7 @@ create table tasks (
   title text not null,
   description text not null,
   attachment_key text,                  -- R2 object key (PDF/image from the teacher)
-  status task_status not null default 'locked',
+  status task_status not null default 'active',
   follow_up_appointment_id uuid references appointments (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -187,7 +187,7 @@ create table certificates (
 create index certificates_student_idx on certificates (student_id);
 
 -- ============ supabase\migrations\002_functions.sql ============
--- MathDoc functions & triggers. Run after 001_schema.sql.
+-- MathDOC functions & triggers. Run after 001_schema.sql.
 
 -- True when the current session belongs to the teacher/admin.
 create or replace function is_admin()
@@ -318,7 +318,7 @@ revoke execute on function book_appointment(uuid, appointment_mode, uuid) from p
 grant execute on function book_appointment(uuid, appointment_mode, uuid) to authenticated;
 
 -- ============ supabase\migrations\003_rls.sql ============
--- MathDoc Row Level Security. Run after 002_functions.sql.
+-- MathDOC Row Level Security. Run after 002_functions.sql.
 -- Principle: students only ever see/touch their own rows; the teacher
 -- (is_admin()) has full access; sensitive writes (grading, payment bypass,
 -- task state, certificates) happen server-side via the service role, which
@@ -427,7 +427,7 @@ create policy "certificates: own read" on certificates
 -- Issued server-side (service role) when all tasks are approved.
 
 -- ============ supabase\migrations\004_grants.sql ============
--- MathDoc access grants. Run after 003_rls.sql.
+-- MathDOC access grants. Run after 003_rls.sql.
 -- Supabase normally adds these automatically, but if tables were created
 -- through a non-standard connection they can be missing — this makes it
 -- explicit. RLS (003) still controls which ROWS each user can touch.
@@ -449,7 +449,7 @@ alter default privileges in schema public
   grant select, insert, update, delete on tables to authenticated;
 
 -- ============ supabase\migrations\005_session_notes.sql ============
--- MathDoc: session notes (added one by one during/after a session).
+-- MathDOC: session notes (added one by one during/after a session).
 -- Run after 004_grants.sql.
 
 create table if not exists session_notes (
@@ -480,7 +480,7 @@ grant select, insert, update, delete on session_notes to authenticated;
 grant all privileges on session_notes to service_role;
 
 -- ============ supabase\seed.sql ============
--- MathDoc sample data. Run after the migrations (optional but recommended for dev).
+-- MathDOC sample data. Run after the migrations (optional but recommended for dev).
 
 -- Backfill profiles for any auth users that were created BEFORE the
 -- on_auth_user_created trigger existed (safe to re-run).
@@ -499,6 +499,7 @@ where id in (select id from auth.users where email = 'sir@mathdoc.local');
 
 insert into settings (key, value) values
   ('appointment_price', '2000'),
+  ('payments_enabled', 'false'),              -- pricing/payment step hidden until the gateway is ready
   ('location', 'No. 12, Temple Road, Kandy')  -- shown in SMS for physical meetings
 on conflict (key) do update set value = excluded.value;
 

@@ -60,7 +60,7 @@ export function SiteFooter() {
 
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-5 text-sm text-white/60 sm:flex-row">
-          <p>© {new Date().getFullYear()} MathDoc. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} MathDOC. All rights reserved.</p>
           <div className="flex gap-5">
             <a href="#" className="hover:text-white">
               Terms &amp; Conditions

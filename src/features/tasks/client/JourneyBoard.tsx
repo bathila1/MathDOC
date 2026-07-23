@@ -15,11 +15,11 @@ import { cn } from "@/lib/utils";
 import {
   Check,
   CheckCircle2,
+  Circle,
   FileText,
   Flag,
   Handshake,
   Hourglass,
-  Lock,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { TaskStatus, TaskType } from "@/lib/shared/types";
@@ -57,6 +57,8 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
 
   const total = tasks.length;
   const approved = tasks.filter((t) => t.status === "approved").length;
+  // The first still-to-finish task is highlighted as the suggested next step.
+  const currentId = tasks.find((t) => t.status !== "approved")?.id ?? "";
   const progress = total ? Math.round((approved / total) * 100) : 0;
   // The bar fills by completed tasks; the label sits at the end of the fill,
   // so the percentage always matches what the bar shows.
@@ -87,10 +89,12 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
           />
           <ol className="relative flex items-start justify-between">
             {tasks.map((t) => {
-              const isCurrent = t.status === "active";
-              const submitted = t.status === "proof_submitted";
               const reached = t.status === "approved";
-              const locked = t.status === "locked";
+              const submitted = t.status === "proof_submitted";
+              // The suggested "next" task is the first one still to finish —
+              // but nothing is locked, so every circle is tappable.
+              const isCurrent = t.id === currentId && !reached && !submitted;
+              const todo = !reached && !submitted && !isCurrent;
               const isSelected = t.id === selectedId;
 
               return (
@@ -100,12 +104,8 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
                       render={
                         <button
                           type="button"
-                          disabled={locked}
                           onClick={() => setSelectedId(t.id)}
-                          className={cn(
-                            "flex w-14 justify-center outline-none",
-                            locked && "cursor-not-allowed"
-                          )}
+                          className="flex w-14 justify-center outline-none"
                         />
                       }
                     >
@@ -115,12 +115,11 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
                         )}
                         <span
                           className={cn(
-                            "relative z-10 flex size-11 items-center justify-center rounded-full border-4 border-background shadow-sm transition-transform",
-                            !locked && "hover:scale-105",
+                            "relative z-10 flex size-11 items-center justify-center rounded-full border-4 border-background shadow-sm transition-transform hover:scale-105",
                             reached && "bg-brand-gradient text-white",
                             (isCurrent || submitted) &&
                               "bg-card text-primary ring-3 ring-primary",
-                            locked && "bg-muted text-muted-foreground/70",
+                            todo && "bg-muted text-muted-foreground",
                             isSelected && "ring-3 ring-foreground/70"
                           )}
                         >
@@ -133,7 +132,7 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
                           ) : isCurrent ? (
                             <Flag className="size-4" />
                           ) : (
-                            <Lock className="size-4" />
+                            <Circle className="size-4" />
                           )}
                         </span>
                       </span>
@@ -147,8 +146,8 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
                           : submitted
                             ? "Sent — waiting for Sir's review"
                             : isCurrent
-                              ? "Your current task"
-                              : "Locked — finish the tasks before it"}
+                              ? "Start here next"
+                              : "To do — tap to open"}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -190,7 +189,12 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
                 <Hourglass className="size-3" /> Being checked
               </Badge>
             )}
-            {selected.status === "active" && <Badge>Current task</Badge>}
+            {selected.status === "active" &&
+              (selected.id === currentId ? (
+                <Badge>Start here next</Badge>
+              ) : (
+                <Badge variant="outline">To do</Badge>
+              ))}
           </div>
 
           <h3 className="mt-3 text-xl">{selected.title}</h3>

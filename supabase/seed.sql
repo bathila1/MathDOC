@@ -1,4 +1,4 @@
--- MathDoc sample data. Run after the migrations (optional but recommended for dev).
+-- MathDOC sample data. Run after the migrations (optional but recommended for dev).
 
 -- Backfill profiles for any auth users that were created BEFORE the
 -- on_auth_user_created trigger existed (safe to re-run).

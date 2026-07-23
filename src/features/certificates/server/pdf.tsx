@@ -72,12 +72,12 @@ export async function renderCertificatePdf(
 ): Promise<Buffer> {
   const { certificate, studentName, taskCount } = view;
   const doc = (
-    <Document title={`MathDoc Certificate — ${studentName}`}>
+    <Document title={`MathDOC Certificate — ${studentName}`}>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.frame}>
           <View style={styles.inner}>
             <Text style={styles.eyebrow}>CERTIFICATE OF COMPLETION</Text>
-            <Text style={styles.brand}>MathDoc</Text>
+            <Text style={styles.brand}>MathDOC</Text>
             <Text style={styles.certifies}>This certifies that</Text>
             <Text style={styles.name}>{studentName}</Text>
             <Text style={styles.body}>

@@ -17,7 +17,7 @@ export function AuthSplit({ children }: { children: React.ReactNode }) {
         <div className="absolute bottom-12 left-12 max-w-lg text-white">
           <Link href="/" className="inline-flex items-center gap-2">
             <LogoIcon className="size-10" />
-            <span className="font-heading text-2xl font-bold">MathDoc</span>
+            <span className="font-heading text-2xl font-bold">MathDOC</span>
           </Link>
           <p className="mt-4 font-heading text-4xl leading-tight font-bold">
             Every student deserves a plan of their own.

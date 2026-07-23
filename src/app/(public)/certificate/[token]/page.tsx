@@ -45,7 +45,7 @@ export default async function CertificatePage({
         <p className="mt-4 text-sm uppercase tracking-[0.3em] text-muted-foreground">
           Certificate of Completion
         </p>
-        <h1 className="mt-2 text-2xl font-bold">MathDoc</h1>
+        <h1 className="mt-2 text-2xl font-bold">MathDOC</h1>
 
         <p className="mt-8 text-muted-foreground">This certifies that</p>
         <p className="mt-2 font-serif text-4xl font-bold italic">

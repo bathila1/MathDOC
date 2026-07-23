@@ -1,4 +1,4 @@
-export const APP_NAME = "MathDoc";
+export const APP_NAME = "MathDOC";
 export const TEACHER_NAME = "Sir"; // display name used across the UI
 
 // Appointment price in LKR (payment gateway comes later; invoice uses this)

@@ -1,4 +1,4 @@
--- MathDoc: session notes (added one by one during/after a session).
+-- MathDOC: session notes (added one by one during/after a session).
 -- Run after 004_grants.sql.
 
 create table if not exists session_notes (

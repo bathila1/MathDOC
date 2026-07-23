@@ -48,7 +48,7 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* MathDoc brand theme, matched to the logo: energetic red-orange gradient
+/* MathDOC brand theme, matched to the logo: energetic red-orange gradient
    palette, warm cream background, big friendly rounded corners. */
 :root {
   --background: oklch(1 0 0);
@@ -149,7 +149,7 @@
 }
 
 @layer utilities {
-  /* Brand gradient (matches the MathDoc logo) */
+  /* Brand gradient (matches the MathDOC logo) */
   .bg-brand-gradient {
     background-image: linear-gradient(
       135deg,

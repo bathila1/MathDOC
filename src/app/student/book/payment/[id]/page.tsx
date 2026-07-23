@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
+import { getPaymentsEnabled } from "@/lib/server/settings";
 import { PaymentPanel } from "@/features/booking/client/PaymentPanel";
 import type { Appointment } from "@/lib/shared/types";
 
@@ -24,7 +25,8 @@ export default async function PaymentPage({
   if (!data) notFound();
 
   const appointment = data as Appointment;
-  if (appointment.status !== "pending_payment") {
+  // Payments hidden, or the booking is already confirmed → skip this page.
+  if (appointment.status !== "pending_payment" || !(await getPaymentsEnabled())) {
     redirect(`/student/book/confirmed/${appointment.id}`);
   }
 

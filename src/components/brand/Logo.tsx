@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * MathDoc logo, recreated as SVG from the brand image: a white document
+ * MathDOC logo, recreated as SVG from the brand image: a white document
  * outline with corner ticks on a red-orange gradient tile.
  * Drop the original file at public/logo.png to use it instead (see README).
  */
@@ -62,7 +62,7 @@ export function Logo({
           textClassName
         )}
       >
-        MathDoc
+        MathDOC
       </span>
     </span>
   );

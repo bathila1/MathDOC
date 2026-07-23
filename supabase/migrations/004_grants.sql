@@ -1,4 +1,4 @@
--- MathDoc access grants. Run after 003_rls.sql.
+-- MathDOC access grants. Run after 003_rls.sql.
 -- Supabase normally adds these automatically, but if tables were created
 -- through a non-standard connection they can be missing — this makes it
 -- explicit. RLS (003) still controls which ROWS each user can touch.

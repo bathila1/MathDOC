@@ -1,4 +1,4 @@
-# MathDoc — Personal Tutoring & Appointment Platform
+# MathDOC — Personal Tutoring & Appointment Platform
 
 A web app for a maths teacher ("Sir") to give individual attention to every
 student: students book one-to-one sessions, Sir diagnoses their problems and
@@ -69,7 +69,7 @@ when the plan is complete.
 | Payments | Deferred — mock payment UI with a bypass button |
 | Hosting | Vercel |
 
-**Branding**: red-orange gradient theme matched to the MathDoc logo, Nunito
+**Branding**: red-orange gradient theme matched to the MathDOC logo, Nunito
 font, playful animations. The logo is recreated as an inline SVG
 (`src/components/brand/Logo.tsx`); drop the teacher's photo at
 **`public/sir.jpg`** to replace the placeholder avatar on the landing page.
@@ -102,6 +102,9 @@ npm install
    data. The individual files live in `supabase/migrations/` if you prefer to
    run them one by one: `001_schema.sql` → `002_functions.sql` → `003_rls.sql`
    → `seed.sql`.)
+   - **Existing databases**: after pulling Phase 2, run the new numbered
+     migrations you haven't applied yet (e.g. `006_phase2_settings_unlock.sql`).
+     A fresh `SETUP.sql` already includes them.
 
 ### 3. Environment variables
 
@@ -229,23 +232,44 @@ scripts/create-admin.mjs  # creates/promotes the teacher's admin account
 
 ## Task-game rules (source of truth)
 
-- Tasks belong to an appointment and run strictly in `sort_order`.
-- Exactly one task is `active` (or `proof_submitted` while awaiting review);
-  later tasks are `locked`; done tasks are `approved`.
-- Accepting a proof approves the task and unlocks the next; rejecting returns
-  it to `active` with Sir's note.
+- Tasks belong to an appointment and are shown in one global `sort_order` per
+  student, but **nothing is locked** — a student may attempt any task in any
+  order and, if one is too hard, flag it and move on (Phase 2).
+- A task is `active` (open), `proof_submitted` (awaiting review), or `approved`.
+  The board highlights the first unfinished task as the suggested next step.
+- Accepting a proof approves the task; rejecting returns it to `active` with
+  Sir's note. The `locked` status is retained only for old data.
 - Progress % = approved / total. At 100% a certificate row is created
   (once) and the student gets the link by SMS.
 - `meet_sir` tasks need no proof — the student books a free follow-up and Sir
   approves the checkpoint after the meeting.
 
+## Phase 2 — advancing the task system (in progress)
+
+Delivered in reviewable slices; run each slice's migration in Supabase before
+testing it.
+
+- [x] **Slice 1** — brand renamed to **MathDOC**; **all tasks unlocked** (any
+  order, none locked); **admin Settings tab** with a **payments toggle**
+  (off by default, so the pricing/payment step is hidden and bookings confirm
+  instantly). Migration: `supabase/migrations/006_phase2_settings_unlock.sql`.
+- [ ] **Slice 2** — advanced task form: embed a YouTube/Facebook video, upload
+  a video, record a voice note, image-based questions, a **priority** flag,
+  a per-task **timer** for papers, and an **expiry date** with expiry alerts.
+- [ ] **Slice 3** — proof shown under the task on the student page (pending
+  badges kept in the separate tab too); **login activity** + active / partially
+  active / inactive student status; **hidden Sir-only notes** on tasks;
+  **"hard / can't do"** flags a student can raise.
+- [ ] **Slice 4** — task-scoped **real-time chat** (Supabase Realtime, image
+  support) + **appointment numbering** in the calendar + booked slots shown
+  dimmed (not removed) on the student side.
+
 ## Roadmap / TODO
 
 - [ ] **Re-enable required form fields** (profile, quiz answers, proof files) — currently relaxed for testing (`src/lib/shared/schemas.ts`).
-- [ ] Link a real payment gateway (PayHere / Stripe) and remove the bypass.
+- [ ] Link a real payment gateway (PayHere / Stripe) and remove the bypass, then turn the **Settings → Payments** toggle on.
 - [ ] Connect SMSLenz + configure the Supabase Send-SMS hook (remove simulate button reliance).
 - [ ] Set up Cloudflare R2 for production file storage.
 - [ ] Change the teacher's password to a strong one before going live.
 - [ ] Re-add Upstash Redis rate limiting when deploying to serverless (Vercel) at scale.
 - [ ] Deploy to Vercel (`NEXT_PUBLIC_APP_URL` must be the real domain).
-- [ ] Optional: admin setting page for session price & location (currently in `settings` table, editable via SQL/Studio).

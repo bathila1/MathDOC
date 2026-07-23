@@ -1,4 +1,4 @@
--- MathDoc schema. Run this first in the Supabase SQL editor.
+-- MathDOC schema. Run this first in the Supabase SQL editor.
 create extension if not exists pgcrypto;
 
 -- ---------- Enums ----------
@@ -133,7 +133,7 @@ create table tasks (
   title text not null,
   description text not null,
   attachment_key text,                  -- R2 object key (PDF/image from the teacher)
-  status task_status not null default 'locked',
+  status task_status not null default 'active',
   follow_up_appointment_id uuid references appointments (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

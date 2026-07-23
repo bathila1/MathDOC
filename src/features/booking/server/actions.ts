@@ -15,6 +15,7 @@ import {
   sessionNoteSchema,
 } from "@/lib/shared/schemas";
 import { recalcTaskStatuses } from "@/features/tasks/server/logic";
+import { getPaymentsEnabled } from "@/lib/server/settings";
 import { getActiveBooking } from "./queries";
 import { z } from "zod";
 import {
@@ -134,6 +135,24 @@ export async function bookSlot(
     revalidatePath("/student");
     return ok({ appointmentId, needsPayment: false });
   }
+
+  // While payments are turned off, skip the pricing/payment step: confirm the
+  // booking straight away and mark the invoice as bypassed.
+  if (!(await getPaymentsEnabled())) {
+    const admin = createSupabaseAdmin();
+    await admin
+      .from("appointments")
+      .update({ status: "confirmed" })
+      .eq("id", appointmentId);
+    await admin
+      .from("invoices")
+      .update({ status: "bypassed" })
+      .eq("appointment_id", appointmentId);
+    await sendBookingSms(appointmentId);
+    revalidatePath("/student");
+    return ok({ appointmentId, needsPayment: false });
+  }
+
   return ok({ appointmentId, needsPayment: true });
 }
 
