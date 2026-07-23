@@ -264,10 +264,15 @@ testing it.
   `007_phase2_task_media.sql` then `008_phase2_multi_media.sql` (needs the
   strict CSP relaxation already in `next.config.ts` for YouTube/Facebook
   frames + mic).
-- [ ] **Slice 3** — proof shown under the task on the student page (pending
-  badges kept in the separate tab too); **login activity** + active / partially
-  active / inactive student status; **hidden Sir-only notes** on tasks;
-  **"hard / can't do"** flags a student can raise.
+- [x] **Slice 3** — the student's **submission history shows under each task**
+  (the separate admin Proofs tab stays, now with a **pending count badge** in
+  the sidebar; the student board shows an "N awaiting review" chip).
+  **Login activity** is recorded on each student login and drives an active /
+  partially active / inactive **status** (new **Activity** admin tab + a badge
+  on the student page). Tasks can carry a **hidden Sir-only note** (stored in an
+  admin-only `task_sir_notes` table so a student can never read it). Students can
+  raise a **"This is hard" / "I can't do this"** flag and move on; Sir sees it
+  on the task card. Migration: `009_phase3_activity_notes_flags.sql`.
 - [ ] **Slice 4** — task-scoped **real-time chat** (Supabase Realtime, image
   support) + **appointment numbering** in the calendar + booked slots shown
   dimmed (not removed) on the student side.

@@ -14,6 +14,8 @@ export type TaskStatus = "locked" | "active" | "proof_submitted" | "approved";
 export type ProofStatus = "pending" | "accepted" | "rejected";
 /** Task media kinds (Phase 2). */
 export type MediaType = "youtube" | "facebook" | "video" | "voice";
+/** Student self-assessment on a task (Phase 3). */
+export type StudentFlag = "hard" | "cant_do";
 
 export interface Profile {
   id: string;
@@ -29,6 +31,7 @@ export interface Profile {
   mcq_score: number | null;
   mcq_total: number | null;
   profile_completed: boolean;
+  last_login_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -109,6 +112,7 @@ export interface Task {
   video_key: string | null; // R2 key for an uploaded video
   voice_key: string | null; // R2 key for a voice note
   question_image_key: string | null;
+  student_flag: StudentFlag | null;
   created_at: string;
   updated_at: string;
 }

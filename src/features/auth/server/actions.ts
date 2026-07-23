@@ -13,6 +13,7 @@ import {
   fromZodError,
   type ActionResult,
 } from "@/lib/shared/action-result";
+import { recordStudentLogin } from "@/features/students/server/activity";
 import { redirect } from "next/navigation";
 
 /** Step 1 of student login: send a one-time code by SMS. */
@@ -74,6 +75,7 @@ export async function verifyOtp(input: {
     .single();
 
   if (profile?.role === "admin") return ok({ next: "/admin" });
+  await recordStudentLogin(data.user.id);
   return ok({ next: profile?.profile_completed ? "/student" : "/register" });
 }
 

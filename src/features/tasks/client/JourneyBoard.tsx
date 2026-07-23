@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Tooltip,
   TooltipContent,
@@ -12,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ProofUploader } from "./ProofUploader";
 import { TaskMedia } from "./TaskMedia";
+import { flagTask } from "@/features/tasks/server/actions";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   CalendarClock,
@@ -25,7 +28,19 @@ import {
   Star,
 } from "lucide-react";
 import { format } from "date-fns";
-import type { TaskStatus, TaskType } from "@/lib/shared/types";
+import type {
+  ProofStatus,
+  StudentFlag,
+  TaskStatus,
+  TaskType,
+} from "@/lib/shared/types";
+
+export interface BoardSubmission {
+  status: ProofStatus;
+  note: string | null;
+  timeSpentSeconds: number | null;
+  submittedAt: string;
+}
 
 export interface BoardTask {
   id: string;
@@ -46,7 +61,24 @@ export interface BoardTask {
   videoUrl: string | null; // presigned url for an uploaded video
   voiceUrl: string | null; // presigned url for a voice note
   questionImageUrl: string | null;
+  studentFlag: StudentFlag | null;
+  submissions: BoardSubmission[];
 }
+
+function fmtDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
+}
+
+const submissionMeta: Record<
+  ProofStatus,
+  { label: string; variant: "secondary" | "destructive" | "outline" }
+> = {
+  accepted: { label: "Accepted", variant: "secondary" },
+  rejected: { label: "Sent back", variant: "destructive" },
+  pending: { label: "Waiting for review", variant: "outline" },
+};
 
 function defaultSelection(tasks: BoardTask[]): string {
   return (
@@ -70,7 +102,22 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
     ? new Date(selected.dueAt).getTime() < new Date().getTime()
     : false;
 
+  const router = useRouter();
+  const [flagPending, startFlag] = useTransition();
+  function flag(taskId: string, value: StudentFlag | null) {
+    startFlag(async () => {
+      const res = await flagTask(taskId, value);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(value ? "Sir has been let know." : "Cleared.");
+      router.refresh();
+    });
+  }
+
   const total = tasks.length;
+  const awaiting = tasks.filter((t) => t.status === "proof_submitted").length;
   const approved = tasks.filter((t) => t.status === "approved").length;
   // The first still-to-finish task is highlighted as the suggested next step.
   const currentId = tasks.find((t) => t.status !== "approved")?.id ?? "";
@@ -84,12 +131,17 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
       {/* ---- the rail ---- */}
       <div className="pb-1">
         <div className="mb-2 flex items-baseline justify-between gap-2">
-          <p className="text-sm font-semibold">
-            {progress}% complete
-          </p>
-          <p className="text-sm text-muted-foreground">
-            {approved} of {total} tasks done
-          </p>
+          <p className="text-sm font-semibold">{progress}% complete</p>
+          <div className="flex items-center gap-2">
+            {awaiting > 0 && (
+              <Badge variant="outline" className="gap-1">
+                <Hourglass className="size-3" /> {awaiting} awaiting review
+              </Badge>
+            )}
+            <p className="text-sm text-muted-foreground">
+              {approved} of {total} tasks done
+            </p>
+          </div>
         </div>
         <div
           className="relative mx-auto px-2 pt-2 pb-1"
@@ -285,6 +337,81 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
                 Your proof is with Sir. The next task is already unlocked — keep
                 going while he checks it.
               </p>
+            )}
+
+            {/* Proof history right under the task */}
+            {selected.submissions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Your submissions</p>
+                {selected.submissions.map((s, i) => {
+                  const meta = submissionMeta[s.status];
+                  return (
+                    <div key={i} className="rounded-lg border p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant={meta.variant}>{meta.label}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(s.submittedAt), "d MMM, h:mm a")}
+                        </span>
+                      </div>
+                      {s.timeSpentSeconds != null && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Time taken: {fmtDuration(s.timeSpentSeconds)}
+                        </p>
+                      )}
+                      {s.note && (
+                        <p className="mt-2 rounded bg-muted p-2 text-sm">
+                          <span className="font-medium">Sir:</span> {s.note}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Struggling? Flag it and move on. */}
+            {selected.type === "task" && selected.status !== "approved" && (
+              <div className="rounded-lg border p-3">
+                <p className="text-sm font-medium">Struggling with this one?</p>
+                <p className="text-xs text-muted-foreground">
+                  Tell Sir and move on to another task — you can come back to it.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant={selected.studentFlag === "hard" ? "default" : "outline"}
+                    disabled={flagPending}
+                    onClick={() =>
+                      flag(
+                        selected.id,
+                        selected.studentFlag === "hard" ? null : "hard"
+                      )
+                    }
+                  >
+                    This is hard
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={
+                      selected.studentFlag === "cant_do" ? "default" : "outline"
+                    }
+                    disabled={flagPending}
+                    onClick={() =>
+                      flag(
+                        selected.id,
+                        selected.studentFlag === "cant_do" ? null : "cant_do"
+                      )
+                    }
+                  >
+                    I can&apos;t do this
+                  </Button>
+                </div>
+                {selected.studentFlag && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Sir has been told. Tap again to undo.
+                  </p>
+                )}
+              </div>
             )}
 
             {selected.type === "meet_sir" && selected.status !== "approved" && (

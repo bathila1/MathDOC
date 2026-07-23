@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/server/auth";
+import { createSupabaseServer } from "@/lib/server/supabase";
 import { LogoutButton } from "@/features/auth/client/LogoutButton";
 import { Logo } from "@/components/brand/Logo";
+import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
   CalendarClock,
@@ -9,6 +11,7 @@ import {
   Users,
   FileCheck,
   ClipboardList,
+  Activity,
   Settings,
 } from "lucide-react";
 
@@ -18,6 +21,7 @@ const nav = [
   { href: "/admin/appointments", label: "Appointments", icon: CalendarCheck },
   { href: "/admin/students", label: "Students", icon: Users },
   { href: "/admin/proofs", label: "Proof reviews", icon: FileCheck },
+  { href: "/admin/activity", label: "Activity", icon: Activity },
   { href: "/admin/exam", label: "Placement exam", icon: ClipboardList },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
@@ -28,6 +32,13 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   await requireAdmin();
+
+  const supabase = await createSupabaseServer();
+  const { count } = await supabase
+    .from("proof_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  const pendingProofs = count ?? 0;
 
   return (
     <div className="min-h-screen">
@@ -48,6 +59,9 @@ export default async function AdminLayout({
             >
               <item.icon className="size-4" />
               {item.label}
+              {item.href === "/admin/proofs" && pendingProofs > 0 && (
+                <Badge className="ml-auto">{pendingProofs}</Badge>
+              )}
             </Link>
           ))}
         </nav>
@@ -70,6 +84,9 @@ export default async function AdminLayout({
               className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap hover:bg-muted"
             >
               {item.label}
+              {item.href === "/admin/proofs" && pendingProofs > 0 && (
+                <Badge className="ml-1.5">{pendingProofs}</Badge>
+              )}
             </Link>
           ))}
         </nav>

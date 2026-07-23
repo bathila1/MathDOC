@@ -36,9 +36,11 @@ import {
   ArrowUp,
   CalendarClock,
   CheckCircle2,
+  Flag,
   GripVertical,
   Handshake,
   Image as ImageIcon,
+  Lock,
   Mic,
   MonitorPlay,
   Paperclip,
@@ -52,7 +54,7 @@ import {
 } from "lucide-react";
 
 /** Task plus its session tag (sessions are only a label, not the order). */
-export type AdminTask = Task & { sessionNo: number };
+export type AdminTask = Task & { sessionNo: number; sir_note?: string };
 
 const statusLabels: Record<
   Task["status"],
@@ -77,6 +79,7 @@ interface EditorState {
   video_key: string | null;
   voice_key: string | null;
   question_image_key: string | null;
+  sir_note: string;
 }
 
 const emptyEditor: EditorState = {
@@ -92,6 +95,7 @@ const emptyEditor: EditorState = {
   video_key: null,
   voice_key: null,
   question_image_key: null,
+  sir_note: "",
 };
 
 function isoToLocalInput(iso: string): string {
@@ -102,7 +106,7 @@ function isoToLocalInput(iso: string): string {
   )}:${pad(d.getMinutes())}`;
 }
 
-function taskToEditor(t: Task): EditorState {
+function taskToEditor(t: AdminTask): EditorState {
   return {
     type: t.type,
     title: t.title,
@@ -116,6 +120,7 @@ function taskToEditor(t: Task): EditorState {
     video_key: t.video_key,
     voice_key: t.voice_key,
     question_image_key: t.question_image_key,
+    sir_note: t.sir_note ?? "",
   };
 }
 
@@ -276,6 +281,27 @@ function TaskEditor({
                 placeholder="Explain exactly what the student should do…"
                 onChange={(e) =>
                   setState((s) => ({ ...s, description: e.target.value }))
+                }
+              />
+            </div>
+          </Section>
+
+          <Separator />
+
+          {/* ---- Private note (teacher only) ---- */}
+          <Section
+            title="Private note"
+            hint="Only you can see this — the student never does."
+          >
+            <div className="relative">
+              <Lock className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
+              <Textarea
+                rows={2}
+                className="pl-8"
+                value={state.sir_note}
+                placeholder="Why you're giving this task to this student…"
+                onChange={(e) =>
+                  setState((s) => ({ ...s, sir_note: e.target.value }))
                 }
               />
             </div>
@@ -786,10 +812,21 @@ export function TaskManager({
                         </Badge>
                       )}
                       <Badge variant={status.variant}>{status.label}</Badge>
+                      {t.student_flag && (
+                        <Badge className="border-amber-500 bg-amber-100 text-amber-700 dark:bg-amber-950/40">
+                          <Flag className="size-3" />
+                          Student: {t.student_flag === "hard" ? "Hard" : "Can't do"}
+                        </Badge>
+                      )}
                     </div>
                     <p className="mt-1 line-clamp-2 text-sm whitespace-pre-line text-muted-foreground">
                       {t.description}
                     </p>
+                    {t.sir_note && (
+                      <p className="mt-1 flex items-start gap-1 text-xs italic text-muted-foreground">
+                        <Lock className="mt-0.5 size-3 shrink-0" /> {t.sir_note}
+                      </p>
+                    )}
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       {t.timer_seconds && (
                         <span className="inline-flex items-center gap-1">

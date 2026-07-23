@@ -82,10 +82,26 @@ export default async function AdminAppointmentPage({
   const rows = (taskRows ?? []) as (Task & {
     appointments: { created_at: string } | null;
   })[];
+  const { data: sirNoteRows } = rows.length
+    ? await supabase
+        .from("task_sir_notes")
+        .select("task_id, note")
+        .in(
+          "task_id",
+          rows.map((r) => r.id)
+        )
+    : { data: [] };
+  const sirNotes = new Map(
+    ((sirNoteRows ?? []) as { task_id: string; note: string }[]).map((n) => [
+      n.task_id,
+      n.note,
+    ])
+  );
   const sessionNos = sessionNumbers(rows);
   const tasks: AdminTask[] = orderTasks(rows).map((t) => ({
     ...t,
     sessionNo: sessionNos.get(t.appointment_id) ?? 1,
+    sir_note: sirNotes.get(t.id) ?? "",
   }));
 
   return (

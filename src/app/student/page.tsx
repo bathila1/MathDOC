@@ -89,6 +89,27 @@ export default async function StudentDashboard() {
     if (!latestProof.has(p.task_id)) latestProof.set(p.task_id, p);
   }
 
+  // Full submission history per task, newest first (shown under the task).
+  const submissionsByTask = new Map<
+    string,
+    {
+      status: ProofSubmission["status"];
+      note: string | null;
+      timeSpentSeconds: number | null;
+      submittedAt: string;
+    }[]
+  >();
+  for (const p of proofs) {
+    const arr = submissionsByTask.get(p.task_id) ?? [];
+    arr.push({
+      status: p.status,
+      note: p.teacher_note,
+      timeSpentSeconds: p.time_spent_seconds,
+      submittedAt: p.submitted_at,
+    });
+    submissionsByTask.set(p.task_id, arr);
+  }
+
   // Booked follow-up meetings for meet_sir checkpoints
   const followUpIds = allTasks
     .map((t) => t.follow_up_appointment_id)
@@ -138,6 +159,8 @@ export default async function StudentDashboard() {
         questionImageUrl: t.question_image_key
           ? await getDownloadUrl(t.question_image_key)
           : null,
+        studentFlag: t.student_flag,
+        submissions: submissionsByTask.get(t.id) ?? [],
       };
     })
   );

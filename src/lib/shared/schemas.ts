@@ -194,6 +194,8 @@ const taskBase = z.object({
   video_key: z.string().max(500).optional().nullable(),
   voice_key: z.string().max(500).optional().nullable(),
   question_image_key: z.string().max(500).optional().nullable(),
+  // Private note only the teacher sees (stored in task_sir_notes).
+  sir_note: z.string().trim().max(2000, "Note is too long.").optional().nullable(),
 });
 
 export const taskSchema = taskBase;

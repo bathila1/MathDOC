@@ -22,6 +22,7 @@ import type {
   Task,
 } from "@/lib/shared/types";
 import { formatPhone } from "@/lib/shared/phone";
+import { activityStatus, ACTIVITY_META } from "@/lib/shared/activity";
 import {
   Card,
   CardContent,
@@ -106,10 +107,26 @@ export default async function AdminStudentPage({
   const taskRows = (tasks ?? []) as (Task & {
     appointments: { created_at: string } | null;
   })[];
+  const { data: sirNoteRows } = taskRows.length
+    ? await supabase
+        .from("task_sir_notes")
+        .select("task_id, note")
+        .in(
+          "task_id",
+          taskRows.map((r) => r.id)
+        )
+    : { data: [] };
+  const sirNotes = new Map(
+    ((sirNoteRows ?? []) as { task_id: string; note: string }[]).map((n) => [
+      n.task_id,
+      n.note,
+    ])
+  );
   const sessionNos = sessionNumbers(taskRows);
   const studentTasks: AdminTask[] = orderTasks(taskRows).map((t) => ({
     ...t,
     sessionNo: sessionNos.get(t.appointment_id) ?? 1,
+    sir_note: sirNotes.get(t.id) ?? "",
   }));
   const approved = studentTasks.filter((t) => t.status === "approved").length;
   const progress =
@@ -156,9 +173,20 @@ export default async function AdminStudentPage({
       <BackLink href="/admin/students" label="All students" />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">
-          {profile.full_name ?? "Unregistered student"}
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold">
+            {profile.full_name ?? "Unregistered student"}
+          </h1>
+          {(() => {
+            const status = activityStatus(
+              profile.last_login_at,
+              approved,
+              studentTasks.length
+            );
+            const meta = ACTIVITY_META[status];
+            return <Badge variant={meta.variant}>{meta.label}</Badge>;
+          })()}
+        </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Category:</span>
           <CategorySelect studentId={profile.id} value={profile.category} />

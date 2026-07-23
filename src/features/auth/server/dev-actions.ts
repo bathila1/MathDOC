@@ -9,6 +9,7 @@ import {
   fromZodError,
   type ActionResult,
 } from "@/lib/shared/action-result";
+import { recordStudentLogin } from "@/features/students/server/activity";
 
 /**
  * DEV ONLY — "Simulate OTP" login used until SMSLenz is connected.
@@ -85,5 +86,6 @@ export async function devLoginWithPhone(input: {
     .single();
 
   if (profile?.role === "admin") return ok({ next: "/admin" });
+  await recordStudentLogin(signin.user.id);
   return ok({ next: profile?.profile_completed ? "/student" : "/register" });
 }

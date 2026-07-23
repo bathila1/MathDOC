@@ -97,22 +97,36 @@ export async function addTask(input: unknown): Promise<ActionResult<undefined>> 
     .limit(1)
     .maybeSingle();
 
-  const { error } = await supabase.from("tasks").insert({
-    ...toTaskColumns(parsed.data),
-    appointment_id,
-    student_id: appt.student_id,
-    sort_order: (last?.sort_order ?? 0) + 1,
-  });
-  if (error) {
-    console.error("addTask failed:", error.message);
+  const { data: inserted, error } = await supabase
+    .from("tasks")
+    .insert({
+      ...toTaskColumns(parsed.data),
+      appointment_id,
+      student_id: appt.student_id,
+      sort_order: (last?.sort_order ?? 0) + 1,
+    })
+    .select("id")
+    .single();
+  if (error || !inserted) {
+    console.error("addTask failed:", error?.message);
     return fail(
       "Couldn't add the task. If this keeps happening, the latest database migration may not be applied yet."
     );
   }
 
+  await saveSirNote(inserted.id, parsed.data.sir_note);
   await recalcTaskStatuses(appointment_id);
   refresh(appointment_id);
   return ok(undefined);
+}
+
+/** Upsert the teacher's private note for a task (stored admin-only). */
+async function saveSirNote(taskId: string, note?: string | null) {
+  const admin = createSupabaseAdmin();
+  const { error } = await admin
+    .from("task_sir_notes")
+    .upsert({ task_id: taskId, note: (note ?? "").trim() });
+  if (error) console.error("saveSirNote failed:", error.message);
 }
 
 export async function updateTask(input: unknown): Promise<ActionResult<undefined>> {
@@ -141,6 +155,7 @@ export async function updateTask(input: unknown): Promise<ActionResult<undefined
     return fail("Couldn't save the task. Please try again.");
   }
 
+  await saveSirNote(task_id, parsed.data.sir_note);
   await recalcTaskStatuses(existing.appointment_id);
   refresh(existing.appointment_id);
   return ok(undefined);
@@ -339,6 +354,49 @@ export async function submitProof(input: unknown): Promise<ActionResult<undefine
     await recalcTaskStatuses(task.appointment_id);
     refresh(task.appointment_id);
   }
+  return ok(undefined);
+}
+
+// ---------------- Student: raise a flag on a task ----------------
+
+/** Student marks a task "hard" or "can't do" (or clears it) and moves on. */
+export async function flagTask(
+  taskId: string,
+  flag: "hard" | "cant_do" | null
+): Promise<ActionResult<undefined>> {
+  const auth = await getAuth();
+  if (!auth) return fail("Please log in first.");
+  if (auth.profile.role !== "student") return fail("Only students can do that.");
+
+  const rl = await rateLimit("form", `user:${auth.user.id}`);
+  if (!rl.allowed) return fail(rl.message!);
+
+  const id = z.string().uuid().safeParse(taskId);
+  if (!id.success) return fail("Unknown task.");
+  const flagParsed = z.enum(["hard", "cant_do"]).nullable().safeParse(flag);
+  if (!flagParsed.success) return fail("Invalid flag.");
+
+  // Students have no UPDATE policy on tasks, so use the service role after an
+  // explicit ownership check.
+  const admin = createSupabaseAdmin();
+  const { data: task } = await admin
+    .from("tasks")
+    .select("id, student_id, appointment_id")
+    .eq("id", id.data)
+    .maybeSingle();
+  if (!task || task.student_id !== auth.user.id) {
+    return fail("We couldn't find that task.");
+  }
+
+  const { error } = await admin
+    .from("tasks")
+    .update({ student_flag: flagParsed.data })
+    .eq("id", id.data);
+  if (error) return fail("Couldn't update the task. Please try again.");
+
+  revalidatePath("/student");
+  revalidatePath(`/admin/students/${task.student_id}`);
+  revalidatePath(`/admin/appointments/${task.appointment_id}`);
   return ok(undefined);
 }
 
