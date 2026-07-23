@@ -36,7 +36,7 @@ function r2Client() {
 
 /** Build a namespaced object key: purpose/userId/random-filename */
 export function buildObjectKey(
-  purpose: "task_attachment" | "proof",
+  purpose: string,
   userId: string,
   fileName: string
 ): string {

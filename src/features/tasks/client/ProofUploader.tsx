@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { submitProof } from "@/features/tasks/server/actions";
 import { uploadFile, type UploadedFile } from "@/lib/client/upload";
@@ -8,13 +8,125 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Paperclip, Trash2, Upload } from "lucide-react";
+import { Paperclip, Play, RotateCcw, Square, Timer, Trash2, Upload } from "lucide-react";
 
-export function ProofUploader({ taskId }: { taskId: string }) {
+function fmt(sec: number): string {
+  const m = Math.floor(Math.abs(sec) / 60);
+  const s = Math.abs(sec) % 60;
+  return `${sec < 0 ? "+" : ""}${m}:${s.toString().padStart(2, "0")}`;
+}
+
+/** Optional countdown timer for a timed paper. Reports the time taken up. */
+function TaskTimerBox({
+  timerSeconds,
+  onElapsed,
+}: {
+  timerSeconds: number;
+  onElapsed: (seconds: number | null) => void;
+}) {
+  const [phase, setPhase] = useState<"idle" | "running" | "stopped">("idle");
+  const [elapsed, setElapsed] = useState(0);
+  const [restarted, setRestarted] = useState(false);
+  const startRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+  }, []);
+
+  function start() {
+    startRef.current = Date.now();
+    setElapsed(0);
+    onElapsed(0);
+    setPhase("running");
+    intervalRef.current = setInterval(() => {
+      const e = Math.floor((Date.now() - startRef.current) / 1000);
+      setElapsed(e);
+      onElapsed(e);
+    }, 1000);
+  }
+
+  function stop() {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    const e = Math.floor((Date.now() - startRef.current) / 1000);
+    setElapsed(e);
+    onElapsed(e);
+    setPhase("stopped");
+  }
+
+  function restart() {
+    setRestarted(true);
+    setPhase("idle");
+    setElapsed(0);
+    onElapsed(null);
+  }
+
+  const remaining = timerSeconds - elapsed;
+
+  return (
+    <div className="space-y-2 rounded-lg border-2 border-primary/30 bg-primary/5 p-3">
+      <div className="flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-sm font-semibold">
+          <Timer className="size-4" /> Timed task — {Math.round(timerSeconds / 60)} min
+        </p>
+        <span
+          className={`font-heading text-lg font-bold tabular-nums ${
+            phase === "running" && remaining <= 0 ? "text-destructive" : ""
+          }`}
+        >
+          {phase === "idle" ? fmt(timerSeconds) : fmt(remaining)}
+        </span>
+      </div>
+
+      {phase === "idle" && (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Open the paper first, then press Start.
+          </p>
+          <Button type="button" size="sm" className="w-full" onClick={start}>
+            <Play className="size-4" /> Start timer
+          </Button>
+        </>
+      )}
+      {phase === "running" && (
+        <Button
+          type="button"
+          size="sm"
+          variant="destructive"
+          className="w-full"
+          onClick={stop}
+        >
+          <Square className="size-4" /> I&apos;m done — stop
+        </Button>
+      )}
+      {phase === "stopped" && (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm">
+            Time taken: <strong>{fmt(elapsed)}</strong>
+          </p>
+          {!restarted && (
+            <Button type="button" size="sm" variant="outline" onClick={restart}>
+              <RotateCcw className="size-4" /> Restart (once)
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ProofUploader({
+  taskId,
+  timerSeconds,
+}: {
+  taskId: string;
+  timerSeconds?: number | null;
+}) {
   const router = useRouter();
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [note, setNote] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [timeSpent, setTimeSpent] = useState<number | null>(null);
   const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -41,6 +153,7 @@ export function ProofUploader({ taskId }: { taskId: string }) {
         task_id: taskId,
         file_keys: files.map((f) => f.key),
         student_note: note.trim() || undefined,
+        time_spent_seconds: timeSpent,
       });
       if (!res.ok) {
         toast.error(
@@ -55,6 +168,10 @@ export function ProofUploader({ taskId }: { taskId: string }) {
 
   return (
     <div className="space-y-4 rounded-md border p-4">
+      {timerSeconds ? (
+        <TaskTimerBox timerSeconds={timerSeconds} onElapsed={setTimeSpent} />
+      ) : null}
+
       <div className="space-y-2">
         <Label>Upload proof of your work</Label>
         <p className="text-sm text-muted-foreground">

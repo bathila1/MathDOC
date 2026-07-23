@@ -11,8 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ProofUploader } from "./ProofUploader";
+import { TaskMedia } from "./TaskMedia";
 import { cn } from "@/lib/utils";
 import {
+  CalendarClock,
   Check,
   CheckCircle2,
   Circle,
@@ -20,9 +22,10 @@ import {
   Flag,
   Handshake,
   Hourglass,
+  Star,
 } from "lucide-react";
 import { format } from "date-fns";
-import type { TaskStatus, TaskType } from "@/lib/shared/types";
+import type { MediaType, TaskStatus, TaskType } from "@/lib/shared/types";
 
 export interface BoardTask {
   id: string;
@@ -34,6 +37,14 @@ export interface BoardTask {
   attachmentUrl: string | null;
   rejectionNote: string | null;
   followUpAt: string | null; // booked follow-up meeting time (meet_sir)
+  // Phase 2
+  isPriority: boolean;
+  timerSeconds: number | null;
+  dueAt: string | null;
+  mediaType: MediaType | null;
+  mediaUrl: string | null; // raw link for youtube/facebook
+  mediaFileUrl: string | null; // presigned url for uploaded video/voice
+  questionImageUrl: string | null;
 }
 
 function defaultSelection(tasks: BoardTask[]): string {
@@ -54,6 +65,9 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
   const [selectedId, setSelectedId] = useState(() => defaultSelection(tasks));
   const selectedIndex = tasks.findIndex((t) => t.id === selectedId);
   const selected = selectedIndex >= 0 ? tasks[selectedIndex] : null;
+  const selectedExpired = selected?.dueAt
+    ? new Date(selected.dueAt).getTime() < new Date().getTime()
+    : false;
 
   const total = tasks.length;
   const approved = tasks.filter((t) => t.status === "approved").length;
@@ -173,6 +187,18 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
             <span className="text-xs font-bold tracking-wider text-primary uppercase">
               Task {selectedIndex + 1} of {total}
             </span>
+            {selected.isPriority && (
+              <Badge variant="destructive">
+                <Star className="size-3" /> Priority
+              </Badge>
+            )}
+            {selected.dueAt && (
+              <Badge variant={selectedExpired ? "destructive" : "outline"}>
+                <CalendarClock className="size-3" />
+                {selectedExpired ? "Expired" : "Due"}{" "}
+                {format(new Date(selected.dueAt), "d MMM")}
+              </Badge>
+            )}
             <Badge variant="outline">Session {selected.sessionNo}</Badge>
             {selected.type === "meet_sir" && (
               <Badge variant="secondary">
@@ -205,6 +231,13 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
           )}
 
           <div className="mt-4 space-y-4">
+            <TaskMedia
+              mediaType={selected.mediaType}
+              mediaUrl={selected.mediaUrl}
+              mediaFileUrl={selected.mediaFileUrl}
+              questionImageUrl={selected.questionImageUrl}
+            />
+
             {selected.attachmentUrl && (
               <Button
                 variant="outline"
@@ -227,9 +260,23 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
               </Alert>
             )}
 
-            {selected.type === "task" && selected.status === "active" && (
-              <ProofUploader taskId={selected.id} />
+            {selectedExpired && selected.status !== "approved" && (
+              <Alert variant="destructive">
+                <AlertTitle>This task has expired</AlertTitle>
+                <AlertDescription>
+                  You can no longer submit it. Please talk to Sir.
+                </AlertDescription>
+              </Alert>
             )}
+
+            {selected.type === "task" &&
+              selected.status === "active" &&
+              !selectedExpired && (
+                <ProofUploader
+                  taskId={selected.id}
+                  timerSeconds={selected.timerSeconds}
+                />
+              )}
 
             {selected.status === "proof_submitted" && (
               <p className="rounded-lg bg-muted p-4 text-sm">

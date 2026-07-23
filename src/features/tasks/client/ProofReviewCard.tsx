@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Check, ExternalLink, X } from "lucide-react";
+import { Check, Clock, ExternalLink, X } from "lucide-react";
 import { format } from "date-fns";
 
 export interface ProofForReview {
@@ -32,7 +32,14 @@ export interface ProofForReview {
   studentHref?: string;
   sessionHref?: string | null;
   task_title: string;
+  timeSpentSeconds?: number | null;
   files: { name: string; url: string }[];
+}
+
+function fmtDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
 }
 
 export function ProofReviewCard({ proof }: { proof: ProofForReview }) {
@@ -85,6 +92,12 @@ export function ProofReviewCard({ proof }: { proof: ProofForReview }) {
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
+        {proof.timeSpentSeconds != null && (
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            <Clock className="size-4 text-primary" />
+            Time taken: {fmtDuration(proof.timeSpentSeconds)}
+          </p>
+        )}
         {proof.student_note && (
           <p className="rounded-md bg-muted p-3 text-sm">
             “{proof.student_note}”

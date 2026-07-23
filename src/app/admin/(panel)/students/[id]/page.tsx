@@ -14,6 +14,7 @@ import type {
   Appointment,
   AvailabilitySlot,
   Certificate,
+  DefaultTask,
   McqAttempt,
   McqQuestion,
   Profile,
@@ -62,6 +63,7 @@ export default async function AdminStudentPage({
     { data: questions },
     { data: noteRows },
     { data: certRows },
+    { data: templateRows },
   ] = await Promise.all([
     supabase
       .from("mcq_attempts")
@@ -90,11 +92,16 @@ export default async function AdminStudentPage({
       .select("*")
       .eq("student_id", id)
       .order("issued_at", { ascending: false }),
+    supabase
+      .from("default_tasks")
+      .select("*")
+      .order("sort_order", { ascending: true }),
   ]);
 
   const appointments = (appts ?? []) as AppointmentWithSlot[];
   const notes = (noteRows ?? []) as SessionNote[];
   const certificates = (certRows ?? []) as Certificate[];
+  const defaultTasks = (templateRows ?? []) as DefaultTask[];
 
   const taskRows = (tasks ?? []) as (Task & {
     appointments: { created_at: string } | null;
@@ -226,6 +233,7 @@ export default async function AdminStudentPage({
           <TaskManager
             appointmentId={latestAppointmentId}
             tasks={studentTasks}
+            defaultTasks={defaultTasks}
             heading="All tasks"
           />
           {latestAppointmentId && (

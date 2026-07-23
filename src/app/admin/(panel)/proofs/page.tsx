@@ -20,6 +20,7 @@ interface ProofRow {
   student_note: string | null;
   file_keys: string[];
   student_id: string;
+  time_spent_seconds: number | null;
   tasks: {
     title: string;
     appointment_id: string;
@@ -40,7 +41,7 @@ export default async function ProofsPage({
   const { data, count } = await supabase
     .from("proof_submissions")
     .select(
-      "id, submitted_at, student_note, file_keys, student_id, tasks(title, appointment_id), profiles(full_name)",
+      "id, submitted_at, student_note, file_keys, student_id, time_spent_seconds, tasks(title, appointment_id), profiles(full_name)",
       { count: "exact" }
     )
     .eq("status", "pending")
@@ -57,6 +58,7 @@ export default async function ProofsPage({
       student_name: p.profiles?.full_name ?? "Student",
       studentHref: `/admin/students/${p.student_id}`,
       task_title: p.tasks?.title ?? "Task",
+      timeSpentSeconds: p.time_spent_seconds,
       sessionHref: p.tasks?.appointment_id
         ? `/admin/appointments/${p.tasks.appointment_id}`
         : null,

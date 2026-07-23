@@ -1,22 +1,49 @@
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/server/auth";
 import { AdminQuestions } from "@/features/exam/client/AdminQuestions";
-import type { McqQuestion } from "@/lib/shared/types";
+import { AdminDefaultTasks } from "@/features/tasks/client/AdminDefaultTasks";
+import type { DefaultTask, McqQuestion } from "@/lib/shared/types";
+import { Separator } from "@/components/ui/separator";
 
 export const metadata = { title: "Placement exam" };
 
 export default async function AdminExamPage() {
   await requireAdmin();
   const supabase = await createSupabaseServer();
-  const { data } = await supabase
-    .from("mcq_questions")
-    .select("*")
-    .order("sort_order", { ascending: true });
+  const [{ data: questions }, { data: templates }] = await Promise.all([
+    supabase
+      .from("mcq_questions")
+      .select("*")
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("default_tasks")
+      .select("*")
+      .order("sort_order", { ascending: true }),
+  ]);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Placement exam</h1>
-      <AdminQuestions questions={(data ?? []) as McqQuestion[]} />
+    <div className="space-y-8">
+      <section className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold">Placement exam</h1>
+          <p className="text-sm text-muted-foreground">
+            Questions students answer when they register.
+          </p>
+        </div>
+        <AdminQuestions questions={(questions ?? []) as McqQuestion[]} />
+      </section>
+
+      <Separator />
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-xl font-bold">Default tasks</h2>
+          <p className="text-sm text-muted-foreground">
+            Templates you can quickly assign to any student.
+          </p>
+        </div>
+        <AdminDefaultTasks templates={(templates ?? []) as DefaultTask[]} />
+      </section>
     </div>
   );
 }

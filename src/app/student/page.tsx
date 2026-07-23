@@ -113,6 +113,10 @@ export default async function StudentDashboard() {
   const boardTasks: BoardTask[] = await Promise.all(
     allTasks.map(async (t) => {
       const proof = latestProof.get(t.id);
+      const mediaFileKey =
+        t.media_type === "video" || t.media_type === "voice"
+          ? t.media_key
+          : null;
       return {
         id: t.id,
         title: t.title,
@@ -127,6 +131,15 @@ export default async function StudentDashboard() {
           proof?.status === "rejected" ? (proof.teacher_note ?? null) : null,
         followUpAt: t.follow_up_appointment_id
           ? (followUpAt.get(t.follow_up_appointment_id) ?? null)
+          : null,
+        isPriority: t.is_priority,
+        timerSeconds: t.timer_seconds,
+        dueAt: t.due_at,
+        mediaType: t.media_type,
+        mediaUrl: t.media_url,
+        mediaFileUrl: mediaFileKey ? await getDownloadUrl(mediaFileKey) : null,
+        questionImageUrl: t.question_image_key
+          ? await getDownloadUrl(t.question_image_key)
           : null,
       };
     })
@@ -162,7 +175,9 @@ export default async function StudentDashboard() {
         </Card>
       )}
 
-      {/* The student's one live booking */}
+      {/* The student's one live booking. The "no session booked" prompt only
+          shows during onboarding (no tasks yet) — once tasks exist it's hidden,
+          since the journey board is the focus and already links to booking. */}
       {booking ? (
         <section className="space-y-3">
           <h2 className="text-xl">Your next session</h2>
@@ -178,7 +193,7 @@ export default async function StudentDashboard() {
             }}
           />
         </section>
-      ) : (
+      ) : allTasks.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
             <p className="text-sm text-muted-foreground">
@@ -189,7 +204,7 @@ export default async function StudentDashboard() {
             </Button>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       {allDone && (
         <div className="animate-pop-in rounded-xl bg-brand-gradient p-6 text-center text-white shadow-md">

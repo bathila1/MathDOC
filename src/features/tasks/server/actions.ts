@@ -19,11 +19,66 @@ import {
   type ActionResult,
 } from "@/lib/shared/action-result";
 import { revalidatePath } from "next/cache";
+import type { MediaType } from "@/lib/shared/types";
 
 function refresh(appointmentId: string) {
   revalidatePath(`/admin/appointments/${appointmentId}`);
   revalidatePath("/admin/proofs");
   revalidatePath("/student");
+}
+
+interface TaskFormFields {
+  type: "task" | "meet_sir";
+  title: string;
+  description: string;
+  attachment_key?: string | null;
+  is_priority?: boolean;
+  timer_minutes?: number | null;
+  due_at?: string | null;
+  media_type?: MediaType | null;
+  media_url?: string | null;
+  media_key?: string | null;
+  question_image_key?: string | null;
+}
+
+/** Map validated form fields to task table columns (minutes→seconds, date→ISO,
+ *  and drop any media field that doesn't match the chosen media type). */
+function toTaskColumns(d: TaskFormFields) {
+  const timer_seconds = d.timer_minutes ? d.timer_minutes * 60 : null;
+
+  let due_at: string | null = null;
+  if (d.due_at && d.due_at.trim()) {
+    const parsed = new Date(d.due_at);
+    if (!Number.isNaN(parsed.getTime())) due_at = parsed.toISOString();
+  }
+
+  let media_type = d.media_type ?? null;
+  let media_url = d.media_url ?? null;
+  let media_key = d.media_key ?? null;
+  if (!media_type) {
+    media_url = null;
+    media_key = null;
+  } else if (media_type === "youtube" || media_type === "facebook") {
+    media_key = null;
+    if (!media_url) media_type = null; // link missing → treat as no media
+  } else {
+    media_url = null;
+    if (!media_key) media_type = null; // upload missing → treat as no media
+  }
+
+  return {
+    type: d.type,
+    title: d.title,
+    description: d.description,
+    attachment_key: d.attachment_key ?? null,
+    is_priority: Boolean(d.is_priority),
+    timer_seconds,
+    due_at,
+    media_type,
+    media_url,
+    media_key,
+    question_image_key: d.question_image_key ?? null,
+  };
 }
 
 // ---------------- Admin: task building ----------------
@@ -35,7 +90,7 @@ export async function addTask(input: unknown): Promise<ActionResult<undefined>> 
 
   const parsed = taskSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
-  const { appointment_id, ...fields } = parsed.data;
+  const { appointment_id } = parsed.data;
 
   const supabase = await createSupabaseServer();
   const { data: appt } = await supabase
@@ -55,7 +110,7 @@ export async function addTask(input: unknown): Promise<ActionResult<undefined>> 
     .maybeSingle();
 
   const { error } = await supabase.from("tasks").insert({
-    ...fields,
+    ...toTaskColumns(parsed.data),
     appointment_id,
     student_id: appt.student_id,
     sort_order: (last?.sort_order ?? 0) + 1,
@@ -74,7 +129,7 @@ export async function updateTask(input: unknown): Promise<ActionResult<undefined
 
   const parsed = taskEditSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
-  const { task_id, ...fields } = parsed.data;
+  const { task_id } = parsed.data;
 
   const supabase = await createSupabaseServer();
   const { data: existing } = await supabase
@@ -84,7 +139,10 @@ export async function updateTask(input: unknown): Promise<ActionResult<undefined
     .maybeSingle();
   if (!existing) return fail("We couldn't find that task.");
 
-  const { error } = await supabase.from("tasks").update(fields).eq("id", task_id);
+  const { error } = await supabase
+    .from("tasks")
+    .update(toTaskColumns(parsed.data))
+    .eq("id", task_id);
   if (error) return fail("Couldn't save the task. Please try again.");
 
   await recalcTaskStatuses(existing.appointment_id);
@@ -245,7 +303,20 @@ export async function submitProof(input: unknown): Promise<ActionResult<undefine
 
   const parsed = proofSubmitSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
-  const { task_id, file_keys, student_note } = parsed.data;
+  const { task_id, file_keys, student_note, time_spent_seconds } = parsed.data;
+
+  // Don't accept work on a task that has already expired.
+  const admin0 = createSupabaseAdmin();
+  const { data: dueRow } = await admin0
+    .from("tasks")
+    .select("due_at")
+    .eq("id", task_id)
+    .maybeSingle();
+  if (dueRow?.due_at && new Date(dueRow.due_at).getTime() < Date.now()) {
+    return fail(
+      "This task has expired, so you can't submit it anymore. Please talk to Sir."
+    );
+  }
 
   // Insert as the student — the RLS policy enforces "own ACTIVE task only".
   const supabase = await createSupabaseServer();
@@ -254,6 +325,7 @@ export async function submitProof(input: unknown): Promise<ActionResult<undefine
     student_id: auth.user.id,
     file_keys,
     student_note: student_note || null,
+    time_spent_seconds: time_spent_seconds ?? null,
   });
   if (error) {
     return fail(

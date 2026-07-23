@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { r2Configured } from "@/lib/server/r2";
-import { MAX_UPLOAD_BYTES } from "@/lib/shared/constants";
+import { MAX_ANY_UPLOAD_BYTES } from "@/lib/shared/constants";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 
@@ -29,7 +29,7 @@ export async function PUT(request: NextRequest) {
   }
 
   const bytes = Buffer.from(await request.arrayBuffer());
-  if (bytes.length > MAX_UPLOAD_BYTES) {
+  if (bytes.length > MAX_ANY_UPLOAD_BYTES) {
     return NextResponse.json({ error: "File too large." }, { status: 413 });
   }
 

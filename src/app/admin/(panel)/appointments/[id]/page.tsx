@@ -14,6 +14,7 @@ import { BackLink } from "@/components/site/BackLink";
 import type {
   Appointment,
   AvailabilitySlot,
+  DefaultTask,
   Invoice,
   Profile,
   SessionNote,
@@ -71,6 +72,12 @@ export default async function AdminAppointmentPage({
     .eq("appointment_id", id)
     .order("created_at", { ascending: false });
   const notes = (noteRows ?? []) as SessionNote[];
+
+  const { data: templateRows } = await supabase
+    .from("default_tasks")
+    .select("*")
+    .order("sort_order", { ascending: true });
+  const defaultTasks = (templateRows ?? []) as DefaultTask[];
 
   const rows = (taskRows ?? []) as (Task & {
     appointments: { created_at: string } | null;
@@ -177,6 +184,7 @@ export default async function AdminAppointmentPage({
       <TaskManager
         appointmentId={appt.id}
         tasks={tasks}
+        defaultTasks={defaultTasks}
         heading="Already existing tasks"
       />
     </div>

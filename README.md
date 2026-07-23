@@ -253,9 +253,15 @@ testing it.
   order, none locked); **admin Settings tab** with a **payments toggle**
   (off by default, so the pricing/payment step is hidden and bookings confirm
   instantly). Migration: `supabase/migrations/006_phase2_settings_unlock.sql`.
-- [ ] **Slice 2** — advanced task form: embed a YouTube/Facebook video, upload
-  a video, record a voice note, image-based questions, a **priority** flag,
-  a per-task **timer** for papers, and an **expiry date** with expiry alerts.
+- [x] **Slice 2** — advanced task form: embed a YouTube/Facebook video, upload
+  a video, record a **voice note** in-browser, **image-as-question**, a
+  **priority** flag (red), a per-task **timer** for papers (student starts /
+  stops / restarts once; the time taken is sent to Sir with the proof), and an
+  **expiry date** that blocks late submissions and shows an "expiring soon"
+  alert on the admin dashboard. Plus **default-task templates** (managed under
+  the Placement exam tab, picked from the "Add task" box). Migration:
+  `supabase/migrations/007_phase2_task_media.sql` (needs the strict CSP
+  relaxation already in `next.config.ts` for YouTube/Facebook frames + mic).
 - [ ] **Slice 3** — proof shown under the task on the student page (pending
   badges kept in the separate tab too); **login activity** + active / partially
   active / inactive student status; **hidden Sir-only notes** on tasks;

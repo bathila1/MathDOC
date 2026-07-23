@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { normalizePhone } from "./phone";
-import {
-  ALLOWED_UPLOAD_TYPES,
-  MAX_UPLOAD_BYTES,
-  STUDENT_CATEGORIES,
-} from "./constants";
+import { STUDENT_CATEGORIES, UPLOAD_RULES } from "./constants";
 
 /** Reusable Sri Lankan phone field — normalizes to +947XXXXXXXX. */
 export const phoneField = z
@@ -166,7 +162,12 @@ export const diagnosisSchema = z.object({
 
 // ---------- Tasks ----------
 
-export const taskSchema = z.object({
+export const mediaTypeEnum = z.enum(["youtube", "facebook", "video", "voice"]);
+
+// Base object shared by add + edit. Cross-field rules (media needs a url/key,
+// due date must parse) are applied in the server action so this stays a plain
+// object that .omit()/.extend() still work on.
+const taskBase = z.object({
   appointment_id: z.string().uuid(),
   type: z.enum(["task", "meet_sir"]),
   title: z
@@ -181,11 +182,43 @@ export const taskSchema = z.object({
     .optional()
     .transform((v) => v ?? ""),
   attachment_key: z.string().max(500).optional().nullable(),
+  is_priority: z.boolean().optional().default(false),
+  timer_minutes: z
+    .number()
+    .int()
+    .min(1, "Timer must be at least 1 minute.")
+    .max(600, "Timer is too long (max 10 hours).")
+    .optional()
+    .nullable(),
+  due_at: z.string().trim().max(40).optional().nullable(), // datetime-local / ISO
+  media_type: mediaTypeEnum.optional().nullable(),
+  media_url: z.string().trim().max(500).optional().nullable(),
+  media_key: z.string().max(500).optional().nullable(),
+  question_image_key: z.string().max(500).optional().nullable(),
 });
 
-export const taskEditSchema = taskSchema
+export const taskSchema = taskBase;
+
+export const taskEditSchema = taskBase
   .omit({ appointment_id: true })
   .extend({ task_id: z.string().uuid() });
+
+export const defaultTaskSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(2, "Please give the template a title.")
+    .max(150, "Title is too long."),
+  description: z
+    .string()
+    .trim()
+    .max(5000, "Description is too long.")
+    .optional()
+    .transform((v) => v ?? ""),
+  type: z.enum(["task", "meet_sir"]),
+  is_priority: z.boolean().optional().default(false),
+  timer_minutes: z.number().int().min(1).max(600).optional().nullable(),
+});
 
 export const proofSubmitSchema = z.object({
   task_id: z.string().uuid(),
@@ -194,6 +227,7 @@ export const proofSubmitSchema = z.object({
     .array(z.string().min(1).max(500))
     .max(10, "Maximum 10 files per proof."),
   student_note: z.string().trim().max(1000, "Note is too long.").optional(),
+  time_spent_seconds: z.number().int().min(0).max(24 * 3600).optional().nullable(),
 });
 
 export const proofReviewSchema = z.object({
@@ -204,18 +238,38 @@ export const proofReviewSchema = z.object({
 
 // ---------- Uploads ----------
 
-export const presignSchema = z.object({
-  file_name: z.string().trim().min(1).max(200),
-  content_type: z.enum(ALLOWED_UPLOAD_TYPES, {
-    message: "Only PDF, JPG, PNG or WebP files are allowed.",
-  }),
-  size: z
-    .number()
-    .int()
-    .positive()
-    .max(MAX_UPLOAD_BYTES, "The file is too large — maximum size is 10 MB."),
-  purpose: z.enum(["task_attachment", "proof"]),
-});
+export const presignSchema = z
+  .object({
+    file_name: z.string().trim().min(1).max(200),
+    content_type: z.string().trim().min(1).max(150),
+    size: z.number().int().positive(),
+    purpose: z.enum([
+      "task_attachment",
+      "proof",
+      "question_image",
+      "task_media",
+      "voice_note",
+    ]),
+  })
+  .superRefine((v, ctx) => {
+    const rule = UPLOAD_RULES[v.purpose];
+    if (!(rule.types as readonly string[]).includes(v.content_type)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["content_type"],
+        message: "That file type isn't allowed here.",
+      });
+    }
+    if (v.size > rule.maxBytes) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["size"],
+        message: `That file is too large (max ${Math.round(
+          rule.maxBytes / (1024 * 1024)
+        )} MB).`,
+      });
+    }
+  });
 
 export type ProfileInput = z.infer<typeof profileSchema>;
 export type McqQuestionInput = z.infer<typeof mcqQuestionSchema>;

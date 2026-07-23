@@ -12,6 +12,8 @@ export type InvoiceStatus = "unpaid" | "paid" | "bypassed";
 export type TaskType = "task" | "meet_sir";
 export type TaskStatus = "locked" | "active" | "proof_submitted" | "approved";
 export type ProofStatus = "pending" | "accepted" | "rejected";
+/** Task media kinds (Phase 2). */
+export type MediaType = "youtube" | "facebook" | "video" | "voice";
 
 export interface Profile {
   id: string;
@@ -97,6 +99,27 @@ export interface Task {
   attachment_key: string | null;
   status: TaskStatus;
   follow_up_appointment_id: string | null;
+  // Phase 2 additions
+  is_priority: boolean;
+  timer_seconds: number | null;
+  due_at: string | null;
+  media_type: MediaType | null;
+  media_url: string | null; // original link for youtube/facebook
+  media_key: string | null; // R2 key for uploaded video / voice note
+  question_image_key: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A reusable task template the teacher can drop onto any student. */
+export interface DefaultTask {
+  id: string;
+  title: string;
+  description: string;
+  type: TaskType;
+  is_priority: boolean;
+  timer_seconds: number | null;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -109,6 +132,7 @@ export interface ProofSubmission {
   student_note: string | null;
   status: ProofStatus;
   teacher_note: string | null;
+  time_spent_seconds: number | null;
   submitted_at: string;
   reviewed_at: string | null;
 }

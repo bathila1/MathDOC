@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { format, startOfDay, endOfDay } from "date-fns";
-import { CalendarCheck, FileCheck, Users } from "lucide-react";
+import { format, startOfDay, endOfDay, addDays } from "date-fns";
+import { CalendarCheck, CalendarClock, FileCheck, Users } from "lucide-react";
 
 export const metadata = { title: "Dashboard" };
 
@@ -29,7 +29,8 @@ export default async function AdminDashboard() {
   const supabase = await createSupabaseServer();
   const now = new Date();
 
-  const [todayRes, proofsRes, studentsRes, recentRes] = await Promise.all([
+  const [todayRes, proofsRes, studentsRes, recentRes, expiringRes] =
+    await Promise.all([
     supabase
       .from("appointments")
       .select("*, availability_slots!inner(*), profiles(full_name)")
@@ -49,6 +50,14 @@ export default async function AdminDashboard() {
       .select("*, availability_slots(*), profiles(full_name)")
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase
+      .from("tasks")
+      .select("id, title, due_at, student_id, profiles(full_name)")
+      .not("due_at", "is", null)
+      .neq("status", "approved")
+      .lte("due_at", addDays(now, 7).toISOString())
+      .order("due_at", { ascending: true })
+      .limit(10),
   ]);
 
   const today = ((todayRes.data ?? []) as ApptRow[]).sort(
@@ -59,6 +68,13 @@ export default async function AdminDashboard() {
   const pendingProofs = proofsRes.count ?? 0;
   const studentCount = studentsRes.count ?? 0;
   const recent = (recentRes.data ?? []) as ApptRow[];
+  const expiring = (expiringRes.data ?? []) as unknown as {
+    id: string;
+    title: string;
+    due_at: string;
+    student_id: string;
+    profiles: { full_name: string | null } | null;
+  }[];
 
   return (
     <div className="space-y-6">
@@ -98,6 +114,45 @@ export default async function AdminDashboard() {
           </Card>
         </Link>
       </div>
+
+      {expiring.length > 0 && (
+        <Card className="border-destructive/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base text-destructive">
+              <CalendarClock className="size-4" /> Tasks expiring soon
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {expiring.map((t) => {
+              const overdue = new Date(t.due_at).getTime() < now.getTime();
+              return (
+                <div
+                  key={t.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
+                >
+                  <div>
+                    <p className="font-medium">{t.title}</p>
+                    <p className="text-muted-foreground">
+                      {t.profiles?.full_name ?? "Student"} ·{" "}
+                      <span className={overdue ? "font-semibold text-destructive" : ""}>
+                        {overdue ? "Expired" : "Due"}{" "}
+                        {format(new Date(t.due_at), "d MMM, h:mm a")}
+                      </span>
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={<Link href={`/admin/students/${t.student_id}`} />}
+                  >
+                    Open
+                  </Button>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
