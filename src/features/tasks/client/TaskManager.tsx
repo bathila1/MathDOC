@@ -10,9 +10,9 @@ import {
   reorderTasks,
   approveTask,
 } from "@/features/tasks/server/actions";
+import dynamic from "next/dynamic";
 import { uploadFile } from "@/lib/client/upload";
 import { VoiceRecorder } from "./VoiceRecorder";
-import { TaskChat } from "./TaskChat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +55,20 @@ import {
   Video,
   Zap,
 } from "lucide-react";
+
+// Chat pulls in the Supabase realtime client — load it on demand (it only
+// renders inside the chat dialog) so it isn't in the task page's initial JS.
+const TaskChat = dynamic(
+  () => import("./TaskChat").then((m) => m.TaskChat),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+        Loading chat…
+      </div>
+    ),
+  }
+);
 
 export interface AdminProof {
   id: string;

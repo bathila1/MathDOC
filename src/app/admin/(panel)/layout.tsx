@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { requireAdmin } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { LogoutButton } from "@/features/auth/client/LogoutButton";
@@ -33,13 +34,6 @@ export default async function AdminLayout({
 }) {
   await requireAdmin();
 
-  const supabase = await createSupabaseServer();
-  const { count } = await supabase
-    .from("proof_submissions")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
-  const pendingProofs = count ?? 0;
-
   return (
     <div className="min-h-screen">
       {/* fixed sidebar — never scrolls with the content */}
@@ -59,8 +53,10 @@ export default async function AdminLayout({
             >
               <item.icon className="size-4" />
               {item.label}
-              {item.href === "/admin/proofs" && pendingProofs > 0 && (
-                <Badge className="ml-auto">{pendingProofs}</Badge>
+              {item.href === "/admin/proofs" && (
+                <Suspense fallback={null}>
+                  <PendingProofsBadge className="ml-auto" />
+                </Suspense>
               )}
             </Link>
           ))}
@@ -84,8 +80,10 @@ export default async function AdminLayout({
               className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap hover:bg-muted"
             >
               {item.label}
-              {item.href === "/admin/proofs" && pendingProofs > 0 && (
-                <Badge className="ml-1.5">{pendingProofs}</Badge>
+              {item.href === "/admin/proofs" && (
+                <Suspense fallback={null}>
+                  <PendingProofsBadge className="ml-1.5" />
+                </Suspense>
               )}
             </Link>
           ))}
@@ -94,4 +92,15 @@ export default async function AdminLayout({
       </div>
     </div>
   );
+}
+
+/** Streamed so the count query never delays the panel shell rendering. */
+async function PendingProofsBadge({ className }: { className?: string }) {
+  const supabase = await createSupabaseServer();
+  const { count } = await supabase
+    .from("proof_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  if (!count) return null;
+  return <Badge className={className}>{count}</Badge>;
 }

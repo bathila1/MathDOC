@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServer } from "./supabase";
 import type { Profile } from "@/lib/shared/types";
@@ -9,8 +10,12 @@ export interface AuthContext {
   profile: Profile;
 }
 
-/** Current session's user + profile, or null when logged out. */
-export async function getAuth(): Promise<AuthContext | null> {
+/**
+ * Current session's user + profile, or null when logged out.
+ * Wrapped in React `cache()` so the layout and page in one navigation share a
+ * single getUser() + profile query instead of firing 2–3 auth round-trips.
+ */
+export const getAuth = cache(async (): Promise<AuthContext | null> => {
   const supabase = await createSupabaseServer();
   const {
     data: { user },
@@ -25,7 +30,7 @@ export async function getAuth(): Promise<AuthContext | null> {
   if (!profile) return null;
 
   return { user, profile: profile as Profile };
-}
+});
 
 /** For student pages/actions: redirects to /login when not signed in. */
 export async function requireStudent(): Promise<AuthContext> {

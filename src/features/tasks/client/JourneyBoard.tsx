@@ -11,9 +11,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import dynamic from "next/dynamic";
 import { ProofUploader } from "./ProofUploader";
 import { TaskMedia } from "./TaskMedia";
-import { TaskChat } from "./TaskChat";
 import { flagTask } from "@/features/tasks/server/actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,20 @@ export interface BoardSubmission {
   timeSpentSeconds: number | null;
   submittedAt: string;
 }
+
+// Chat pulls in the Supabase realtime client — load it on demand so it isn't
+// part of the dashboard's initial JS bundle.
+const TaskChat = dynamic(
+  () => import("./TaskChat").then((m) => m.TaskChat),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+        Loading chat…
+      </div>
+    ),
+  }
+);
 
 export interface BoardTask {
   id: string;
