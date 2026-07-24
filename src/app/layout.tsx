@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Poppins, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { TopProgressBar } from "@/components/site/TopProgressBar";
 import "./globals.css";
 
 // Inter for UI text; Poppins (bold, rounded, modern) for headings.
@@ -41,6 +42,7 @@ export default function RootLayout({
       className={`${inter.variable} ${poppins.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <TopProgressBar />
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster richColors position="top-center" />
       </body>

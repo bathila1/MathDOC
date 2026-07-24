@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { requireAdmin } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { LogoutButton } from "@/features/auth/client/LogoutButton";
 import { Logo } from "@/components/brand/Logo";
+import { NavLink } from "@/components/site/NavLink";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
@@ -46,7 +46,7 @@ export default async function AdminLayout({
         </div>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2">
           {nav.map((item) => (
-            <Link
+            <NavLink
               key={item.href}
               href={item.href}
               className="flex items-center gap-2 rounded-lg border border-border/70 bg-card px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
@@ -58,7 +58,7 @@ export default async function AdminLayout({
                   <PendingProofsBadge className="ml-auto" />
                 </Suspense>
               )}
-            </Link>
+            </NavLink>
           ))}
         </nav>
         {/* pinned to the bottom-left corner */}
@@ -74,10 +74,10 @@ export default async function AdminLayout({
         </header>
         <nav className="flex gap-1 overflow-x-auto border-b px-2 py-1 sm:hidden">
           {nav.map((item) => (
-            <Link
+            <NavLink
               key={item.href}
               href={item.href}
-              className="rounded-md px-3 py-1.5 text-sm whitespace-nowrap hover:bg-muted"
+              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm whitespace-nowrap hover:bg-muted"
             >
               {item.label}
               {item.href === "/admin/proofs" && (
@@ -85,7 +85,7 @@ export default async function AdminLayout({
                   <PendingProofsBadge className="ml-1.5" />
                 </Suspense>
               )}
-            </Link>
+            </NavLink>
           ))}
         </nav>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
