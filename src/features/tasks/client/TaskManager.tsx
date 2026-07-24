@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import type { DefaultTask, Task } from "@/lib/shared/types";
+import type { DefaultTask, ProofStatus, Task } from "@/lib/shared/types";
 import {
   addTask,
   updateTask,
@@ -37,6 +37,7 @@ import {
   ArrowUp,
   CalendarClock,
   CheckCircle2,
+  ExternalLink,
   Flag,
   GripVertical,
   Handshake,
@@ -49,14 +50,42 @@ import {
   Pencil,
   PlayCircle,
   Plus,
-  Star,
   Timer,
   Trash2,
   Video,
+  Zap,
 } from "lucide-react";
 
+export interface AdminProof {
+  id: string;
+  status: ProofStatus;
+  submittedAt: string;
+  studentNote: string | null;
+  timeSpentSeconds: number | null;
+  files: { name: string; url: string }[];
+}
+
 /** Task plus its session tag (sessions are only a label, not the order). */
-export type AdminTask = Task & { sessionNo: number; sir_note?: string };
+export type AdminTask = Task & {
+  sessionNo: number;
+  sir_note?: string;
+  proofs?: AdminProof[];
+};
+
+const proofMeta: Record<
+  ProofStatus,
+  { label: string; variant: "default" | "secondary" | "destructive" }
+> = {
+  pending: { label: "Awaiting review", variant: "default" },
+  accepted: { label: "Accepted", variant: "secondary" },
+  rejected: { label: "Sent back", variant: "destructive" },
+};
+
+function fmtSecs(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
+}
 
 const statusLabels: Record<
   Task["status"],
@@ -769,7 +798,11 @@ export function TaskManager({
                 isOver && "ring-2 ring-primary ring-offset-2 rounded-xl"
               )}
             >
-              <Card className={cn(t.is_priority && "border-destructive/50")}>
+              <Card
+                className={cn(
+                  t.is_priority && "border-2 border-destructive bg-destructive/5"
+                )}
+              >
                 <CardContent className="flex items-start gap-3 py-4">
                   <div className="flex flex-col items-center gap-0.5 pt-0.5">
                     <GripVertical className="size-4 cursor-grab text-muted-foreground active:cursor-grabbing" />
@@ -808,8 +841,8 @@ export function TaskManager({
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{t.title}</span>
                       {t.is_priority && (
-                        <Badge variant="destructive">
-                          <Star className="size-3" /> Priority
+                        <Badge variant="destructive" className="gap-1 font-bold uppercase">
+                          <Zap className="size-3 fill-current" /> Priority
                         </Badge>
                       )}
                       <Badge variant="outline">Session {t.sessionNo}</Badge>
@@ -855,6 +888,58 @@ export function TaskManager({
                       )}
                       <MediaChips t={t} />
                     </div>
+
+                    {/* Submitted proof, linked right under the task */}
+                    {t.proofs && t.proofs.length > 0 && (
+                      <div className="mt-3 space-y-2 rounded-lg border bg-muted/30 p-3">
+                        <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Submitted proof
+                        </p>
+                        {t.proofs.map((p) => {
+                          const meta = proofMeta[p.status];
+                          return (
+                            <div key={p.id} className="text-sm">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant={meta.variant}>{meta.label}</Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(p.submittedAt).toLocaleString()}
+                                </span>
+                                {p.timeSpentSeconds != null && (
+                                  <span className="text-xs text-muted-foreground">
+                                    · {fmtSecs(p.timeSpentSeconds)}
+                                  </span>
+                                )}
+                              </div>
+                              {p.studentNote && (
+                                <p className="mt-1 text-sm italic">
+                                  &ldquo;{p.studentNote}&rdquo;
+                                </p>
+                              )}
+                              {p.files.length > 0 && (
+                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                  {p.files.map((f, fi) => (
+                                    <Button
+                                      key={fi}
+                                      variant="outline"
+                                      size="sm"
+                                      render={
+                                        <a
+                                          href={f.url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                        />
+                                      }
+                                    >
+                                      <ExternalLink className="size-3.5" /> {f.name}
+                                    </Button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1">
@@ -889,20 +974,31 @@ export function TaskManager({
                         <CheckCircle2 className="size-4" /> Approve
                       </Button>
                     )}
-                    <TaskEditor
-                      title="Edit task"
-                      initial={taskToEditor(t)}
-                      onSave={(s) => edit(t.id, s)}
-                      trigger={
-                        <Button
-                          data-slot="dialog-trigger"
-                          variant="ghost"
-                          size="icon"
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                      }
-                    />
+                    {t.status === "proof_submitted" || t.status === "approved" ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled
+                        title="Locked — the student has already submitted proof"
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    ) : (
+                      <TaskEditor
+                        title="Edit task"
+                        initial={taskToEditor(t)}
+                        onSave={(s) => edit(t.id, s)}
+                        trigger={
+                          <Button
+                            data-slot="dialog-trigger"
+                            variant="ghost"
+                            size="icon"
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                        }
+                      />
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

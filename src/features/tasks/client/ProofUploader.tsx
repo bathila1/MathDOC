@@ -8,15 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Paperclip, Play, RotateCcw, Square, Timer, Trash2, Upload } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Play, RotateCcw, Send, Square, Timer, Trash2, Upload } from "lucide-react";
 
 function fmt(sec: number): string {
   const m = Math.floor(Math.abs(sec) / 60);
   const s = Math.abs(sec) % 60;
-  return `${sec < 0 ? "+" : ""}${m}:${s.toString().padStart(2, "0")}`;
+  return `${sec < 0 ? "-" : ""}${m.toString().padStart(2, "0")}:${s
+    .toString()
+    .padStart(2, "0")}`;
 }
 
-/** Optional countdown timer for a timed paper. Reports the time taken up. */
+/** Countdown timer for a timed paper, styled like a digital clock. */
 function TaskTimerBox({
   timerSeconds,
   onElapsed,
@@ -62,51 +65,54 @@ function TaskTimerBox({
   }
 
   const remaining = timerSeconds - elapsed;
+  const overtime = remaining < 0;
+  const display = phase === "idle" ? fmt(timerSeconds) : fmt(remaining);
+  const digitColor =
+    phase === "idle"
+      ? "text-slate-100"
+      : overtime
+        ? "text-red-400"
+        : phase === "running"
+          ? "text-emerald-400"
+          : "text-slate-100";
 
   return (
-    <div className="space-y-2 rounded-lg border-2 border-primary/30 bg-primary/5 p-3">
-      <div className="flex items-center justify-between">
-        <p className="flex items-center gap-1.5 text-sm font-semibold">
-          <Timer className="size-4" /> Timed task — {Math.round(timerSeconds / 60)} min
-        </p>
-        <span
-          className={`font-heading text-lg font-bold tabular-nums ${
-            phase === "running" && remaining <= 0 ? "text-destructive" : ""
-          }`}
-        >
-          {phase === "idle" ? fmt(timerSeconds) : fmt(remaining)}
-        </span>
+    <div className="rounded-xl border-2 border-primary/30 bg-slate-900 p-4 text-center dark:bg-slate-950">
+      <p className="flex items-center justify-center gap-1.5 text-[11px] font-semibold tracking-widest text-slate-400 uppercase">
+        <Timer className="size-3.5" /> Timed task · {Math.round(timerSeconds / 60)} min
+      </p>
+      <div
+        className={cn(
+          "my-3 font-mono text-5xl font-bold tracking-tight tabular-nums sm:text-6xl",
+          digitColor,
+          phase === "running" && "animate-pulse"
+        )}
+      >
+        {display}
       </div>
-
       {phase === "idle" && (
         <>
-          <p className="text-xs text-muted-foreground">
-            Open the paper first, then press Start.
-          </p>
-          <Button type="button" size="sm" className="w-full" onClick={start}>
+          <Button size="lg" className="w-full" onClick={start}>
             <Play className="size-4" /> Start timer
           </Button>
+          <p className="mt-2 text-xs text-slate-400">
+            Open the paper first, then press Start.
+          </p>
         </>
       )}
       {phase === "running" && (
-        <Button
-          type="button"
-          size="sm"
-          variant="destructive"
-          className="w-full"
-          onClick={stop}
-        >
+        <Button size="lg" variant="destructive" className="w-full" onClick={stop}>
           <Square className="size-4" /> I&apos;m done — stop
         </Button>
       )}
       {phase === "stopped" && (
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm">
-            Time taken: <strong>{fmt(elapsed)}</strong>
+        <div className="flex items-center justify-center gap-3">
+          <p className="text-sm text-slate-200">
+            Time taken: <strong>{fmt(elapsed).replace("-", "")}</strong>
           </p>
           {!restarted && (
-            <Button type="button" size="sm" variant="outline" onClick={restart}>
-              <RotateCcw className="size-4" /> Restart (once)
+            <Button size="sm" variant="secondary" onClick={restart}>
+              <RotateCcw className="size-4" /> Restart
             </Button>
           )}
         </div>
@@ -167,53 +173,57 @@ export function ProofUploader({
   }
 
   return (
-    <div className="space-y-4 rounded-md border p-4">
+    <div className="space-y-4">
       {timerSeconds ? (
         <TaskTimerBox timerSeconds={timerSeconds} onElapsed={setTimeSpent} />
       ) : null}
 
-      <div className="space-y-2">
-        <Label>Upload proof of your work</Label>
-        <p className="text-sm text-muted-foreground">
-          Photos of your answers or a PDF — so Sir can check what you did.
-        </p>
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          accept="application/pdf,image/jpeg,image/png,image/webp"
-          className="hidden"
-          onChange={onFiles}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          disabled={uploading}
-          onClick={() => fileRef.current?.click()}
-        >
-          <Paperclip className="size-4" />
-          {uploading ? "Uploading…" : "Choose photos / PDF"}
-        </Button>
-        {files.length > 0 && (
-          <ul className="space-y-1 text-sm">
-            {files.map((f, i) => (
-              <li key={f.key} className="flex items-center gap-2">
-                <span className="truncate">{f.name}</span>
-                <button
-                  type="button"
-                  className="text-destructive"
-                  onClick={() => setFiles(files.filter((_, fi) => fi !== i))}
-                  aria-label={`Remove ${f.name}`}
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="proof-note">Note for Sir (optional)</Label>
+      {/* Big, obvious upload drop-zone */}
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        accept="application/pdf,image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={onFiles}
+      />
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+        className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-8 text-center transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-60"
+      >
+        <Upload className="size-8 text-primary" />
+        <span className="text-base font-semibold">
+          {uploading ? "Uploading…" : "Upload proof of your work"}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          Tap to add photos of your answers or a PDF
+        </span>
+      </button>
+
+      {files.length > 0 && (
+        <ul className="space-y-1 text-sm">
+          {files.map((f, i) => (
+            <li key={f.key} className="flex items-center gap-2 rounded-md border px-3 py-1.5">
+              <span className="truncate">{f.name}</span>
+              <button
+                type="button"
+                className="ml-auto text-destructive"
+                onClick={() => setFiles(files.filter((_, fi) => fi !== i))}
+                aria-label={`Remove ${f.name}`}
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="space-y-1.5">
+        <Label htmlFor="proof-note" className="text-xs text-muted-foreground">
+          Note for Sir (optional)
+        </Label>
         <Textarea
           id="proof-note"
           rows={2}
@@ -222,10 +232,13 @@ export function ProofUploader({
           onChange={(e) => setNote(e.target.value)}
         />
       </div>
-      <Button className="w-full" disabled={pending || uploading} onClick={submit}>
-        <Upload className="size-4" />
-        {pending ? "Sending…" : "Send proof to Sir"}
-      </Button>
+
+      <div className="flex justify-end">
+        <Button size="sm" disabled={pending || uploading} onClick={submit}>
+          <Send className="size-4" />
+          {pending ? "Sending…" : "Send to Sir"}
+        </Button>
+      </div>
     </div>
   );
 }

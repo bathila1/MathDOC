@@ -9,6 +9,7 @@ import {
 } from "@/features/exam/client/QuizResultDialog";
 import { orderTasks, sessionNumbers } from "@/features/tasks/server/logic";
 import { TaskManager, type AdminTask } from "@/features/tasks/client/TaskManager";
+import { loadProofsByTask } from "@/features/tasks/server/proofs";
 import { BackLink } from "@/components/site/BackLink";
 import type {
   Appointment,
@@ -136,11 +137,17 @@ export default async function AdminStudentPage({
     chatCounts[m.task_id] = (chatCounts[m.task_id] ?? 0) + 1;
   }
 
+  const proofsByTask = await loadProofsByTask(
+    supabase,
+    taskRows.map((r) => r.id)
+  );
+
   const sessionNos = sessionNumbers(taskRows);
   const studentTasks: AdminTask[] = orderTasks(taskRows).map((t) => ({
     ...t,
     sessionNo: sessionNos.get(t.appointment_id) ?? 1,
     sir_note: sirNotes.get(t.id) ?? "",
+    proofs: proofsByTask.get(t.id) ?? [],
   }));
   const approved = studentTasks.filter((t) => t.status === "approved").length;
   const progress =

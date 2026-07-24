@@ -17,7 +17,7 @@ export default async function StudentLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b bg-background">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link href="/student">
             <Logo iconClassName="size-8" textClassName="text-lg" />
           </Link>
@@ -52,7 +52,7 @@ export default async function StudentLayout({
           </nav>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
         {children}
       </main>
     </div>

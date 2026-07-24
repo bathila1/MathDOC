@@ -29,6 +29,7 @@ export function TaskChat({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [zoom, setZoom] = useState<string | null>(null);
   const [supabase] = useState(() => createSupabaseBrowser());
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -118,6 +119,7 @@ export function TaskChat({
   }
 
   return (
+    <>
     <div className="rounded-lg border">
       <div className="max-h-80 space-y-2 overflow-y-auto p-3">
         {messages.length === 0 ? (
@@ -146,12 +148,18 @@ export function TaskChat({
                     </p>
                   )}
                   {m.image_key && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={`/api/chat-image/${m.id}`}
-                      alt="Shared"
-                      className="mb-1 max-h-56 rounded-lg"
-                    />
+                    <button
+                      type="button"
+                      className="mb-1 block"
+                      onClick={() => setZoom(`/api/chat-image/${m.id}`)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/chat-image/${m.id}`}
+                        alt="Shared"
+                        className="max-h-56 cursor-zoom-in rounded-lg"
+                      />
+                    </button>
                   )}
                   {m.body && <p className="whitespace-pre-wrap">{m.body}</p>}
                   <p
@@ -225,5 +233,22 @@ export function TaskChat({
         </div>
       </div>
     </div>
+
+      {zoom && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setZoom(null)}
+          role="dialog"
+          aria-label="Expanded image"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={zoom}
+            alt="Shared"
+            className="max-h-full max-w-full rounded-lg shadow-2xl"
+          />
+        </div>
+      )}
+    </>
   );
 }

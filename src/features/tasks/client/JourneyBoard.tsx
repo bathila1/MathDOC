@@ -26,7 +26,7 @@ import {
   Flag,
   Handshake,
   Hourglass,
-  Star,
+  Zap,
 } from "lucide-react";
 import { format } from "date-fns";
 import type {
@@ -80,6 +80,24 @@ const submissionMeta: Record<
   rejected: { label: "Sent back", variant: "destructive" },
   pending: { label: "Waiting for review", variant: "outline" },
 };
+
+/** A titled section inside the task box. */
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <p className="mb-2 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+        {title}
+      </p>
+      {children}
+    </section>
+  );
+}
 
 function defaultSelection(tasks: BoardTask[]): string {
   return (
@@ -241,86 +259,141 @@ export function JourneyBoard({
       {selected && (
         <div
           key={selected.id}
-          className="animate-pop-in rounded-xl border-2 border-primary/40 bg-card p-5 sm:p-6"
+          className={cn(
+            "animate-pop-in overflow-hidden rounded-2xl border-2 bg-card shadow-sm",
+            selected.isPriority ? "border-destructive" : "border-primary/30"
+          )}
         >
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold tracking-wider text-primary uppercase">
-              Task {selectedIndex + 1} of {total}
-            </span>
-            {selected.isPriority && (
-              <Badge variant="destructive">
-                <Star className="size-3" /> Priority
-              </Badge>
-            )}
-            {selected.dueAt && (
-              <Badge variant={selectedExpired ? "destructive" : "outline"}>
-                <CalendarClock className="size-3" />
-                {selectedExpired ? "Expired" : "Due"}{" "}
-                {format(new Date(selected.dueAt), "d MMM")}
-              </Badge>
-            )}
-            <Badge variant="outline">Session {selected.sessionNo}</Badge>
-            {selected.type === "meet_sir" && (
-              <Badge variant="secondary">
-                <Handshake className="size-3" /> Meet with Sir
-              </Badge>
-            )}
-            {selected.status === "approved" && (
-              <Badge variant="secondary">
-                <CheckCircle2 className="size-3" /> Approved
-              </Badge>
-            )}
-            {selected.status === "proof_submitted" && (
-              <Badge variant="outline">
-                <Hourglass className="size-3" /> Being checked
-              </Badge>
-            )}
-            {selected.status === "active" &&
-              (selected.id === currentId ? (
-                <Badge>Start here next</Badge>
-              ) : (
-                <Badge variant="outline">To do</Badge>
-              ))}
-          </div>
-
-          <h3 className="mt-3 text-xl">{selected.title}</h3>
-          {selected.description && (
-            <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
-              {selected.description}
-            </p>
+          {/* Heavy priority banner */}
+          {selected.isPriority && (
+            <div className="flex items-center gap-2 bg-destructive px-5 py-2 text-sm font-bold tracking-wide text-white uppercase sm:px-6">
+              <Zap className="size-4 fill-current" /> Priority task — do this first
+            </div>
           )}
 
-          <div className="mt-4 space-y-4">
-            <TaskMedia
-              youtubeUrl={selected.youtubeUrl}
-              facebookUrl={selected.facebookUrl}
-              videoUrl={selected.videoUrl}
-              voiceUrl={selected.voiceUrl}
-              questionImageUrl={selected.questionImageUrl}
-            />
+          <div className="space-y-5 p-5 sm:p-6">
+            {/* Header */}
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold tracking-wider text-primary uppercase">
+                  Task {selectedIndex + 1} of {total}
+                </span>
+                <Badge variant="outline">Session {selected.sessionNo}</Badge>
+                {selected.type === "meet_sir" && (
+                  <Badge variant="secondary">
+                    <Handshake className="size-3" /> Meet with Sir
+                  </Badge>
+                )}
+                {selected.dueAt && (
+                  <Badge variant={selectedExpired ? "destructive" : "outline"}>
+                    <CalendarClock className="size-3" />
+                    {selectedExpired ? "Expired" : "Due"}{" "}
+                    {format(new Date(selected.dueAt), "d MMM")}
+                  </Badge>
+                )}
+                {selected.status === "approved" && (
+                  <Badge variant="secondary">
+                    <CheckCircle2 className="size-3" /> Approved
+                  </Badge>
+                )}
+                {selected.status === "proof_submitted" && (
+                  <Badge variant="outline">
+                    <Hourglass className="size-3" /> Being checked
+                  </Badge>
+                )}
+                {selected.status === "active" &&
+                  (selected.id === currentId ? (
+                    <Badge>Start here next</Badge>
+                  ) : (
+                    <Badge variant="outline">To do</Badge>
+                  ))}
+              </div>
+              <h3 className="mt-2 text-2xl font-bold">{selected.title}</h3>
+              {selected.description && (
+                <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
+                  {selected.description}
+                </p>
+              )}
+            </div>
 
-            {selected.attachmentUrl && (
-              <Button
-                variant="outline"
-                render={
-                  <a
-                    href={selected.attachmentUrl}
-                    target="_blank"
-                    rel="noreferrer"
+            {/* Materials */}
+            {(selected.youtubeUrl ||
+              selected.facebookUrl ||
+              selected.videoUrl ||
+              selected.voiceUrl ||
+              selected.questionImageUrl ||
+              selected.attachmentUrl) && (
+              <Section title="Materials">
+                <div className="space-y-3">
+                  <TaskMedia
+                    youtubeUrl={selected.youtubeUrl}
+                    facebookUrl={selected.facebookUrl}
+                    videoUrl={selected.videoUrl}
+                    voiceUrl={selected.voiceUrl}
+                    questionImageUrl={selected.questionImageUrl}
                   />
-                }
-              >
-                <FileText className="size-4" /> Open the attached material
-              </Button>
+                  {selected.attachmentUrl && (
+                    <Button
+                      variant="outline"
+                      render={
+                        <a
+                          href={selected.attachmentUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        />
+                      }
+                    >
+                      <FileText className="size-4" /> Open the attached material
+                    </Button>
+                  )}
+                </div>
+              </Section>
             )}
 
+            {/* Struggling? — moved up, compact inline row */}
+            {selected.type === "task" && selected.status !== "approved" && (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
+                <span className="text-sm font-medium">Stuck?</span>
+                <Button
+                  size="sm"
+                  variant={selected.studentFlag === "hard" ? "default" : "outline"}
+                  disabled={flagPending}
+                  onClick={() =>
+                    flag(selected.id, selected.studentFlag === "hard" ? null : "hard")
+                  }
+                >
+                  This is hard
+                </Button>
+                <Button
+                  size="sm"
+                  variant={
+                    selected.studentFlag === "cant_do" ? "default" : "outline"
+                  }
+                  disabled={flagPending}
+                  onClick={() =>
+                    flag(
+                      selected.id,
+                      selected.studentFlag === "cant_do" ? null : "cant_do"
+                    )
+                  }
+                >
+                  I can&apos;t do this
+                </Button>
+                {selected.studentFlag && (
+                  <span className="text-xs text-muted-foreground">
+                    Sir has been told — tap again to undo.
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Alerts */}
             {selected.rejectionNote && selected.status === "active" && (
               <Alert variant="destructive">
                 <AlertTitle>Sir sent this back</AlertTitle>
                 <AlertDescription>{selected.rejectionNote}</AlertDescription>
               </Alert>
             )}
-
             {selectedExpired && selected.status !== "approved" && (
               <Alert variant="destructive">
                 <AlertTitle>This task has expired</AlertTitle>
@@ -330,13 +403,16 @@ export function JourneyBoard({
               </Alert>
             )}
 
+            {/* Your work */}
             {selected.type === "task" &&
               selected.status === "active" &&
               !selectedExpired && (
-                <ProofUploader
-                  taskId={selected.id}
-                  timerSeconds={selected.timerSeconds}
-                />
+                <Section title="Your work">
+                  <ProofUploader
+                    taskId={selected.id}
+                    timerSeconds={selected.timerSeconds}
+                  />
+                </Section>
               )}
 
             {selected.status === "proof_submitted" && (
@@ -346,83 +422,9 @@ export function JourneyBoard({
               </p>
             )}
 
-            {/* Proof history right under the task */}
-            {selected.submissions.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold">Your submissions</p>
-                {selected.submissions.map((s, i) => {
-                  const meta = submissionMeta[s.status];
-                  return (
-                    <div key={i} className="rounded-lg border p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <Badge variant={meta.variant}>{meta.label}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(s.submittedAt), "d MMM, h:mm a")}
-                        </span>
-                      </div>
-                      {s.timeSpentSeconds != null && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Time taken: {fmtDuration(s.timeSpentSeconds)}
-                        </p>
-                      )}
-                      {s.note && (
-                        <p className="mt-2 rounded bg-muted p-2 text-sm">
-                          <span className="font-medium">Sir:</span> {s.note}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Struggling? Flag it and move on. */}
-            {selected.type === "task" && selected.status !== "approved" && (
-              <div className="rounded-lg border p-3">
-                <p className="text-sm font-medium">Struggling with this one?</p>
-                <p className="text-xs text-muted-foreground">
-                  Tell Sir and move on to another task — you can come back to it.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant={selected.studentFlag === "hard" ? "default" : "outline"}
-                    disabled={flagPending}
-                    onClick={() =>
-                      flag(
-                        selected.id,
-                        selected.studentFlag === "hard" ? null : "hard"
-                      )
-                    }
-                  >
-                    This is hard
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      selected.studentFlag === "cant_do" ? "default" : "outline"
-                    }
-                    disabled={flagPending}
-                    onClick={() =>
-                      flag(
-                        selected.id,
-                        selected.studentFlag === "cant_do" ? null : "cant_do"
-                      )
-                    }
-                  >
-                    I can&apos;t do this
-                  </Button>
-                </div>
-                {selected.studentFlag && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Sir has been told. Tap again to undo.
-                  </p>
-                )}
-              </div>
-            )}
-
+            {/* Meet with Sir */}
             {selected.type === "meet_sir" && selected.status !== "approved" && (
-              <div className="space-y-3">
+              <div>
                 {selected.followUpAt ? (
                   <p className="rounded-lg bg-muted p-4 text-sm">
                     Your meeting with Sir is booked for{" "}
@@ -447,16 +449,47 @@ export function JourneyBoard({
             )}
 
             {selected.status === "approved" && (
-              <p className="rounded-lg bg-muted p-4 text-sm">
-                Done and approved — great work. Pick your next circle on the
+              <p className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                Done and approved — great work! Pick your next circle on the
                 track above.
               </p>
             )}
 
-            <div className="space-y-2">
-              <p className="text-sm font-semibold">Questions about this task</p>
+            {/* Submissions */}
+            {selected.submissions.length > 0 && (
+              <Section title="Your submissions">
+                <div className="space-y-2">
+                  {selected.submissions.map((s, i) => {
+                    const meta = submissionMeta[s.status];
+                    return (
+                      <div key={i} className="rounded-lg border p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <Badge variant={meta.variant}>{meta.label}</Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(s.submittedAt), "d MMM, h:mm a")}
+                          </span>
+                        </div>
+                        {s.timeSpentSeconds != null && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Time taken: {fmtDuration(s.timeSpentSeconds)}
+                          </p>
+                        )}
+                        {s.note && (
+                          <p className="mt-2 rounded bg-muted p-2 text-sm">
+                            <span className="font-medium">Sir:</span> {s.note}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Section>
+            )}
+
+            {/* Chat */}
+            <Section title="Questions about this task">
               <TaskChat taskId={selected.id} currentUserId={currentUserId} />
-            </div>
+            </Section>
           </div>
         </div>
       )}
