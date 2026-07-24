@@ -45,7 +45,7 @@ export default async function AdminAppointmentPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  const { user: adminUser } = await requireAdmin();
   const { id } = await params;
   const supabase = await createSupabaseServer();
 
@@ -97,6 +97,20 @@ export default async function AdminAppointmentPage({
       n.note,
     ])
   );
+  const { data: msgRows } = rows.length
+    ? await supabase
+        .from("task_messages")
+        .select("task_id")
+        .in(
+          "task_id",
+          rows.map((r) => r.id)
+        )
+    : { data: [] };
+  const chatCounts: Record<string, number> = {};
+  for (const m of (msgRows ?? []) as { task_id: string }[]) {
+    chatCounts[m.task_id] = (chatCounts[m.task_id] ?? 0) + 1;
+  }
+
   const sessionNos = sessionNumbers(rows);
   const tasks: AdminTask[] = orderTasks(rows).map((t) => ({
     ...t,
@@ -201,6 +215,8 @@ export default async function AdminAppointmentPage({
         appointmentId={appt.id}
         tasks={tasks}
         defaultTasks={defaultTasks}
+        currentUserId={adminUser.id}
+        chatCounts={chatCounts}
         heading="Already existing tasks"
       />
     </div>

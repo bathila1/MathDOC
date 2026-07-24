@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ProofUploader } from "./ProofUploader";
 import { TaskMedia } from "./TaskMedia";
+import { TaskChat } from "./TaskChat";
 import { flagTask } from "@/features/tasks/server/actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -94,7 +95,13 @@ function defaultSelection(tasks: BoardTask[]): string {
  * task shown in a box right below it. Clicking an unlocked circle swaps
  * what the box shows.
  */
-export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
+export function JourneyBoard({
+  tasks,
+  currentUserId,
+}: {
+  tasks: BoardTask[];
+  currentUserId: string;
+}) {
   const [selectedId, setSelectedId] = useState(() => defaultSelection(tasks));
   const selectedIndex = tasks.findIndex((t) => t.id === selectedId);
   const selected = selectedIndex >= 0 ? tasks[selectedIndex] : null;
@@ -445,6 +452,11 @@ export function JourneyBoard({ tasks }: { tasks: BoardTask[] }) {
                 track above.
               </p>
             )}
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Questions about this task</p>
+              <TaskChat taskId={selected.id} currentUserId={currentUserId} />
+            </div>
           </div>
         </div>
       )}

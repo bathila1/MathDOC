@@ -131,37 +131,39 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
             Click any empty space to add a free time
           </p>
         }
-        renderDay={(day) => (
-          <>
-            {slots
-              .filter((s) => sameDay(new Date(s.starts_at), day))
-              .map((s) => {
-                const booked = s.status === "booked";
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setManaged(s)}
-                    style={{
-                      top: topOf(s.starts_at, range),
-                      height: heightOf(s.starts_at, s.ends_at),
-                    }}
-                    className={cn(
-                      "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-md border-l-4 px-1 py-0.5 text-left text-[10px] leading-tight font-bold shadow-sm sm:inset-x-1 sm:px-1.5 sm:text-[11px]",
-                      booked
-                        ? "bg-primary border-primary-foreground text-primary-foreground"
-                        : "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                    )}
-                  >
-                    {format(new Date(s.starts_at), "h:mm")}
-                    <span className="block truncate font-medium opacity-85">
-                      {booked ? (bookedBy(s) ?? "Booked") : modeLabels[s.mode]}
-                    </span>
-                  </button>
-                );
-              })}
-          </>
-        )}
+        renderDay={(day) =>
+          slots
+            .filter((s) => sameDay(new Date(s.starts_at), day))
+            .sort(
+              (a, b) =>
+                new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+            )
+            .map((s, idx) => {
+              const booked = s.status === "booked";
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setManaged(s)}
+                  style={{
+                    top: topOf(s.starts_at, range),
+                    height: heightOf(s.starts_at, s.ends_at),
+                  }}
+                  className={cn(
+                    "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-md border-l-4 px-1 py-0.5 text-left text-[10px] leading-tight font-bold shadow-sm sm:inset-x-1 sm:px-1.5 sm:text-[11px]",
+                    booked
+                      ? "bg-primary border-primary-foreground text-primary-foreground"
+                      : "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                  )}
+                >
+                  #{idx + 1} {format(new Date(s.starts_at), "h:mm")}
+                  <span className="block truncate font-medium opacity-85">
+                    {booked ? (bookedBy(s) ?? "Booked") : modeLabels[s.mode]}
+                  </span>
+                </button>
+              );
+            })
+        }
       />
 
       {/* Create slot — Google Calendar event vibe */}

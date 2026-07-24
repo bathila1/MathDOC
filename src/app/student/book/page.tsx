@@ -54,10 +54,10 @@ export default async function BookPage({
   }
 
   const supabase = await createSupabaseServer();
+  // Include booked slots too — they show dimmed so students see what's taken.
   const { data } = await supabase
     .from("availability_slots")
     .select("*")
-    .eq("status", "free")
     .gt("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: true });
 

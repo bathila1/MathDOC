@@ -158,3 +158,13 @@ export interface Certificate {
   public_token: string;
   issued_at: string;
 }
+
+export interface TaskMessage {
+  id: string;
+  task_id: string;
+  sender_id: string;
+  sender_role: "student" | "admin";
+  body: string;
+  image_key: string | null;
+  created_at: string;
+}

@@ -27,9 +27,13 @@ export function StudentSlotCalendar({
   const [pending, startTransition] = useTransition();
 
   const visible = useMemo(
-    () => slots.filter((s) => s.mode === "either" || s.mode === mode),
+    () =>
+      slots.filter(
+        (s) => s.status === "booked" || s.mode === "either" || s.mode === mode
+      ),
     [slots, mode]
   );
+  const hasFree = visible.some((s) => s.status === "free");
   // Widen the grid so early/late slots stay inside the calendar box.
   const range = useMemo(() => rangeForSlots(visible), [visible]);
 
@@ -124,40 +128,56 @@ export function StudentSlotCalendar({
             Tap a free time to pick it
           </p>
         }
-        renderDay={(day) => (
-          <>
-            {visible
-              .filter((s) => sameDay(new Date(s.starts_at), day))
-              .map((s) => {
-                const isSelected = selected?.id === s.id;
+        renderDay={(day) =>
+          visible
+            .filter((s) => sameDay(new Date(s.starts_at), day))
+            .sort(
+              (a, b) =>
+                new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+            )
+            .map((s, idx) => {
+              const style = {
+                top: topOf(s.starts_at, range),
+                height: heightOf(s.starts_at, s.ends_at),
+              };
+              // Booked times stay visible but dimmed and non-selectable.
+              if (s.status === "booked") {
                 return (
-                  <button
+                  <div
                     key={s.id}
-                    type="button"
-                    onClick={() => setSelected(isSelected ? null : s)}
-                    style={{
-                      top: topOf(s.starts_at, range),
-                      height: heightOf(s.starts_at, s.ends_at),
-                    }}
-                    className={cn(
-                      "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-md border-l-4 px-1 py-0.5 text-left text-[10px] leading-tight font-bold shadow-sm transition-all sm:inset-x-1 sm:px-1.5 sm:text-[11px]",
-                      isSelected
-                        ? "bg-primary border-primary-foreground text-primary-foreground shadow-md"
-                        : "border-primary bg-primary/10 text-primary hover:bg-primary/20"
-                    )}
+                    style={style}
+                    className="pointer-events-none absolute inset-x-0.5 z-10 overflow-hidden rounded-md border-l-4 border-muted-foreground/40 bg-muted px-1 py-0.5 text-left text-[10px] leading-tight font-bold text-muted-foreground opacity-60 sm:inset-x-1 sm:px-1.5 sm:text-[11px]"
                   >
-                    {format(new Date(s.starts_at), "h:mm")}
-                    <span className="block font-medium opacity-80">
-                      {isSelected ? "Selected" : "Free"}
-                    </span>
-                  </button>
+                    #{idx + 1} {format(new Date(s.starts_at), "h:mm")}
+                    <span className="block font-medium">Booked</span>
+                  </div>
                 );
-              })}
-          </>
-        )}
+              }
+              const isSelected = selected?.id === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSelected(isSelected ? null : s)}
+                  style={style}
+                  className={cn(
+                    "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-md border-l-4 px-1 py-0.5 text-left text-[10px] leading-tight font-bold shadow-sm transition-all sm:inset-x-1 sm:px-1.5 sm:text-[11px]",
+                    isSelected
+                      ? "bg-primary border-primary-foreground text-primary-foreground shadow-md"
+                      : "border-primary bg-primary/10 text-primary hover:bg-primary/20"
+                  )}
+                >
+                  #{idx + 1} {format(new Date(s.starts_at), "h:mm")}
+                  <span className="block font-medium opacity-80">
+                    {isSelected ? "Selected" : "Free"}
+                  </span>
+                </button>
+              );
+            })
+        }
       />
 
-      {visible.length === 0 && (
+      {!hasFree && (
         <p className="py-4 text-center text-muted-foreground">
           No free {mode === "online" ? "online" : "in-person"} times right now —
           please check back soon.

@@ -44,7 +44,7 @@ export default async function AdminStudentPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  const { user: adminUser } = await requireAdmin();
   const { id } = await params;
   const supabase = await createSupabaseServer();
 
@@ -122,6 +122,20 @@ export default async function AdminStudentPage({
       n.note,
     ])
   );
+  const { data: msgRows } = taskRows.length
+    ? await supabase
+        .from("task_messages")
+        .select("task_id")
+        .in(
+          "task_id",
+          taskRows.map((r) => r.id)
+        )
+    : { data: [] };
+  const chatCounts: Record<string, number> = {};
+  for (const m of (msgRows ?? []) as { task_id: string }[]) {
+    chatCounts[m.task_id] = (chatCounts[m.task_id] ?? 0) + 1;
+  }
+
   const sessionNos = sessionNumbers(taskRows);
   const studentTasks: AdminTask[] = orderTasks(taskRows).map((t) => ({
     ...t,
@@ -262,6 +276,8 @@ export default async function AdminStudentPage({
             appointmentId={latestAppointmentId}
             tasks={studentTasks}
             defaultTasks={defaultTasks}
+            currentUserId={adminUser.id}
+            chatCounts={chatCounts}
             heading="All tasks"
           />
           {latestAppointmentId && (

@@ -12,6 +12,7 @@ import {
 } from "@/features/tasks/server/actions";
 import { uploadFile } from "@/lib/client/upload";
 import { VoiceRecorder } from "./VoiceRecorder";
+import { TaskChat } from "./TaskChat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +42,7 @@ import {
   Handshake,
   Image as ImageIcon,
   Lock,
+  MessageCircle,
   Mic,
   MonitorPlay,
   Paperclip,
@@ -633,17 +635,22 @@ export function TaskManager({
   appointmentId,
   tasks,
   defaultTasks,
+  currentUserId,
+  chatCounts,
   heading = "Task journey",
 }: {
   appointmentId?: string;
   tasks: AdminTask[];
   defaultTasks?: DefaultTask[];
+  currentUserId?: string;
+  chatCounts?: Record<string, number>;
   heading?: string;
 }) {
   const [, startTransition] = useTransition();
   const [items, setItems] = useState(tasks);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [chatTaskId, setChatTaskId] = useState<string | null>(null);
 
   const [syncedTasks, setSyncedTasks] = useState(tasks);
   if (syncedTasks !== tasks) {
@@ -851,6 +858,22 @@ export function TaskManager({
                   </div>
 
                   <div className="flex shrink-0 items-center gap-1">
+                    {currentUserId && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="relative"
+                        aria-label="Open chat"
+                        onClick={() => setChatTaskId(t.id)}
+                      >
+                        <MessageCircle className="size-4" />
+                        {(chatCounts?.[t.id] ?? 0) > 0 && (
+                          <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                            {chatCounts?.[t.id]}
+                          </span>
+                        )}
+                      </Button>
+                    )}
                     {(t.status === "active" || t.status === "proof_submitted") && (
                       <Button
                         variant="outline"
@@ -900,6 +923,20 @@ export function TaskManager({
           );
         })}
       </ol>
+
+      <Dialog
+        open={!!chatTaskId}
+        onOpenChange={(v) => !v && setChatTaskId(null)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Task chat</DialogTitle>
+          </DialogHeader>
+          {chatTaskId && currentUserId && (
+            <TaskChat taskId={chatTaskId} currentUserId={currentUserId} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

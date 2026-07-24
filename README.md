@@ -102,9 +102,13 @@ npm install
    data. The individual files live in `supabase/migrations/` if you prefer to
    run them one by one: `001_schema.sql` → `002_functions.sql` → `003_rls.sql`
    → `seed.sql`.)
-   - **Existing databases**: after pulling Phase 2, run the new numbered
-     migrations you haven't applied yet (e.g. `006_phase2_settings_unlock.sql`).
-     A fresh `SETUP.sql` already includes them.
+   - **Existing databases (IMPORTANT)**: after pulling Phase 2–4, paste
+     [`supabase/UPDATE-existing-db.sql`](supabase/UPDATE-existing-db.sql) into
+     the SQL editor and Run. It applies migrations 006–010 in one go, is
+     non-destructive and safe to re-run, and adds every column/table the new
+     features (advanced tasks, timers, activity, flags, chat) need. **If adding
+     a task, sending a proof, or the chat errors out, it's almost always this
+     step.** A fresh `SETUP.sql` already includes everything.
 
 ### 3. Environment variables
 
@@ -273,9 +277,13 @@ testing it.
   admin-only `task_sir_notes` table so a student can never read it). Students can
   raise a **"This is hard" / "I can't do this"** flag and move on; Sir sees it
   on the task card. Migration: `009_phase3_activity_notes_flags.sql`.
-- [ ] **Slice 4** — task-scoped **real-time chat** (Supabase Realtime, image
-  support) + **appointment numbering** in the calendar + booked slots shown
-  dimmed (not removed) on the student side.
+- [x] **Slice 4** — task-scoped **real-time chat** (Supabase Realtime, with
+  image support and an authenticated image proxy) on the student board and the
+  admin task card (with an unread-ish message count). Calendar events are
+  **numbered per day (#1, #2…)**, and **booked slots stay visible but dimmed**
+  ("Booked") on the student side instead of disappearing. Migration:
+  `010_phase4_task_chat.sql` (adds `task_messages` + enables Realtime; needs the
+  `wss://*.supabase.co` CSP entry already in `next.config.ts`).
 
 ## Roadmap / TODO
 

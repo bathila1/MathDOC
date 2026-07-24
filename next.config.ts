@@ -19,7 +19,8 @@ const securityHeaders = [
       // and locally-recorded audio previews use blob:.
       "media-src 'self' blob: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co https://*.r2.cloudflarestorage.com",
+      // wss for Supabase Realtime (task chat).
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.r2.cloudflarestorage.com",
       // Inline task videos: only YouTube (privacy mode) and Facebook players.
       "frame-src https://www.youtube-nocookie.com https://www.youtube.com https://www.facebook.com https://web.facebook.com",
       "frame-ancestors 'none'",

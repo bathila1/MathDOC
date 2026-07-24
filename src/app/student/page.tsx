@@ -247,7 +247,7 @@ export default async function StudentDashboard() {
       )}
 
       {allTasks.length > 0 ? (
-        <JourneyBoard tasks={boardTasks} />
+        <JourneyBoard tasks={boardTasks} currentUserId={user.id} />
       ) : (
         <Card>
           <CardHeader className="text-center">

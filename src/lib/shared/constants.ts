@@ -34,6 +34,7 @@ export const UPLOAD_RULES = {
   question_image: { types: IMAGE_TYPES, maxBytes: MAX_UPLOAD_BYTES },
   task_media: { types: VIDEO_TYPES, maxBytes: MAX_VIDEO_BYTES },
   voice_note: { types: AUDIO_TYPES, maxBytes: MAX_AUDIO_BYTES },
+  chat_image: { types: IMAGE_TYPES, maxBytes: MAX_UPLOAD_BYTES },
 } as const;
 
 export type UploadPurpose = keyof typeof UPLOAD_RULES;

@@ -237,6 +237,22 @@ export const proofReviewSchema = z.object({
   teacher_note: z.string().trim().max(1000, "Note is too long.").optional(),
 });
 
+export const taskMessageSchema = z
+  .object({
+    task_id: z.string().uuid(),
+    body: z
+      .string()
+      .trim()
+      .max(2000, "Message is too long.")
+      .optional()
+      .transform((v) => v ?? ""),
+    image_key: z.string().max(500).optional().nullable(),
+  })
+  .refine((m) => m.body.length > 0 || Boolean(m.image_key), {
+    message: "Type a message or attach an image.",
+    path: ["body"],
+  });
+
 // ---------- Uploads ----------
 
 export const presignSchema = z
@@ -250,6 +266,7 @@ export const presignSchema = z
       "question_image",
       "task_media",
       "voice_note",
+      "chat_image",
     ]),
   })
   .superRefine((v, ctx) => {
