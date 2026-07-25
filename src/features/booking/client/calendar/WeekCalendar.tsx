@@ -79,17 +79,17 @@ export function WeekCalendar({
       </div>
 
       {/* fixed width — the whole week always fits, no inner scrollbars */}
-      <div className="rounded-2xl border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-3xl bg-card shadow-soft ring-1 ring-border/60">
         <div>
           {/* day headers */}
-          <div className="grid grid-cols-[2.25rem_repeat(7,1fr)] border-b sm:grid-cols-[3rem_repeat(7,1fr)]">
+          <div className="grid grid-cols-[2.25rem_repeat(7,1fr)] border-b border-border/60 bg-muted/30 sm:grid-cols-[3rem_repeat(7,1fr)]">
             <div />
             {days.map((day) => {
               const isToday = sameDay(day, today);
               return (
                 <div
                   key={day.toISOString()}
-                  className="border-l px-0.5 py-2 text-center"
+                  className="border-l border-border/60 px-0.5 py-2.5 text-center"
                 >
                   <p className="text-[10px] font-semibold text-muted-foreground sm:text-xs">
                     {format(day, "EEE")}
@@ -115,7 +115,7 @@ export function WeekCalendar({
                 <div
                   key={h}
                   style={{ height: HOUR_PX }}
-                  className="relative border-b border-dashed border-border/60"
+                  className="relative border-b border-border/40"
                 >
                   <span className="absolute -top-2 right-1 text-[9px] font-semibold text-muted-foreground sm:text-[10px]">
                     {format(new Date(2000, 0, 1, h), "h")}
@@ -132,7 +132,7 @@ export function WeekCalendar({
               return (
               <div
                 key={day.toISOString()}
-                className={cn("relative border-l", isPastDay && "bg-muted/50")}
+                className={cn("relative border-l border-border/60", isPastDay && "bg-muted/40")}
               >
                 {hours.map((h) => {
                   // past cells are shaded and can't be clicked
@@ -145,8 +145,8 @@ export function WeekCalendar({
                       key={h}
                       style={{ height: HOUR_PX }}
                       className={cn(
-                        "border-b border-border/50",
-                        cellPast && "bg-muted/40",
+                        "border-b border-border/40",
+                        cellPast && "bg-muted/30",
                         onCellClick &&
                           !cellPast &&
                           "cursor-pointer transition-colors hover:bg-primary/5"

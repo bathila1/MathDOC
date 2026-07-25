@@ -4,6 +4,7 @@ import { createSupabaseServer } from "@/lib/server/supabase";
 import { LogoutButton } from "@/features/auth/client/LogoutButton";
 import { Logo } from "@/components/brand/Logo";
 import { NavLink } from "@/components/site/NavLink";
+import { ThemeToggle } from "@/components/site/ThemeToggle";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
@@ -62,15 +63,19 @@ export default async function AdminLayout({
           ))}
         </nav>
         {/* pinned to the bottom-left corner */}
-        <div className="border-t p-2">
+        <div className="flex items-center justify-between border-t p-2">
           <LogoutButton />
+          <ThemeToggle />
         </div>
       </aside>
 
       <div className="flex min-h-screen flex-col sm:ml-56">
         <header className="flex items-center justify-between border-b px-4 py-3 sm:hidden">
           <Logo iconClassName="size-7" textClassName="text-base" />
-          <LogoutButton />
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <LogoutButton />
+          </div>
         </header>
         <nav className="flex gap-1 overflow-x-auto border-b px-2 py-1 sm:hidden">
           {nav.map((item) => (

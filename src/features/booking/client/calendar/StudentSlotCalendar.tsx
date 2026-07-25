@@ -59,10 +59,10 @@ export function StudentSlotCalendar({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* How do you want to meet? — big, obvious choice */}
       <div>
-        <p className="mb-2 text-sm font-semibold">How would you like to meet?</p>
+        <p className="mb-3 text-sm font-semibold">How would you like to meet?</p>
         <div className="grid gap-3 sm:grid-cols-2">
           {(
             [
@@ -90,15 +90,15 @@ export function StudentSlotCalendar({
                   setSelected(null);
                 }}
                 className={cn(
-                  "flex items-center gap-4 rounded-xl border-2 p-4 text-left transition-colors",
+                  "flex items-center gap-4 rounded-2xl p-5 text-left shadow-sm ring-1 transition-all",
                   active
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/40 hover:bg-muted/50"
+                    ? "bg-primary/5 ring-2 ring-primary"
+                    : "bg-card ring-border/60 hover:bg-muted/40 hover:ring-primary/30"
                 )}
               >
                 <span
                   className={cn(
-                    "flex size-12 shrink-0 items-center justify-center rounded-lg",
+                    "flex size-12 shrink-0 items-center justify-center rounded-xl",
                     active
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground"
@@ -146,7 +146,7 @@ export function StudentSlotCalendar({
                   <div
                     key={s.id}
                     style={style}
-                    className="pointer-events-none absolute inset-x-0.5 z-10 overflow-hidden rounded-md border-l-4 border-muted-foreground/40 bg-muted px-1 py-0.5 text-left text-[10px] leading-tight font-bold text-muted-foreground opacity-60 sm:inset-x-1 sm:px-1.5 sm:text-[11px]"
+                    className="pointer-events-none absolute inset-x-0.5 z-10 overflow-hidden rounded-lg border-l-4 border-muted-foreground/40 bg-muted px-1.5 py-1 text-left text-[11px] leading-tight font-bold text-muted-foreground opacity-60 sm:inset-x-1 sm:px-2 sm:text-xs"
                   >
                     #{idx + 1} {format(new Date(s.starts_at), "h:mm")}
                     <span className="block font-medium">Booked</span>
@@ -161,7 +161,7 @@ export function StudentSlotCalendar({
                   onClick={() => setSelected(isSelected ? null : s)}
                   style={style}
                   className={cn(
-                    "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-md border-l-4 px-1 py-0.5 text-left text-[10px] leading-tight font-bold shadow-sm transition-all sm:inset-x-1 sm:px-1.5 sm:text-[11px]",
+                    "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-lg border-l-4 px-1.5 py-1 text-left text-[11px] leading-tight font-bold shadow-sm transition-all sm:inset-x-1 sm:px-2 sm:text-xs",
                     isSelected
                       ? "bg-primary border-primary-foreground text-primary-foreground shadow-md"
                       : "border-primary bg-primary/10 text-primary hover:bg-primary/20"

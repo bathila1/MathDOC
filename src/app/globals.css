@@ -51,7 +51,9 @@
 /* MathDOC brand theme, matched to the logo: energetic red-orange gradient
    palette, warm cream background, big friendly rounded corners. */
 :root {
-  --background: oklch(1 0 0);
+  /* Warm off-white canvas (not pure white) so white cards lift off it softly —
+     calmer and more "designed" than stark white-on-white. */
+  --background: oklch(0.985 0.008 75);
   --foreground: oklch(0.26 0.03 35);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.26 0.03 35);
@@ -168,6 +170,18 @@
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
+  }
+
+  /* Soft, diffuse elevation for hero panels — calmer than a hard border. */
+  .shadow-soft {
+    box-shadow:
+      0 1px 2px oklch(0.26 0.03 35 / 4%),
+      0 8px 24px -12px oklch(0.26 0.03 35 / 12%);
+  }
+  .dark .shadow-soft {
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 30%),
+      0 12px 32px -14px oklch(0 0 0 / 55%);
   }
 
   /* One entrance animation, used sparingly (journey milestones, rewards) */

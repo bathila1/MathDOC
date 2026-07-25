@@ -169,14 +169,17 @@ export default async function StudentDashboard() {
   const allDone = allTasks.length > 0 && approved === allTasks.length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <p className="text-xs font-semibold tracking-[0.25em] text-primary uppercase">
           My plan
         </p>
-        <h1 className="mt-1 text-3xl">
+        <h1 className="mt-1.5 text-3xl sm:text-4xl">
           Hello, {profile.full_name?.split(" ")[0] ?? "there"}.
         </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Here&apos;s everything on your plate — take it one step at a time.
+        </p>
       </div>
 
       {!attempt && (

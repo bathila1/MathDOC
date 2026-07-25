@@ -3,7 +3,7 @@ import { addDays, startOfWeek } from "date-fns";
 /** Default visible day range of the calendar (08:00 → 20:00). */
 export const DEFAULT_START_HOUR = 8;
 export const DEFAULT_END_HOUR = 20;
-export const HOUR_PX = 44; // pixel height of one hour row
+export const HOUR_PX = 56; // pixel height of one hour row (roomier = calmer grid)
 
 export interface HourRange {
   start: number;

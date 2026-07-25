@@ -166,7 +166,7 @@ export function JourneyBoard({
   const fillFraction = total ? approved / total : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* ---- the rail ---- */}
       <div className="pb-1">
         <div className="mb-2 flex items-baseline justify-between gap-2">
@@ -274,18 +274,19 @@ export function JourneyBoard({
         <div
           key={selected.id}
           className={cn(
-            "animate-pop-in overflow-hidden rounded-2xl border-2 bg-card shadow-sm",
-            selected.isPriority ? "border-destructive" : "border-primary/30"
+            "animate-pop-in overflow-hidden rounded-3xl bg-card shadow-soft ring-1",
+            selected.isPriority ? "ring-destructive/25" : "ring-border/60"
           )}
         >
-          {/* Heavy priority banner */}
-          {selected.isPriority && (
-            <div className="flex items-center gap-2 bg-destructive px-5 py-2 text-sm font-bold tracking-wide text-white uppercase sm:px-6">
-              <Zap className="size-4 fill-current" /> Priority task — do this first
-            </div>
-          )}
+          <div className="space-y-6 p-6 sm:p-8">
+            {/* Soft priority cue — a calm tinted strip, not a shouty banner */}
+            {selected.isPriority && (
+              <div className="flex items-center gap-2 rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-semibold text-destructive">
+                <Zap className="size-4 fill-current" /> Priority — best to start with
+                this one
+              </div>
+            )}
 
-          <div className="space-y-5 p-5 sm:p-6">
             {/* Header */}
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -366,7 +367,7 @@ export function JourneyBoard({
 
             {/* Struggling? — moved up, compact inline row */}
             {selected.type === "task" && selected.status !== "approved" && (
-              <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-muted/50 px-4 py-3">
                 <span className="text-sm font-medium">Stuck?</span>
                 <Button
                   size="sm"
@@ -476,7 +477,7 @@ export function JourneyBoard({
                   {selected.submissions.map((s, i) => {
                     const meta = submissionMeta[s.status];
                     return (
-                      <div key={i} className="rounded-lg border p-3">
+                      <div key={i} className="rounded-xl bg-muted/40 p-4">
                         <div className="flex items-center justify-between gap-2">
                           <Badge variant={meta.variant}>{meta.label}</Badge>
                           <span className="text-xs text-muted-foreground">
