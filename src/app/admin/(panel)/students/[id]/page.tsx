@@ -49,16 +49,12 @@ export default async function AdminStudentPage({
   const { id } = await params;
   const supabase = await createSupabaseServer();
 
-  const { data: student } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", id)
-    .eq("role", "student")
-    .maybeSingle();
-  if (!student) notFound();
-  const profile = student as Profile;
-
+  // One parallel wave for the profile and everything else keyed off the URL's
+  // student id (none of these depend on each other). Folding the profile lookup
+  // in here — instead of awaiting it first — removes a whole round-trip; if the
+  // student turns out not to exist we just notFound() after.
   const [
+    { data: student },
     { data: attempt },
     { data: appts },
     { data: tasks },
@@ -67,6 +63,12 @@ export default async function AdminStudentPage({
     { data: certRows },
     { data: templateRows },
   ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", id)
+      .eq("role", "student")
+      .maybeSingle(),
     supabase
       .from("mcq_attempts")
       .select("*")
@@ -100,6 +102,8 @@ export default async function AdminStudentPage({
       .order("sort_order", { ascending: true }),
   ]);
 
+  if (!student) notFound();
+  const profile = student as Profile;
   const appointments = (appts ?? []) as AppointmentWithSlot[];
   const notes = (noteRows ?? []) as SessionNote[];
   const certificates = (certRows ?? []) as Certificate[];
@@ -108,39 +112,30 @@ export default async function AdminStudentPage({
   const taskRows = (tasks ?? []) as (Task & {
     appointments: { created_at: string } | null;
   })[];
-  const { data: sirNoteRows } = taskRows.length
-    ? await supabase
-        .from("task_sir_notes")
-        .select("task_id, note")
-        .in(
-          "task_id",
-          taskRows.map((r) => r.id)
-        )
-    : { data: [] };
+  const taskIds = taskRows.map((r) => r.id);
+
+  // Sir-notes, chat counts and proofs all key off the task ids — fetch them
+  // together in one wave instead of three sequential round-trips.
+  const [sirNoteRes, msgRes, proofsByTask] = await Promise.all([
+    taskIds.length
+      ? supabase.from("task_sir_notes").select("task_id, note").in("task_id", taskIds)
+      : Promise.resolve({ data: [] as { task_id: string; note: string }[] }),
+    taskIds.length
+      ? supabase.from("task_messages").select("task_id").in("task_id", taskIds)
+      : Promise.resolve({ data: [] as { task_id: string }[] }),
+    loadProofsByTask(supabase, taskIds),
+  ]);
+
   const sirNotes = new Map(
-    ((sirNoteRows ?? []) as { task_id: string; note: string }[]).map((n) => [
+    ((sirNoteRes.data ?? []) as { task_id: string; note: string }[]).map((n) => [
       n.task_id,
       n.note,
     ])
   );
-  const { data: msgRows } = taskRows.length
-    ? await supabase
-        .from("task_messages")
-        .select("task_id")
-        .in(
-          "task_id",
-          taskRows.map((r) => r.id)
-        )
-    : { data: [] };
   const chatCounts: Record<string, number> = {};
-  for (const m of (msgRows ?? []) as { task_id: string }[]) {
+  for (const m of (msgRes.data ?? []) as { task_id: string }[]) {
     chatCounts[m.task_id] = (chatCounts[m.task_id] ?? 0) + 1;
   }
-
-  const proofsByTask = await loadProofsByTask(
-    supabase,
-    taskRows.map((r) => r.id)
-  );
 
   const sessionNos = sessionNumbers(taskRows);
   const studentTasks: AdminTask[] = orderTasks(taskRows).map((t) => ({

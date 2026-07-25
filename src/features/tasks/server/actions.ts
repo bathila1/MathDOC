@@ -258,12 +258,16 @@ export async function reorderTasks(
   const studentIds = new Set(existing.map((t) => t.student_id));
   if (studentIds.size !== 1) return fail("Tasks must belong to one student.");
 
-  for (const [index, taskId] of parsed.data.entries()) {
-    await admin
-      .from("tasks")
-      .update({ sort_order: index + 1 })
-      .eq("id", taskId);
-  }
+  // Persist the new order. These row updates are independent, so fire them
+  // together instead of awaiting each in turn: a 20-task reorder went from 20
+  // serial round-trips (visibly laggy) to one wave. (A single-statement RPC —
+  // `update tasks set sort_order = array_position($1, id)` — would be tidier
+  // still if this ever needs to scale past a few hundred tasks.)
+  await Promise.all(
+    parsed.data.map((taskId, index) =>
+      admin.from("tasks").update({ sort_order: index + 1 }).eq("id", taskId)
+    )
+  );
 
   await recalcTaskStatuses(existing[0].appointment_id);
   refresh(existing[0].appointment_id);

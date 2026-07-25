@@ -50,72 +50,66 @@ export default async function AdminAppointmentPage({
   const { id } = await params;
   const supabase = await createSupabaseServer();
 
-  const { data } = await supabase
-    .from("appointments")
-    .select("*, availability_slots(*), profiles(*), invoices(*)")
-    .eq("id", id)
-    .maybeSingle();
-  if (!data) notFound();
-  const appt = data as Row;
+  // Wave 1 — the appointment plus everything keyed only off its id, in parallel
+  // (these used to run one after another as separate network round-trips).
+  const [apptRes, noteRes, templateRes] = await Promise.all([
+    supabase
+      .from("appointments")
+      .select("*, availability_slots(*), profiles(*), invoices(*)")
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("session_notes")
+      .select("*")
+      .eq("appointment_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("default_tasks")
+      .select("*")
+      .order("sort_order", { ascending: true }),
+  ]);
+
+  if (!apptRes.data) notFound();
+  const appt = apptRes.data as Row;
   const slot = appt.availability_slots;
   const student = appt.profiles;
   const invoice = appt.invoices?.[0];
+  const notes = (noteRes.data ?? []) as SessionNote[];
+  const defaultTasks = (templateRes.data ?? []) as DefaultTask[];
 
-  // The student's WHOLE journey — tasks from every session, so previous
-  // tasks can be viewed and managed from a follow-up appointment too.
+  // Wave 2 — the student's WHOLE journey (tasks from every session, so previous
+  // tasks can be viewed and managed from a follow-up appointment too). Needs the
+  // student id from the appointment above.
   const { data: taskRows } = await supabase
     .from("tasks")
     .select("*, appointments!tasks_appointment_id_fkey(created_at)")
     .eq("student_id", appt.student_id);
-  const { data: noteRows } = await supabase
-    .from("session_notes")
-    .select("*")
-    .eq("appointment_id", id)
-    .order("created_at", { ascending: false });
-  const notes = (noteRows ?? []) as SessionNote[];
-
-  const { data: templateRows } = await supabase
-    .from("default_tasks")
-    .select("*")
-    .order("sort_order", { ascending: true });
-  const defaultTasks = (templateRows ?? []) as DefaultTask[];
-
   const rows = (taskRows ?? []) as (Task & {
     appointments: { created_at: string } | null;
   })[];
-  const { data: sirNoteRows } = rows.length
-    ? await supabase
-        .from("task_sir_notes")
-        .select("task_id, note")
-        .in(
-          "task_id",
-          rows.map((r) => r.id)
-        )
-    : { data: [] };
+  const taskIds = rows.map((r) => r.id);
+
+  // Wave 3 — everything hanging off those tasks, in parallel.
+  const [sirNoteRes, msgRes, proofsByTask] = await Promise.all([
+    taskIds.length
+      ? supabase.from("task_sir_notes").select("task_id, note").in("task_id", taskIds)
+      : Promise.resolve({ data: [] as { task_id: string; note: string }[] }),
+    taskIds.length
+      ? supabase.from("task_messages").select("task_id").in("task_id", taskIds)
+      : Promise.resolve({ data: [] as { task_id: string }[] }),
+    loadProofsByTask(supabase, taskIds),
+  ]);
+
   const sirNotes = new Map(
-    ((sirNoteRows ?? []) as { task_id: string; note: string }[]).map((n) => [
+    ((sirNoteRes.data ?? []) as { task_id: string; note: string }[]).map((n) => [
       n.task_id,
       n.note,
     ])
   );
-  const { data: msgRows } = rows.length
-    ? await supabase
-        .from("task_messages")
-        .select("task_id")
-        .in(
-          "task_id",
-          rows.map((r) => r.id)
-        )
-    : { data: [] };
   const chatCounts: Record<string, number> = {};
-  for (const m of (msgRows ?? []) as { task_id: string }[]) {
+  for (const m of (msgRes.data ?? []) as { task_id: string }[]) {
     chatCounts[m.task_id] = (chatCounts[m.task_id] ?? 0) + 1;
   }
-
-  const proofsByTask = await loadProofsByTask(
-    supabase,
-    rows.map((r) => r.id)
-  );
 
   const sessionNos = sessionNumbers(rows);
   const tasks: AdminTask[] = orderTasks(rows).map((t) => ({
