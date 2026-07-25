@@ -23,15 +23,22 @@ export function r2Configured(): boolean {
   );
 }
 
+// Reused across calls. The student dashboard presigns up to 5 URLs per task,
+// so building a fresh client (credential providers, HTTP handler, …) each time
+// added real per-request overhead on media-heavy pages.
+let _client: S3Client | null = null;
 function r2Client() {
-  return new S3Client({
-    region: "auto",
-    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-    },
-  });
+  if (!_client) {
+    _client = new S3Client({
+      region: "auto",
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+      },
+    });
+  }
+  return _client;
 }
 
 /** Build a namespaced object key: purpose/userId/random-filename */
