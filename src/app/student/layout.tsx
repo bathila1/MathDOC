@@ -1,6 +1,7 @@
 import { requireStudent } from "@/lib/server/auth";
 import { redirect } from "next/navigation";
 import { StudentNav } from "@/components/site/StudentNav";
+import { StudentMain } from "@/components/site/StudentMain";
 
 export default async function StudentLayout({
   children,
@@ -13,9 +14,7 @@ export default async function StudentLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <StudentNav />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-        {children}
-      </main>
+      <StudentMain>{children}</StudentMain>
     </div>
   );
 }

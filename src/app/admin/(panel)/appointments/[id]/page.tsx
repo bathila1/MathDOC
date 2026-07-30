@@ -12,6 +12,7 @@ import { orderTasks, sessionNumbers } from "@/features/tasks/server/logic";
 import { loadProofsByTask } from "@/features/tasks/server/proofs";
 import { SessionNotes } from "@/features/booking/client/SessionNotes";
 import { BackLink } from "@/components/site/BackLink";
+import { appointmentCode } from "@/lib/shared/appointments";
 import type {
   Appointment,
   AvailabilitySlot,
@@ -125,6 +126,9 @@ export default async function AdminAppointmentPage({
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
+          <p className="font-mono text-xs font-semibold tracking-wider text-muted-foreground">
+            #{appointmentCode(appt.id)}
+          </p>
           <h1 className="text-2xl font-bold">
             {format(new Date(slot.starts_at), "EEEE, d MMMM yyyy")}
           </h1>

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { appointmentCode } from "@/lib/shared/appointments";
 import { CalendarPlus, Clock, Laptop, Trash2, Users } from "lucide-react";
 import { WeekCalendar } from "./WeekCalendar";
 import {
@@ -38,7 +39,11 @@ import {
 import type { AvailabilitySlot } from "@/lib/shared/types";
 
 export type AdminSlot = AvailabilitySlot & {
-  appointments?: { status: string; profiles: { full_name: string | null } | null }[];
+  appointments?: {
+    id: string;
+    status: string;
+    profiles: { full_name: string | null } | null;
+  }[];
 };
 
 const modeLabels: Record<string, string> = {
@@ -140,6 +145,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
             )
             .map((s, idx) => {
               const booked = s.status === "booked";
+              const appt = s.appointments?.find((a) => a.status !== "cancelled");
               return (
                 <button
                   key={s.id}
@@ -150,16 +156,34 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
                     height: heightOf(s.starts_at, s.ends_at),
                   }}
                   className={cn(
-                    "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-md border-l-4 px-1 py-0.5 text-left text-[10px] leading-tight font-bold shadow-sm sm:inset-x-1 sm:px-1.5 sm:text-[11px]",
+                    "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-lg border-l-4 py-1 pr-7 pl-2 text-left text-[11px] leading-tight font-bold shadow-sm ring-1 transition-shadow hover:shadow-md sm:inset-x-1 sm:text-xs",
                     booked
-                      ? "bg-primary border-primary-foreground text-primary-foreground"
-                      : "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                      ? "border-primary bg-primary/15 text-primary ring-primary/30 dark:bg-primary/25"
+                      : "border-emerald-500 bg-emerald-500/10 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300"
                   )}
                 >
-                  #{idx + 1} {format(new Date(s.starts_at), "h:mm")}
+                  {/* Big, noticeable slot number in the top-right corner */}
+                  <span
+                    className={cn(
+                      "absolute top-0.5 right-0.5 flex min-w-5 items-center justify-center rounded-md px-1 text-sm font-black tabular-nums shadow-sm sm:text-base",
+                      booked
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-emerald-600 text-white"
+                    )}
+                  >
+                    {idx + 1}
+                  </span>
+                  <span className="block">
+                    {format(new Date(s.starts_at), "h:mm")}
+                  </span>
                   <span className="block truncate font-medium opacity-85">
                     {booked ? (bookedBy(s) ?? "Booked") : modeLabels[s.mode]}
                   </span>
+                  {appt && (
+                    <span className="block truncate font-mono text-[9px] font-semibold opacity-40 sm:text-[10px]">
+                      #{appointmentCode(appt.id)}
+                    </span>
+                  )}
                 </button>
               );
             })

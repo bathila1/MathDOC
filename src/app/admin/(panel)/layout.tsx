@@ -5,6 +5,7 @@ import { LogoutButton } from "@/features/auth/client/LogoutButton";
 import { Logo } from "@/components/brand/Logo";
 import { NavLink } from "@/components/site/NavLink";
 import { ThemeToggle } from "@/components/site/ThemeToggle";
+import { MobileMenu } from "@/components/site/MobileMenu";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
@@ -74,25 +75,28 @@ export default async function AdminLayout({
           <Logo iconClassName="size-7" textClassName="text-base" />
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <LogoutButton />
+            <MobileMenu title="Teacher panel">
+              {nav.map((item) => (
+                <NavLink
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium hover:bg-muted"
+                >
+                  <item.icon className="size-4" />
+                  {item.label}
+                  {item.href === "/admin/proofs" && (
+                    <Suspense fallback={null}>
+                      <PendingProofsBadge className="ml-auto" />
+                    </Suspense>
+                  )}
+                </NavLink>
+              ))}
+              <div className="mt-2 border-t border-border/60 pt-2">
+                <LogoutButton />
+              </div>
+            </MobileMenu>
           </div>
         </header>
-        <nav className="flex gap-1 overflow-x-auto border-b px-2 py-1 sm:hidden">
-          {nav.map((item) => (
-            <NavLink
-              key={item.href}
-              href={item.href}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm whitespace-nowrap hover:bg-muted"
-            >
-              {item.label}
-              {item.href === "/admin/proofs" && (
-                <Suspense fallback={null}>
-                  <PendingProofsBadge className="ml-1.5" />
-                </Suspense>
-              )}
-            </NavLink>
-          ))}
-        </nav>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>

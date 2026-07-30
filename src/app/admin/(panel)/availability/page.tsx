@@ -13,7 +13,7 @@ export default async function AvailabilityPage() {
   const supabase = await createSupabaseServer();
   const { data } = await supabase
     .from("availability_slots")
-    .select("*, appointments(status, profiles(full_name))")
+    .select("*, appointments(id, status, profiles(full_name))")
     .gt("starts_at", subDays(new Date(), 7).toISOString())
     .order("starts_at", { ascending: true });
 

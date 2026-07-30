@@ -134,9 +134,24 @@ export function JourneyBoard({
   tasks: BoardTask[];
   currentUserId: string;
 }) {
-  const [selectedId, setSelectedId] = useState(() => defaultSelection(tasks));
-  const selectedIndex = tasks.findIndex((t) => t.id === selectedId);
-  const selected = selectedIndex >= 0 ? tasks[selectedIndex] : null;
+  // Follow-up meetings aren't tasks. Before a meeting is booked it sits on the
+  // rail as a node the student can tap to book; once booked it simply drops off
+  // the board. Meetings never count toward the task totals/percentage.
+  const railTasks = tasks.filter((t) => t.type === "task");
+  const railItems = tasks.filter(
+    (t) =>
+      t.type === "task" ||
+      (t.type === "meet_sir" && !t.followUpAt && t.status !== "approved")
+  );
+
+  const [selectedId, setSelectedId] = useState(() => defaultSelection(railItems));
+  const selectedIndex = railItems.findIndex((t) => t.id === selectedId);
+  const selected = selectedIndex >= 0 ? railItems[selectedIndex] : null;
+  // Header label ("Task 3 of 8") counts real tasks only, not meetings.
+  const taskNumber =
+    selected && selected.type === "task"
+      ? railTasks.findIndex((t) => t.id === selected.id) + 1
+      : 0;
   const selectedExpired = selected?.dueAt
     ? new Date(selected.dueAt).getTime() < new Date().getTime()
     : false;
@@ -155,11 +170,11 @@ export function JourneyBoard({
     });
   }
 
-  const total = tasks.length;
-  const awaiting = tasks.filter((t) => t.status === "proof_submitted").length;
-  const approved = tasks.filter((t) => t.status === "approved").length;
+  const total = railTasks.length;
+  const awaiting = railTasks.filter((t) => t.status === "proof_submitted").length;
+  const approved = railTasks.filter((t) => t.status === "approved").length;
   // The first still-to-finish task is highlighted as the suggested next step.
-  const currentId = tasks.find((t) => t.status !== "approved")?.id ?? "";
+  const currentId = railTasks.find((t) => t.status !== "approved")?.id ?? "";
   const progress = total ? Math.round((approved / total) * 100) : 0;
   // The bar fills by completed tasks; the label sits at the end of the fill,
   // so the percentage always matches what the bar shows.
@@ -168,6 +183,7 @@ export function JourneyBoard({
   return (
     <div className="space-y-6">
       {/* ---- the rail ---- */}
+      {railItems.length > 0 && (
       <div className="pb-1">
         <div className="mb-2 flex items-baseline justify-between gap-2">
           <p className="text-sm font-semibold">{progress}% complete</p>
@@ -184,7 +200,7 @@ export function JourneyBoard({
         </div>
         <div
           className="relative mx-auto px-2 pt-2 pb-1"
-          style={{ minWidth: `${Math.max(total * 56, 260)}px` }}
+          style={{ minWidth: `${Math.max(railItems.length * 56, 260)}px` }}
         >
           {/* track */}
           <div className="absolute top-[calc(0.5rem+1.375rem)] right-6 left-6 h-4 -translate-y-1/2 rounded-full bg-muted" />
@@ -194,14 +210,18 @@ export function JourneyBoard({
             style={{ width: `calc((100% - 3rem) * ${fillFraction})` }}
           />
           <ol className="relative flex items-start justify-between">
-            {tasks.map((t) => {
-              const reached = t.status === "approved";
-              const submitted = t.status === "proof_submitted";
+            {railItems.map((t) => {
+              const isMeet = t.type === "meet_sir";
+              const reached = !isMeet && t.status === "approved";
+              const submitted = !isMeet && t.status === "proof_submitted";
               // The suggested "next" task is the first one still to finish —
               // but nothing is locked, so every circle is tappable.
-              const isCurrent = t.id === currentId && !reached && !submitted;
-              const todo = !reached && !submitted && !isCurrent;
+              const isCurrent = !isMeet && t.id === currentId && !reached && !submitted;
+              const todo = !isMeet && !reached && !submitted && !isCurrent;
               const isSelected = t.id === selectedId;
+              // Prioritised, still-to-do tasks glow red so they're spottable
+              // straight from the rail.
+              const priority = !isMeet && t.isPriority && !reached;
 
               return (
                 <li key={t.id}>
@@ -216,7 +236,14 @@ export function JourneyBoard({
                       }
                     >
                       <span className="relative flex size-11 items-center justify-center">
-                        {isCurrent && (
+                        {/* red neon glow = prioritised task */}
+                        {priority && (
+                          <span
+                            aria-hidden
+                            className="absolute -inset-1.5 rounded-full bg-destructive/70 blur-md motion-safe:animate-pulse"
+                          />
+                        )}
+                        {isCurrent && !priority && (
                           <span className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
                         )}
                         <span
@@ -226,15 +253,19 @@ export function JourneyBoard({
                             (isCurrent || submitted) &&
                               "bg-card text-primary ring-3 ring-primary",
                             todo && "bg-muted text-muted-foreground",
+                            isMeet && "bg-secondary text-secondary-foreground ring-3 ring-primary/60",
+                            priority && "ring-3 ring-destructive",
                             isSelected && "ring-3 ring-foreground/70"
                           )}
                         >
-                          {reached ? (
+                          {isMeet ? (
+                            <Handshake className="size-4" />
+                          ) : reached ? (
                             <Check className="size-5" strokeWidth={3} />
                           ) : submitted ? (
                             <Hourglass className="size-4" />
-                          ) : t.type === "meet_sir" ? (
-                            <Handshake className="size-4" />
+                          ) : priority ? (
+                            <Zap className="size-4 fill-current" />
                           ) : isCurrent ? (
                             <Flag className="size-4" />
                           ) : (
@@ -244,16 +275,25 @@ export function JourneyBoard({
                       </span>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-56 text-center">
-                      <p className="font-bold">{t.title}</p>
+                      <p className="font-bold">
+                        {t.title || (isMeet ? "Meet with Sir" : "")}
+                      </p>
                       <p className="text-xs opacity-80">
-                        Session {t.sessionNo} ·{" "}
-                        {reached
-                          ? "Done"
-                          : submitted
-                            ? "Sent — waiting for Sir's review"
-                            : isCurrent
-                              ? "Start here next"
-                              : "To do — tap to open"}
+                        {isMeet ? (
+                          "Meeting with Sir — tap to book a time"
+                        ) : (
+                          <>
+                            Session {t.sessionNo} ·{" "}
+                            {priority && !reached && !submitted ? "Priority · " : ""}
+                            {reached
+                              ? "Done"
+                              : submitted
+                                ? "Sent — waiting for Sir's review"
+                                : isCurrent
+                                  ? "Start here next"
+                                  : "To do — tap to open"}
+                          </>
+                        )}
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -268,6 +308,7 @@ export function JourneyBoard({
           </p>
         )}
       </div>
+      )}
 
       {/* ---- the task box ---- */}
       {selected && (
@@ -291,12 +332,14 @@ export function JourneyBoard({
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold tracking-wider text-primary uppercase">
-                  Task {selectedIndex + 1} of {total}
+                  {selected.type === "meet_sir"
+                    ? "Meeting with Sir"
+                    : `Task ${taskNumber} of ${total}`}
                 </span>
                 <Badge variant="outline">Session {selected.sessionNo}</Badge>
-                {selected.type === "meet_sir" && (
-                  <Badge variant="secondary">
-                    <Handshake className="size-3" /> Meet with Sir
+                {selected.isPriority && selected.status !== "approved" && (
+                  <Badge variant="destructive">
+                    <Zap className="size-3 fill-current" /> Priority
                   </Badge>
                 )}
                 {selected.dueAt && (
@@ -306,30 +349,52 @@ export function JourneyBoard({
                     {format(new Date(selected.dueAt), "d MMM")}
                   </Badge>
                 )}
-                {selected.status === "approved" && (
+                {selected.type === "task" && selected.status === "approved" && (
                   <Badge variant="secondary">
                     <CheckCircle2 className="size-3" /> Approved
                   </Badge>
                 )}
-                {selected.status === "proof_submitted" && (
+                {selected.type === "task" && selected.status === "proof_submitted" && (
                   <Badge variant="outline">
                     <Hourglass className="size-3" /> Being checked
                   </Badge>
                 )}
-                {selected.status === "active" &&
+                {selected.type === "task" &&
+                  selected.status === "active" &&
                   (selected.id === currentId ? (
                     <Badge>Start here next</Badge>
                   ) : (
                     <Badge variant="outline">To do</Badge>
                   ))}
               </div>
-              <h3 className="mt-2 text-2xl font-bold">{selected.title}</h3>
+              <h3 className="mt-2 text-2xl font-bold">
+                {selected.title ||
+                  (selected.type === "meet_sir" ? "Meet with Sir" : "")}
+              </h3>
               {selected.description && (
                 <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
                   {selected.description}
                 </p>
               )}
             </div>
+
+            {/* Meet with Sir — book it, or a note if it's not their turn yet */}
+            {selected.type === "meet_sir" &&
+              (selected.status === "active" ? (
+                <Button
+                  className="w-full sm:w-auto"
+                  render={
+                    <Link href={`/student/book?follow_up_task=${selected.id}`} />
+                  }
+                >
+                  <Handshake className="size-4" /> Book a meet with Sir
+                </Button>
+              ) : (
+                <p className="rounded-2xl bg-muted/50 p-4 text-sm text-muted-foreground">
+                  This meeting opens up once you&apos;ve finished the tasks
+                  before it.
+                </p>
+              ))}
 
             {/* Materials */}
             {(selected.youtubeUrl ||
@@ -437,32 +502,6 @@ export function JourneyBoard({
               </p>
             )}
 
-            {/* Meet with Sir */}
-            {selected.type === "meet_sir" && selected.status !== "approved" && (
-              <div>
-                {selected.followUpAt ? (
-                  <p className="rounded-lg bg-muted p-4 text-sm">
-                    Your meeting with Sir is booked for{" "}
-                    <strong>
-                      {format(new Date(selected.followUpAt), "EEEE d MMMM, h:mm a")}
-                    </strong>
-                    . Carry on with your next task in the meantime.
-                  </p>
-                ) : (
-                  selected.status === "active" && (
-                    <Button
-                      className="w-full sm:w-auto"
-                      render={
-                        <Link href={`/student/book?follow_up_task=${selected.id}`} />
-                      }
-                    >
-                      <Handshake className="size-4" /> Meet with Sir again
-                    </Button>
-                  )
-                )}
-              </div>
-            )}
-
             {selected.status === "approved" && (
               <p className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
                 Done and approved — great work! Pick your next circle on the
@@ -502,9 +541,11 @@ export function JourneyBoard({
             )}
 
             {/* Chat */}
-            <Section title="Questions about this task">
-              <TaskChat taskId={selected.id} currentUserId={currentUserId} />
-            </Section>
+            {selected.type === "task" && (
+              <Section title="Questions about this task">
+                <TaskChat taskId={selected.id} currentUserId={currentUserId} />
+              </Section>
+            )}
           </div>
         </div>
       )}

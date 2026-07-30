@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { ProfileDetailsCard } from "@/features/students/client/ProfileDetailsCard";
+import { ContentWidthToggle } from "@/components/site/ContentWidthToggle";
 import type {
   Appointment,
   AvailabilitySlot,
@@ -94,6 +95,18 @@ export default async function ProfilePage() {
         </p>
         <h1 className="mt-1 text-3xl">My profile</h1>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Display</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Choose how wide pages appear on large screens.
+          </p>
+          <ContentWidthToggle />
+        </CardContent>
+      </Card>
 
       {/* Editing happens in place — no trip back to the register page */}
       <ProfileDetailsCard
