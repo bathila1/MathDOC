@@ -96,8 +96,17 @@ export default async function AdminAppointmentPage({
       ? supabase.from("task_sir_notes").select("task_id, note").in("task_id", taskIds)
       : Promise.resolve({ data: [] as { task_id: string; note: string }[] }),
     taskIds.length
-      ? supabase.from("task_messages").select("task_id").in("task_id", taskIds)
-      : Promise.resolve({ data: [] as { task_id: string }[] }),
+      ? supabase
+          .from("task_messages")
+          .select("task_id, sender_role, seen_by_admin")
+          .in("task_id", taskIds)
+      : Promise.resolve({
+          data: [] as {
+            task_id: string;
+            sender_role: string;
+            seen_by_admin: boolean;
+          }[],
+        }),
     loadProofsByTask(supabase, taskIds),
   ]);
 
@@ -107,10 +116,19 @@ export default async function AdminAppointmentPage({
       n.note,
     ])
   );
-  const chatCounts: Record<string, number> = {};
-  for (const m of (msgRes.data ?? []) as { task_id: string }[]) {
-    chatCounts[m.task_id] = (chatCounts[m.task_id] ?? 0) + 1;
-  }
+  const unseenChats = Array.from(
+    new Set(
+      (
+        (msgRes.data ?? []) as {
+          task_id: string;
+          sender_role: string;
+          seen_by_admin: boolean;
+        }[]
+      )
+        .filter((m) => m.sender_role === "student" && !m.seen_by_admin)
+        .map((m) => m.task_id)
+    )
+  );
 
   const sessionNos = sessionNumbers(rows);
   const tasks: AdminTask[] = orderTasks(rows).map((t) => ({
@@ -221,7 +239,7 @@ export default async function AdminAppointmentPage({
         tasks={tasks}
         defaultTasks={defaultTasks}
         currentUserId={adminUser.id}
-        chatCounts={chatCounts}
+        unseenChats={unseenChats}
         heading="Already existing tasks"
       />
     </div>

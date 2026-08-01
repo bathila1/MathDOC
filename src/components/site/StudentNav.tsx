@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Logo } from "@/components/brand/Logo";
 import { LogoutButton } from "@/features/auth/client/LogoutButton";
 import { ThemeToggle } from "@/components/site/ThemeToggle";
+import { NotificationBell } from "@/components/site/NotificationBell";
 import { MobileMenu } from "@/components/site/MobileMenu";
 import { cn } from "@/lib/utils";
 import {
@@ -22,7 +23,7 @@ const items = [
 ];
 
 /** Airy, edge-to-edge top navigation for the student area. */
-export function StudentNav() {
+export function StudentNav({ userId }: { userId: string }) {
   const pathname = usePathname();
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
@@ -59,6 +60,7 @@ export function StudentNav() {
         </nav>
 
         <div className="flex items-center gap-1">
+          <NotificationBell userId={userId} />
           <ThemeToggle />
           <div className="hidden md:block">
             <LogoutButton />

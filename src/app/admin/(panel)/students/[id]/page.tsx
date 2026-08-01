@@ -10,6 +10,7 @@ import {
 import { orderTasks, sessionNumbers } from "@/features/tasks/server/logic";
 import { TaskManager, type AdminTask } from "@/features/tasks/client/TaskManager";
 import { loadProofsByTask } from "@/features/tasks/server/proofs";
+import { StudentTeacherNotes } from "@/features/students/client/StudentTeacherNotes";
 import { BackLink } from "@/components/site/BackLink";
 import type {
   Appointment,
@@ -20,6 +21,7 @@ import type {
   McqQuestion,
   Profile,
   SessionNote,
+  StudentTeacherNote,
   Task,
 } from "@/lib/shared/types";
 import { formatPhone } from "@/lib/shared/phone";
@@ -27,6 +29,7 @@ import { activityStatus, ACTIVITY_META } from "@/lib/shared/activity";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -34,7 +37,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { format } from "date-fns";
-import { Award, ExternalLink } from "lucide-react";
+import { Award, ExternalLink, Lock } from "lucide-react";
 
 export const metadata = { title: "Student" };
 
@@ -62,6 +65,7 @@ export default async function AdminStudentPage({
     { data: noteRows },
     { data: certRows },
     { data: templateRows },
+    { data: teacherNoteRows },
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -100,6 +104,11 @@ export default async function AdminStudentPage({
       .from("default_tasks")
       .select("*")
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("student_teacher_notes")
+      .select("*")
+      .eq("student_id", id)
+      .order("created_at", { ascending: false }),
   ]);
 
   if (!student) notFound();
@@ -108,6 +117,7 @@ export default async function AdminStudentPage({
   const notes = (noteRows ?? []) as SessionNote[];
   const certificates = (certRows ?? []) as Certificate[];
   const defaultTasks = (templateRows ?? []) as DefaultTask[];
+  const teacherNotes = (teacherNoteRows ?? []) as StudentTeacherNote[];
 
   const taskRows = (tasks ?? []) as (Task & {
     appointments: { created_at: string } | null;
@@ -121,8 +131,17 @@ export default async function AdminStudentPage({
       ? supabase.from("task_sir_notes").select("task_id, note").in("task_id", taskIds)
       : Promise.resolve({ data: [] as { task_id: string; note: string }[] }),
     taskIds.length
-      ? supabase.from("task_messages").select("task_id").in("task_id", taskIds)
-      : Promise.resolve({ data: [] as { task_id: string }[] }),
+      ? supabase
+          .from("task_messages")
+          .select("task_id, sender_role, seen_by_admin")
+          .in("task_id", taskIds)
+      : Promise.resolve({
+          data: [] as {
+            task_id: string;
+            sender_role: string;
+            seen_by_admin: boolean;
+          }[],
+        }),
     loadProofsByTask(supabase, taskIds),
   ]);
 
@@ -132,10 +151,19 @@ export default async function AdminStudentPage({
       n.note,
     ])
   );
-  const chatCounts: Record<string, number> = {};
-  for (const m of (msgRes.data ?? []) as { task_id: string }[]) {
-    chatCounts[m.task_id] = (chatCounts[m.task_id] ?? 0) + 1;
-  }
+  const unseenChats = Array.from(
+    new Set(
+      (
+        (msgRes.data ?? []) as {
+          task_id: string;
+          sender_role: string;
+          seen_by_admin: boolean;
+        }[]
+      )
+        .filter((m) => m.sender_role === "student" && !m.seen_by_admin)
+        .map((m) => m.task_id)
+    )
+  );
 
   const sessionNos = sessionNumbers(taskRows);
   const studentTasks: AdminTask[] = orderTasks(taskRows).map((t) => ({
@@ -265,6 +293,21 @@ export default async function AdminStudentPage({
         </Card>
       </div>
 
+      {/* Private, admin-only notes about this student */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="size-4 text-muted-foreground" /> Private notes
+          </CardTitle>
+          <CardDescription>
+            Only you can see these — never shown to the student.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <StudentTeacherNotes studentId={profile.id} notes={teacherNotes} />
+        </CardContent>
+      </Card>
+
       {/* One place to manage every task this student has, from any session */}
       <Card>
         <CardHeader>
@@ -279,7 +322,7 @@ export default async function AdminStudentPage({
             tasks={studentTasks}
             defaultTasks={defaultTasks}
             currentUserId={adminUser.id}
-            chatCounts={chatCounts}
+            unseenChats={unseenChats}
             heading="All tasks"
           />
           {latestAppointmentId && (

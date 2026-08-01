@@ -1,6 +1,8 @@
 import { requireAdmin } from "@/lib/server/auth";
-import { getPaymentsEnabled } from "@/lib/server/settings";
+import { getPaymentsEnabled, getSetting } from "@/lib/server/settings";
 import { PaymentsToggle } from "@/features/settings/client/PaymentsToggle";
+import { AdminNotificationSettings } from "@/features/settings/client/AdminNotificationSettings";
+import { ADMIN_NOTIFY_TYPES, adminNotifyKey } from "@/lib/shared/notifications";
 import {
   Card,
   CardContent,
@@ -13,7 +15,16 @@ export const metadata = { title: "Settings" };
 
 export default async function AdminSettingsPage() {
   await requireAdmin();
-  const paymentsEnabled = await getPaymentsEnabled();
+  const [paymentsEnabled, notifyPairs] = await Promise.all([
+    getPaymentsEnabled(),
+    Promise.all(
+      ADMIN_NOTIFY_TYPES.map(
+        async (t) =>
+          [t.key, (await getSetting(adminNotifyKey(t.key))) !== "false"] as const
+      )
+    ),
+  ]);
+  const notifyPrefs = Object.fromEntries(notifyPairs);
 
   return (
     <div className="space-y-6">
@@ -35,6 +46,19 @@ export default async function AdminSettingsPage() {
         </CardHeader>
         <CardContent>
           <PaymentsToggle enabled={paymentsEnabled} />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Notification control centre</CardTitle>
+          <CardDescription>
+            Choose which alerts you get in the teacher panel. Students always
+            receive their own notifications.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AdminNotificationSettings prefs={notifyPrefs} />
         </CardContent>
       </Card>
     </div>

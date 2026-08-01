@@ -13,13 +13,13 @@ const KEY = "mathdoc-content-width";
 const EVENT = "mathdoc-content-width-change";
 
 function read(): ContentWidth {
-  if (typeof window === "undefined") return "wide";
-  // Stretched is the default; only an explicit "normal" choice narrows it.
-  return window.localStorage.getItem(KEY) === "normal" ? "normal" : "wide";
+  if (typeof window === "undefined") return "normal";
+  // Normal is the default; only an explicit "wide" choice stretches it.
+  return window.localStorage.getItem(KEY) === "wide" ? "wide" : "normal";
 }
 
 export function useContentWidth() {
-  const [width, setWidthState] = useState<ContentWidth>("wide");
+  const [width, setWidthState] = useState<ContentWidth>("normal");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

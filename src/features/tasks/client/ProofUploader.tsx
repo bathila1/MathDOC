@@ -66,7 +66,11 @@ function TaskTimerBox({
 
   const remaining = timerSeconds - elapsed;
   const overtime = remaining < 0;
-  const display = phase === "idle" ? fmt(timerSeconds) : fmt(remaining);
+  const over = elapsed - timerSeconds; // seconds past the limit (>0 in overtime)
+  // Once the limit passes we keep counting UP in "+mm:ss" instead of going
+  // negative, so the student can see exactly how far over they are.
+  const display =
+    phase === "idle" ? fmt(timerSeconds) : overtime ? `+${fmt(over)}` : fmt(remaining);
   const digitColor =
     phase === "idle"
       ? "text-slate-100"
@@ -101,14 +105,25 @@ function TaskTimerBox({
         </>
       )}
       {phase === "running" && (
-        <Button size="lg" variant="destructive" className="w-full" onClick={stop}>
-          <Square className="size-4" /> I&apos;m done — stop
-        </Button>
+        <>
+          {overtime && (
+            <p className="mb-2 text-xs font-semibold text-red-400">
+              Over the time limit — that&apos;s okay, keep going. Sir will see how
+              long you took.
+            </p>
+          )}
+          <Button size="lg" variant="destructive" className="w-full" onClick={stop}>
+            <Square className="size-4" /> I&apos;m done — stop
+          </Button>
+        </>
       )}
       {phase === "stopped" && (
         <div className="flex items-center justify-center gap-3">
           <p className="text-sm text-slate-200">
             Time taken: <strong>{fmt(elapsed).replace("-", "")}</strong>
+            {over > 0 && (
+              <span className="font-semibold text-red-400"> (+{fmt(over)} over)</span>
+            )}
           </p>
           {!restarted && (
             <Button size="sm" variant="secondary" onClick={restart}>

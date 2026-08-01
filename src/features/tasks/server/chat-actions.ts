@@ -4,6 +4,7 @@ import { getAuth } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { rateLimit } from "@/lib/server/ratelimit";
+import { notify, notifyAdmins } from "@/features/notifications/server/notify";
 import { taskMessageSchema } from "@/lib/shared/schemas";
 import {
   ok,
@@ -59,5 +60,52 @@ export async function sendTaskMessage(
     return fail("Couldn't send the message. Please try again.");
   }
 
+  // Ping the other side. (Task owner + title come from the service-role client.)
+  const notifyClient = createSupabaseAdmin();
+  const { data: t } = await notifyClient
+    .from("tasks")
+    .select("student_id, title")
+    .eq("id", task_id)
+    .maybeSingle();
+  if (t) {
+    if (role === "student") {
+      await notifyAdmins({
+        type: "message",
+        title: "New message",
+        body: `${auth.profile.full_name ?? "A student"}${t.title ? ` · “${t.title}”` : ""}`,
+        link: `/admin/students/${t.student_id}`,
+      });
+    } else {
+      await notify({
+        userId: t.student_id,
+        type: "message",
+        title: "Sir replied",
+        body: t.title ? `About “${t.title}”` : null,
+        link: "/student",
+      });
+    }
+  }
+
   return ok(data as TaskMessage);
+}
+
+/** Admin marks a task's student messages as seen (clears its unread dot). */
+export async function markTaskChatSeen(
+  taskId: string
+): Promise<ActionResult<undefined>> {
+  const auth = await getAuth();
+  if (!auth || auth.profile.role !== "admin") return fail("Not allowed.");
+
+  const admin = createSupabaseAdmin();
+  const { error } = await admin
+    .from("task_messages")
+    .update({ seen_by_admin: true })
+    .eq("task_id", taskId)
+    .eq("sender_role", "student")
+    .eq("seen_by_admin", false);
+  if (error) {
+    console.error("markTaskChatSeen failed:", error.message);
+    return fail("Couldn't update.");
+  }
+  return ok(undefined);
 }

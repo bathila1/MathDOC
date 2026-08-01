@@ -3,6 +3,7 @@ import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { ProfileDetailsCard } from "@/features/students/client/ProfileDetailsCard";
 import { ContentWidthToggle } from "@/components/site/ContentWidthToggle";
+import { NotificationStatusAlert } from "@/components/site/NotificationStatusAlert";
 import type {
   Appointment,
   AvailabilitySlot,
@@ -95,6 +96,8 @@ export default async function ProfilePage() {
         </p>
         <h1 className="mt-1 text-3xl">My profile</h1>
       </div>
+
+      <NotificationStatusAlert />
 
       <Card>
         <CardHeader>

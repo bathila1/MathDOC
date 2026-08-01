@@ -39,7 +39,8 @@ export default async function AdminStudentsPage({
   const sp = await searchParams;
   const cat = sp.category && validCat.has(sp.category) ? sp.category : "all";
   const q = (sp.q ?? "").replace(/[%,()]/g, " ").trim();
-  const view = sp.view === "list" ? "list" : "cards";
+  // Students default to the list view; cards is the opt-in.
+  const view = sp.view === "cards" ? "cards" : "list";
   const page = pageFrom(sp.page);
   const [from, to] = rangeFor(page);
 
@@ -60,7 +61,7 @@ export default async function AdminStudentsPage({
   const carry = new URLSearchParams();
   if (cat !== "all") carry.set("category", cat);
   if (q) carry.set("q", q);
-  if (view === "list") carry.set("view", view);
+  if (view === "cards") carry.set("view", view);
   const listBase = carry.toString()
     ? `/admin/students?${carry.toString()}`
     : "/admin/students";
@@ -77,7 +78,7 @@ export default async function AdminStudentsPage({
           options={categoryOptions}
         />
         <div className="ml-auto">
-          <ViewToggle />
+          <ViewToggle defaultView="list" />
         </div>
       </div>
 

@@ -159,6 +159,26 @@ export interface Certificate {
   issued_at: string;
 }
 
+/** Private note the teacher keeps about a student (never shown to students). */
+export interface StudentTeacherNote {
+  id: string;
+  student_id: string;
+  body: string;
+  created_at: string;
+}
+
+/** In-app notification for one recipient (bell + side panel). */
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read: boolean;
+  created_at: string;
+}
+
 export interface TaskMessage {
   id: string;
   task_id: string;

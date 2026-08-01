@@ -4,10 +4,16 @@ import { useUrlParams } from "@/lib/client/use-url-params";
 import { LayoutGrid, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Cards ↔ list switch, stored in the `view` URL param ("cards" is default). */
-export function ViewToggle() {
+/** Cards ↔ list switch, stored in the `view` URL param. `defaultView` sets which
+ *  one is shown when the param is absent (so it isn't written to the URL). */
+export function ViewToggle({
+  defaultView = "cards",
+}: {
+  defaultView?: "cards" | "list";
+}) {
   const { sp, update } = useUrlParams();
-  const view = sp.get("view") === "list" ? "list" : "cards";
+  const raw = sp.get("view");
+  const view = raw === "cards" || raw === "list" ? raw : defaultView;
   const options = [
     { value: "cards", label: "Cards", Icon: LayoutGrid },
     { value: "list", label: "List", Icon: List },
@@ -21,7 +27,7 @@ export function ViewToggle() {
           type="button"
           aria-label={`${label} view`}
           aria-pressed={view === v}
-          onClick={() => update({ view: v === "cards" ? null : v })}
+          onClick={() => update({ view: v === defaultView ? null : v })}
           className={cn(
             "inline-flex size-8 items-center justify-center rounded-full transition-colors",
             view === v

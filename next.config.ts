@@ -31,6 +31,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // web-push uses Node crypto/https; keep it out of the bundler so it runs
+  // from node_modules at runtime (otherwise sends can silently fail).
+  serverExternalPackages: ["web-push"],
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

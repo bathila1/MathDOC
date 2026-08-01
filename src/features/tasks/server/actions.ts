@@ -4,6 +4,7 @@ import { createSupabaseServer } from "@/lib/server/supabase";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { getAuth, requireAdmin } from "@/lib/server/auth";
 import { rateLimit } from "@/lib/server/ratelimit";
+import { notify, notifyAdmins } from "@/features/notifications/server/notify";
 import { recalcTaskStatuses } from "./logic";
 import {
   taskSchema,
@@ -116,6 +117,13 @@ export async function addTask(input: unknown): Promise<ActionResult<undefined>> 
 
   await saveSirNote(inserted.id, parsed.data.sir_note);
   await recalcTaskStatuses(appointment_id);
+  await notify({
+    userId: appt.student_id,
+    type: "task_added",
+    title: "New task from Sir",
+    body: parsed.data.title,
+    link: "/student",
+  });
   refresh(appointment_id);
   return ok(undefined);
 }
@@ -287,7 +295,7 @@ export async function approveTask(taskId: string): Promise<ActionResult<undefine
   const supabase = await createSupabaseServer();
   const { data: task } = await supabase
     .from("tasks")
-    .select("id, appointment_id, status")
+    .select("id, appointment_id, status, student_id, title")
     .eq("id", id.data)
     .maybeSingle();
   if (!task) return fail("We couldn't find that task.");
@@ -302,6 +310,13 @@ export async function approveTask(taskId: string): Promise<ActionResult<undefine
   if (error) return fail("Couldn't approve the task.");
 
   await recalcTaskStatuses(task.appointment_id);
+  await notify({
+    userId: task.student_id,
+    type: "task_approved",
+    title: "Task approved 🎉",
+    body: task.title ? `“${task.title}” is done` : null,
+    link: "/student",
+  });
   refresh(task.appointment_id);
   return ok(undefined);
 }
@@ -351,13 +366,21 @@ export async function submitProof(input: unknown): Promise<ActionResult<undefine
   const admin = createSupabaseAdmin();
   const { data: task } = await admin
     .from("tasks")
-    .select("appointment_id")
+    .select("appointment_id, title")
     .eq("id", task_id)
     .single();
   if (task) {
     await recalcTaskStatuses(task.appointment_id);
     refresh(task.appointment_id);
   }
+  await notifyAdmins({
+    type: "proof_submitted",
+    title: "New proof to review",
+    body: `${auth.profile.full_name ?? "A student"} sent work${
+      task?.title ? ` for “${task.title}”` : ""
+    }`,
+    link: "/admin/proofs",
+  });
   return ok(undefined);
 }
 
@@ -437,7 +460,7 @@ export async function reviewProof(input: unknown): Promise<ActionResult<undefine
   const admin = createSupabaseAdmin();
   const { data: task } = await admin
     .from("tasks")
-    .select("id, appointment_id")
+    .select("id, appointment_id, student_id, title")
     .eq("id", proof.task_id)
     .single();
 
@@ -446,6 +469,17 @@ export async function reviewProof(input: unknown): Promise<ActionResult<undefine
       await admin.from("tasks").update({ status: "approved" }).eq("id", task.id);
     }
     await recalcTaskStatuses(task.appointment_id);
+    await notify({
+      userId: task.student_id,
+      type: "proof_reviewed",
+      title: decision === "accepted" ? "Work approved 🎉" : "Sir sent your work back",
+      body: task.title
+        ? decision === "accepted"
+          ? `“${task.title}” was approved`
+          : `Take another look at “${task.title}”`
+        : null,
+      link: "/student",
+    });
     refresh(task.appointment_id);
   }
   return ok(undefined);

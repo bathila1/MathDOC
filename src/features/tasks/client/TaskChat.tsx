@@ -31,7 +31,7 @@ export function TaskChat({
   const [pending, startTransition] = useTransition();
   const [zoom, setZoom] = useState<string | null>(null);
   const [supabase] = useState(() => createSupabaseBrowser());
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   function add(msg: TaskMessage) {
@@ -78,7 +78,11 @@ export function TaskChat({
   }, [taskId, supabase]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
+    // Scroll the chat box itself to the latest message — NOT the page (which
+    // would yank the student down to the chat on load instead of showing the
+    // progress bar and their current task first).
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
   async function onImage(e: React.ChangeEvent<HTMLInputElement>) {
@@ -121,7 +125,7 @@ export function TaskChat({
   return (
     <>
     <div className="rounded-lg border">
-      <div className="max-h-80 space-y-2 overflow-y-auto p-3">
+      <div ref={scrollRef} className="h-72 space-y-2 overflow-y-auto p-3">
         {messages.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             No messages yet. Ask Sir anything about this task.
@@ -175,7 +179,6 @@ export function TaskChat({
             );
           })
         )}
-        <div ref={bottomRef} />
       </div>
 
       <div className="border-t p-2">

@@ -15,7 +15,17 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format, startOfDay, endOfDay, addDays } from "date-fns";
-import { CalendarCheck, CalendarClock, FileCheck, Users } from "lucide-react";
+import {
+  Bell,
+  CalendarCheck,
+  CalendarClock,
+  ChevronRight,
+  FileCheck,
+  Flag,
+  MessageCircle,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
 export const metadata = { title: "Dashboard" };
 
@@ -29,8 +39,16 @@ export default async function AdminDashboard() {
   const supabase = await createSupabaseServer();
   const now = new Date();
 
-  const [todayRes, proofsRes, studentsRes, recentRes, expiringRes] =
-    await Promise.all([
+  const [
+    todayRes,
+    proofsRes,
+    studentsRes,
+    recentRes,
+    expiringRes,
+    registrationsRes,
+    flaggedRes,
+    messagesRes,
+  ] = await Promise.all([
     supabase
       .from("appointments")
       .select("*, availability_slots!inner(*), profiles(full_name)")
@@ -58,6 +76,30 @@ export default async function AdminDashboard() {
       .lte("due_at", addDays(now, 7).toISOString())
       .order("due_at", { ascending: true })
       .limit(10),
+    // Students who finished registering in the last week.
+    supabase
+      .from("profiles")
+      .select("id, full_name, created_at")
+      .eq("role", "student")
+      .eq("profile_completed", true)
+      .gte("created_at", addDays(now, -7).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(5),
+    // Tasks a student has flagged for help and that aren't done yet.
+    supabase
+      .from("tasks")
+      .select("id, title, student_flag, student_id, profiles(full_name)")
+      .not("student_flag", "is", null)
+      .neq("status", "approved")
+      .limit(10),
+    // Unseen student chat messages (grouped per task below).
+    supabase
+      .from("task_messages")
+      .select("task_id, created_at, tasks(title, student_id, profiles(full_name))")
+      .eq("sender_role", "student")
+      .eq("seen_by_admin", false)
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
 
   const today = ((todayRes.data ?? []) as ApptRow[]).sort(
@@ -75,6 +117,54 @@ export default async function AdminDashboard() {
     student_id: string;
     profiles: { full_name: string | null } | null;
   }[];
+  const registrations = (registrationsRes.data ?? []) as {
+    id: string;
+    full_name: string | null;
+    created_at: string;
+  }[];
+  const flagged = (flaggedRes.data ?? []) as unknown as {
+    id: string;
+    title: string;
+    student_flag: "hard" | "cant_do";
+    student_id: string;
+    profiles: { full_name: string | null } | null;
+  }[];
+  const flagLabel: Record<string, string> = {
+    hard: "finds this hard",
+    cant_do: "can't do this",
+  };
+
+  // Unseen messages, one entry per task (newest first).
+  const unseenMsgRows = (messagesRes.data ?? []) as unknown as {
+    task_id: string;
+    created_at: string;
+    tasks: {
+      title: string;
+      student_id: string;
+      profiles: { full_name: string | null } | null;
+    } | null;
+  }[];
+  const messagesByTask = new Map<
+    string,
+    { taskTitle: string; studentId: string; studentName: string | null; at: string }
+  >();
+  for (const m of unseenMsgRows) {
+    if (m.tasks && !messagesByTask.has(m.task_id)) {
+      messagesByTask.set(m.task_id, {
+        taskTitle: m.tasks.title,
+        studentId: m.tasks.student_id,
+        studentName: m.tasks.profiles?.full_name ?? null,
+        at: m.created_at,
+      });
+    }
+  }
+  const messages = Array.from(messagesByTask.values()).slice(0, 6);
+
+  const hasAlerts =
+    pendingProofs > 0 ||
+    flagged.length > 0 ||
+    registrations.length > 0 ||
+    messages.length > 0;
 
   return (
     <div className="space-y-6">
@@ -114,6 +204,121 @@ export default async function AdminDashboard() {
           </Card>
         </Link>
       </div>
+
+      {hasAlerts && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bell className="size-4 text-primary" /> Needs your attention
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {messages.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  Messages
+                </p>
+                {messages.map((m) => (
+                  <Link
+                    key={`${m.studentId}-${m.taskTitle}`}
+                    href={`/admin/students/${m.studentId}`}
+                    className="flex items-center gap-3 rounded-xl bg-muted/40 p-3 text-sm transition-colors hover:bg-muted/70"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <MessageCircle className="size-4" />
+                    </span>
+                    <span className="flex-1">
+                      <strong>{m.studentName ?? "A student"}</strong> messaged you —{" "}
+                      <span className="text-muted-foreground">“{m.taskTitle}”</span>
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(m.at), "d MMM")}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {pendingProofs > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  Proofs
+                </p>
+                <Link
+                  href="/admin/proofs"
+                  className="flex items-center gap-3 rounded-xl bg-muted/40 p-3 text-sm transition-colors hover:bg-muted/70"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <FileCheck className="size-4" />
+                  </span>
+                  <span className="flex-1">
+                    <strong>{pendingProofs}</strong> proof
+                    {pendingProofs > 1 ? "s" : ""} waiting for your review
+                  </span>
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </Link>
+              </div>
+            )}
+
+            {flagged.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  Needs help
+                </p>
+                {flagged.map((f) => (
+                  <Link
+                    key={f.id}
+                    href={`/admin/students/${f.student_id}`}
+                    className="flex items-center gap-3 rounded-xl bg-amber-500/10 p-3 text-sm transition-colors hover:bg-amber-500/20"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                      <Flag className="size-4" />
+                    </span>
+                    <span className="flex-1">
+                      <strong>{f.profiles?.full_name ?? "A student"}</strong>{" "}
+                      {flagLabel[f.student_flag]} —{" "}
+                      <span className="text-muted-foreground">“{f.title}”</span>
+                    </span>
+                    <ChevronRight className="size-4 text-muted-foreground" />
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {registrations.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  New students
+                </p>
+                {registrations.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/admin/students/${r.id}`}
+                    className="flex items-center gap-3 rounded-xl bg-muted/40 p-3 text-sm transition-colors hover:bg-muted/70"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <UserPlus className="size-4" />
+                    </span>
+                    <span className="flex-1">
+                      <strong>{r.full_name ?? "New student"}</strong> just registered
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(r.created_at), "d MMM")}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            <Link
+              href="/admin/activity"
+              className="block pt-1 text-center text-sm font-medium text-primary hover:underline"
+            >
+              View all activity →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {expiring.length > 0 && (
         <Card className="border-destructive/50">

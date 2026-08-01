@@ -3,6 +3,7 @@
 import { requireAdmin } from "@/lib/server/auth";
 import { rateLimit } from "@/lib/server/ratelimit";
 import { setSetting } from "@/lib/server/settings";
+import { ADMIN_NOTIFY_TYPES, adminNotifyKey } from "@/lib/shared/notifications";
 import { ok, fail, type ActionResult } from "@/lib/shared/action-result";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -19,6 +20,30 @@ export async function setPaymentsEnabled(
   if (!parsed.success) return fail("Invalid value.");
 
   await setSetting("payments_enabled", parsed.data ? "true" : "false");
+  revalidatePath("/admin/settings");
+  return ok(undefined);
+}
+
+/** Enable/disable one category of admin notification (control centre). */
+export async function setAdminNotifyPref(
+  input: unknown
+): Promise<ActionResult<undefined>> {
+  const { user } = await requireAdmin();
+  const rl = await rateLimit("form", `user:${user.id}`);
+  if (!rl.allowed) return fail(rl.message!);
+
+  const parsed = z
+    .object({ type: z.string(), enabled: z.boolean() })
+    .safeParse(input);
+  if (!parsed.success) return fail("Invalid value.");
+  if (!ADMIN_NOTIFY_TYPES.some((t) => t.key === parsed.data.type)) {
+    return fail("Unknown notification type.");
+  }
+
+  await setSetting(
+    adminNotifyKey(parsed.data.type),
+    parsed.data.enabled ? "true" : "false"
+  );
   revalidatePath("/admin/settings");
   return ok(undefined);
 }

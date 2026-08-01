@@ -148,6 +148,15 @@ export const sessionNoteSchema = z.object({
     .max(1000, "Note is too long (max 1000 characters)."),
 });
 
+export const studentNoteSchema = z.object({
+  student_id: z.string().uuid(),
+  body: z
+    .string()
+    .trim()
+    .min(1, "Please write the note first.")
+    .max(2000, "Note is too long (max 2000 characters)."),
+});
+
 export const slotUpdateSchema = z.object({
   slot_id: z.string().uuid(),
   mode: z.enum(["physical", "online", "either"], {

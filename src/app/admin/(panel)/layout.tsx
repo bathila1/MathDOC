@@ -6,6 +6,8 @@ import { Logo } from "@/components/brand/Logo";
 import { NavLink } from "@/components/site/NavLink";
 import { ThemeToggle } from "@/components/site/ThemeToggle";
 import { MobileMenu } from "@/components/site/MobileMenu";
+import { NotificationBell } from "@/components/site/NotificationBell";
+import { PushRegistrar } from "@/components/site/PushRegistrar";
 import { Badge } from "@/components/ui/badge";
 import {
   LayoutDashboard,
@@ -34,10 +36,11 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireAdmin();
+  const { user } = await requireAdmin();
 
   return (
     <div className="min-h-screen">
+      <PushRegistrar />
       {/* fixed sidebar — never scrolls with the content */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r bg-muted/30 sm:flex">
         <div className="px-4 py-4">
@@ -74,6 +77,7 @@ export default async function AdminLayout({
         <header className="flex items-center justify-between border-b px-4 py-3 sm:hidden">
           <Logo iconClassName="size-7" textClassName="text-base" />
           <div className="flex items-center gap-1">
+            <NotificationBell userId={user.id} />
             <ThemeToggle />
             <MobileMenu title="Teacher panel">
               {nav.map((item) => (
@@ -97,6 +101,10 @@ export default async function AdminLayout({
             </MobileMenu>
           </div>
         </header>
+        {/* Desktop: slim top bar with the notification bell in the corner */}
+        <div className="sticky top-0 z-20 hidden items-center justify-end border-b bg-background/70 px-6 py-2 backdrop-blur sm:flex">
+          <NotificationBell userId={user.id} />
+        </div>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>

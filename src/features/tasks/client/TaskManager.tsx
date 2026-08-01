@@ -10,6 +10,7 @@ import {
   reorderTasks,
   approveTask,
 } from "@/features/tasks/server/actions";
+import { markTaskChatSeen } from "@/features/tasks/server/chat-actions";
 import dynamic from "next/dynamic";
 import { uploadFile } from "@/lib/client/upload";
 import { VoiceRecorder } from "./VoiceRecorder";
@@ -679,14 +680,14 @@ export function TaskManager({
   tasks,
   defaultTasks,
   currentUserId,
-  chatCounts,
+  unseenChats,
   heading = "Task journey",
 }: {
   appointmentId?: string;
   tasks: AdminTask[];
   defaultTasks?: DefaultTask[];
   currentUserId?: string;
-  chatCounts?: Record<string, number>;
+  unseenChats?: string[];
   heading?: string;
 }) {
   const [, startTransition] = useTransition();
@@ -694,6 +695,19 @@ export function TaskManager({
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [chatTaskId, setChatTaskId] = useState<string | null>(null);
+  // Unread student-message dots. Opening a chat clears it (optimistically here
+  // and persisted via markTaskChatSeen).
+  const [seenLocal, setSeenLocal] = useState<Set<string>>(new Set());
+  const unseenSet = new Set(unseenChats ?? []);
+  function openChat(taskId: string) {
+    setChatTaskId(taskId);
+    if (unseenSet.has(taskId) && !seenLocal.has(taskId)) {
+      setSeenLocal((prev) => new Set(prev).add(taskId));
+      startTransition(async () => {
+        await markTaskChatSeen(taskId);
+      });
+    }
+  }
 
   const [syncedTasks, setSyncedTasks] = useState(tasks);
   if (syncedTasks !== tasks) {
@@ -963,13 +977,11 @@ export function TaskManager({
                         size="icon"
                         className="relative"
                         aria-label="Open chat"
-                        onClick={() => setChatTaskId(t.id)}
+                        onClick={() => openChat(t.id)}
                       >
                         <MessageCircle className="size-4" />
-                        {(chatCounts?.[t.id] ?? 0) > 0 && (
-                          <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
-                            {chatCounts?.[t.id]}
-                          </span>
+                        {unseenSet.has(t.id) && !seenLocal.has(t.id) && (
+                          <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-destructive ring-2 ring-background" />
                         )}
                       </Button>
                     )}
