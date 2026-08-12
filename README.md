@@ -137,20 +137,25 @@ node scripts/create-admin.mjs sir@mathdoc.local "THE-PASSWORD" "Sir"
 npm run dev
 ```
 
-In dev, use the **🧪 Simulate OTP login** button on `/login` — no SMS service
-needed.
+Student login always sends a real OTP by SMS — there is no simulated login, so
+the Hutch credentials below must be set even for local development.
 
 ---
 
 ## Connecting the real services (production)
 
-### SMSLenz (SMS + OTP delivery)
-1. Create an account at [smslenz.lk](https://smslenz.lk), get `user_id`,
-   `api_key` and an approved `sender_id` → put them in the env vars.
+### Hutch Bulk SMS (SMS + OTP delivery)
+1. Get the Bulk SMS account username/password and an **approved sender mask**
+   from your Hutch service agent → set `HUTCH_SMS_USERNAME`,
+   `HUTCH_SMS_PASSWORD`, `HUTCH_SMS_MASK`.
 2. In Supabase: **Authentication → Sign In / Up → Phone** → enable phone provider.
 3. **Authentication → Hooks → Send SMS hook** → HTTPS →
    `https://YOUR-DOMAIN/api/auth/sms-hook` → copy the generated secret into
-   `SUPABASE_AUTH_HOOK_SECRET`. Supabase now delivers every OTP through SMSLenz.
+   `SUPABASE_AUTH_HOOK_SECRET`. Supabase now delivers every OTP through Hutch.
+
+The app logs in to Hutch automatically, caches the access token, renews it with
+the refresh token, and re-logs in when that expires — see
+`src/lib/server/sms.ts`. Sending fails loudly if credentials are missing.
 
 ### Cloudflare R2 (file storage)
 1. Cloudflare dashboard → **R2 Object Storage** → Create bucket `mathdoc-files`.

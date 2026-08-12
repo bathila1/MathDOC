@@ -1,18 +1,33 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Voice notes are recorded in-browser, so the mic is allowed for our own origin.
   { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
+  // Force HTTPS for two years and cover subdomains. Only meaningful over TLS,
+  // so browsers ignore it on localhost.
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+  // Isolate our browsing context from anything we open / that opens us.
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
   {
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      // Next.js needs inline styles/scripts for its runtime; images may come
-      // from R2 presigned URLs; connect covers Supabase + R2 uploads.
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // Next's runtime bootstrap is inline, so 'unsafe-inline' is required
+      // without nonces (see SECURITY.md for the nonce upgrade path).
+      // 'unsafe-eval' is a DEV-ONLY need: React uses eval to rebuild
+      // server-side error stacks. Next does not use eval in production, so it
+      // is dropped there — that closes the widest injection primitive.
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       // Uploaded videos / voice notes stream from R2 presigned URLs (https)
@@ -26,6 +41,12 @@ const securityHeaders = [
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
+      // No Flash/Java/embed objects, ever — cheap and closes a legacy sink.
+      "object-src 'none'",
+      // Service worker + manifest may only come from our own origin.
+      "worker-src 'self'",
+      "manifest-src 'self'",
+      ...(isDev ? [] : ["upgrade-insecure-requests"]),
     ].join("; "),
   },
 ];

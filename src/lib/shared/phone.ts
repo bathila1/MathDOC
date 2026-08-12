@@ -19,7 +19,7 @@ export function formatPhone(e164: string): string {
   return `0${m[1]} ${m[2]} ${m[3]}`;
 }
 
-/** SMSLenz wants numbers as 94XXXXXXXXX (no plus). */
-export function toSmsLenzContact(e164: string): string {
+/** Gateways want the MSISDN as 947XXXXXXXX (E.164 without the leading plus). */
+export function toMsisdn(e164: string): string {
   return e164.replace(/^\+/, "");
 }

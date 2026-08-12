@@ -60,8 +60,15 @@ export async function sendPush(
         );
       } catch (e: unknown) {
         const status = (e as { statusCode?: number }).statusCode;
-        if (status === 404 || status === 410) dead.push(s.id as string);
-        else console.error("web push send failed:", status, (e as Error).message);
+        // 404/410: endpoint gone. 401/403: signed with a VAPID key the push
+        // service doesn't accept for this endpoint (keys were rotated after
+        // the browser subscribed) — the row can never succeed again, so drop
+        // it and let the client re-subscribe with the current key.
+        if (status === 404 || status === 410 || status === 401 || status === 403) {
+          dead.push(s.id as string);
+        } else {
+          console.error("web push send failed:", status, (e as Error).message);
+        }
       }
     })
   );

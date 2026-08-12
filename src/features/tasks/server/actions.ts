@@ -4,6 +4,7 @@ import { createSupabaseServer } from "@/lib/server/supabase";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { getAuth, requireAdmin } from "@/lib/server/auth";
 import { rateLimit } from "@/lib/server/ratelimit";
+import { allKeysBelongTo, keyBelongsTo } from "@/lib/server/keys";
 import { notify, notifyAdmins } from "@/features/notifications/server/notify";
 import { recalcTaskStatuses } from "./logic";
 import {
@@ -44,6 +45,18 @@ interface TaskFormFields {
 
 const clean = (v?: string | null) => (v && v.trim() ? v.trim() : null);
 
+/**
+ * Every media key on a task form was handed to the client by our own presign
+ * endpoint, so it must be namespaced to the uploader. Re-checking here stops a
+ * crafted key from pointing the task at somebody else's stored file.
+ */
+function mediaKeysOk(d: TaskFormFields, userId: string): boolean {
+  return [d.attachment_key, d.video_key, d.voice_key, d.question_image_key]
+    .map(clean)
+    .filter((k): k is string => k !== null)
+    .every((k) => keyBelongsTo(k, userId));
+}
+
 /** Map validated form fields to task table columns (minutes→seconds, date→ISO). */
 function toTaskColumns(d: TaskFormFields) {
   const timer_seconds = d.timer_minutes ? d.timer_minutes * 60 : null;
@@ -79,6 +92,9 @@ export async function addTask(input: unknown): Promise<ActionResult<undefined>> 
 
   const parsed = taskSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
+  if (!mediaKeysOk(parsed.data, user.id)) {
+    return fail("One of those uploads couldn't be attached. Please re-upload.");
+  }
   const { appointment_id } = parsed.data;
 
   const supabase = await createSupabaseServer();
@@ -144,6 +160,9 @@ export async function updateTask(input: unknown): Promise<ActionResult<undefined
 
   const parsed = taskEditSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
+  if (!mediaKeysOk(parsed.data, user.id)) {
+    return fail("One of those uploads couldn't be attached. Please re-upload.");
+  }
   const { task_id } = parsed.data;
 
   const supabase = await createSupabaseServer();
@@ -334,6 +353,12 @@ export async function submitProof(input: unknown): Promise<ActionResult<undefine
   const parsed = proofSubmitSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
   const { task_id, file_keys, student_note, time_spent_seconds } = parsed.data;
+
+  // Keys round-trip through the client, so confirm each one was presigned for
+  // this student before storing it as their proof.
+  if (!allKeysBelongTo(file_keys, auth.user.id)) {
+    return fail("One of those files couldn't be attached. Please re-upload.");
+  }
 
   // Don't accept work on a task that has already expired.
   const admin0 = createSupabaseAdmin();

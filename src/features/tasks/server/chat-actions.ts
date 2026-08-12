@@ -4,8 +4,10 @@ import { getAuth } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { rateLimit } from "@/lib/server/ratelimit";
+import { keyBelongsTo } from "@/lib/server/keys";
 import { notify, notifyAdmins } from "@/features/notifications/server/notify";
 import { taskMessageSchema } from "@/lib/shared/schemas";
+import { z } from "zod";
 import {
   ok,
   fail,
@@ -27,6 +29,13 @@ export async function sendTaskMessage(
   const parsed = taskMessageSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
   const { task_id, body, image_key } = parsed.data;
+
+  // The key comes back through the client, so prove it is one we presigned for
+  // THIS user — otherwise they could attach (and later download) another
+  // user's file by submitting its key.
+  if (image_key && !keyBelongsTo(image_key, auth.user.id)) {
+    return fail("That image couldn't be attached. Please upload it again.");
+  }
 
   const role = auth.profile.role; // 'student' | 'admin'
 
@@ -96,11 +105,16 @@ export async function markTaskChatSeen(
   const auth = await getAuth();
   if (!auth || auth.profile.role !== "admin") return fail("Not allowed.");
 
+  // Validate before it reaches the query builder rather than relying on
+  // Postgres to reject a malformed id.
+  const id = z.string().uuid().safeParse(taskId);
+  if (!id.success) return fail("Unknown task.");
+
   const admin = createSupabaseAdmin();
   const { error } = await admin
     .from("task_messages")
     .update({ seen_by_admin: true })
-    .eq("task_id", taskId)
+    .eq("task_id", id.data)
     .eq("sender_role", "student")
     .eq("seen_by_admin", false);
   if (error) {

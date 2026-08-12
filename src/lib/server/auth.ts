@@ -61,7 +61,15 @@ export const getAuth = cache(async (): Promise<AuthContext | null> => {
   if (!user) return null; // token invalid/expired — treat as logged out
   if (!profileRes.data) return null;
 
-  return { user, profile: profileRes.data as Profile };
+  // The profile was fetched using the id decoded from the UNVERIFIED token, so
+  // it must be tied back to the id the Auth server actually vouched for. They
+  // agree in normal operation; if they ever diverge (mid-flight refresh, a
+  // crafted cookie) we must not hand back a profile the token doesn't own.
+  if (user.id !== userId) return null;
+  const profile = profileRes.data as Profile;
+  if (profile.id !== user.id) return null;
+
+  return { user, profile };
 });
 
 /** For student pages/actions: redirects to /login when not signed in. */

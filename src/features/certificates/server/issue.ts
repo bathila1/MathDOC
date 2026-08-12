@@ -45,6 +45,15 @@ export async function issueCertificateIfComplete(
     .eq("id", cert.student_id)
     .single();
   if (profile?.phone) {
-    await sendSms(profile.phone, certificateSms(cert.public_token));
+    const res = await sendSms(
+      profile.phone,
+      certificateSms(cert.public_token),
+      "MathDOC Certificate"
+    );
+    if (!res.sent) {
+      console.error(
+        `Certificate SMS failed for student ${cert.student_id}: ${res.error}`
+      );
+    }
   }
 }

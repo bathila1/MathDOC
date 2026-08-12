@@ -31,13 +31,41 @@ const configs: Record<LimiterName, { requests: number; windowMs: number }> = {
 const hits = new Map<string, number[]>();
 const MAX_KEYS = 10_000;
 
+/**
+ * Best-effort client IP for rate limiting.
+ *
+ * SECURITY: `x-forwarded-for` is a client-settable header. Reading its FIRST
+ * entry lets anyone send `X-Forwarded-For: <random>` and get a brand-new
+ * rate-limit bucket per request, which silently defeats OTP-flood and
+ * admin-login brute-force protection.
+ *
+ * Trust order:
+ *  1. Platform headers that the edge sets itself and strips from client input
+ *     (Vercel / Cloudflare). These are authoritative when present.
+ *  2. The RIGHTMOST x-forwarded-for entry — appended by the closest proxy, so
+ *     it is the only entry a client cannot forge. Anything the client sends is
+ *     pushed leftwards and ignored.
+ *
+ * If you deploy behind N trusted proxies, take the Nth-from-right entry
+ * instead; with a single proxy (Vercel) the rightmost is correct.
+ */
 export async function clientIp(): Promise<string> {
   const h = await headers();
-  return (
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    "unknown"
-  );
+
+  const platform =
+    h.get("x-vercel-forwarded-for") ?? h.get("cf-connecting-ip");
+  if (platform) return platform.trim();
+
+  const xff = h.get("x-forwarded-for");
+  if (xff) {
+    const parts = xff
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
+
+  return h.get("x-real-ip")?.trim() || "unknown";
 }
 
 export interface RateLimitResult {

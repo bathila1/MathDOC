@@ -37,7 +37,12 @@ export async function requestOtp(input: {
   });
 
   if (error) {
-    console.error("signInWithOtp failed:", error.message);
+    console.error("signInWithOtp failed:", error.status, error.message);
+    // Production keeps the reason private (it can name providers/config).
+    // Locally, surfacing it turns a dead end into an actionable message.
+    if (process.env.NODE_ENV !== "production") {
+      return fail(`Supabase couldn't send the OTP: ${error.message}`);
+    }
     return fail(
       "We couldn't send the code right now. Please check the number and try again."
     );

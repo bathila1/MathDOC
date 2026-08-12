@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
 
   const result = await sendSms(
     phone.startsWith("+") ? phone : `+${phone}`,
-    `Your ${APP_NAME} login code is ${otp}. It expires in 5 minutes.`
+    `Your ${APP_NAME} login code is ${otp}. It expires in 5 minutes.`,
+    `${APP_NAME} OTP`
   );
 
   if (!result.sent) {

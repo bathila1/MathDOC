@@ -16,9 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { CheckCircle2, MessageSquareText } from "lucide-react";
-import { smsConfigured } from "@/lib/server/sms";
-import { buildBookingSms } from "@/features/booking/server/sms";
+import { CheckCircle2 } from "lucide-react";
 
 export const metadata = { title: "Booking confirmed" };
 
@@ -45,11 +43,6 @@ export default async function ConfirmedPage({
   };
   const invoice = Array.isArray(appt.invoices) ? appt.invoices[0] : appt.invoices;
   const slot = appt.availability_slots;
-
-  // Until SMSLenz is connected, show what the SMS would have said.
-  const smsPreview = smsConfigured()
-    ? null
-    : await buildBookingSms(appt, slot, invoice?.public_token ?? null);
 
   return (
     <div className="mx-auto max-w-md space-y-6 text-center">
@@ -85,19 +78,6 @@ export default async function ConfirmedPage({
           )}
         </CardContent>
       </Card>
-      {smsPreview && (
-        <Card className="border-amber-400 bg-amber-50 text-left dark:bg-amber-950/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <MessageSquareText className="size-4" />
-              SMS preview (simulated — SMS gateway not connected yet)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="whitespace-pre-wrap font-sans text-sm">{smsPreview}</pre>
-          </CardContent>
-        </Card>
-      )}
       <Button render={<Link href="/student" />}>Go to my dashboard</Button>
     </div>
   );

@@ -1,6 +1,26 @@
 import { z } from "zod";
 import { normalizePhone } from "./phone";
 import { STUDENT_CATEGORIES, UPLOAD_RULES } from "./constants";
+import { isSafeExternalUrl } from "./url";
+
+/**
+ * A link we will later render into an href/src. `z.string().url()` is NOT
+ * enough on its own: the URL constructor accepts `javascript:alert(1)`, so it
+ * would pass validation and become stored XSS. This restricts the scheme to
+ * http(s). Empty string is normalized to null so optional link inputs can be
+ * cleared.
+ */
+export const httpUrlField = (max = 500, label = "Link") =>
+  z
+    .string()
+    .trim()
+    .max(max, `${label} is too long.`)
+    .optional()
+    .nullable()
+    .transform((v) => (v ? v : null))
+    .refine((v) => v === null || isSafeExternalUrl(v), {
+      message: `${label} must start with http:// or https://`,
+    });
 
 /** Reusable Sri Lankan phone field — normalizes to +947XXXXXXXX. */
 export const phoneField = z
@@ -131,12 +151,9 @@ export const bookingSchema = z.object({
 
 export const meetingLinkSchema = z.object({
   appointment_id: z.string().uuid(),
-  meeting_link: z
-    .string()
-    .trim()
-    .url("Please paste a valid link (e.g. https://meet.google.com/...).")
-    .max(500, "Link is too long.")
-    .or(z.literal("")),
+  // Was z.string().url(), which accepts `javascript:` — this link is rendered
+  // as an href for the student, so the scheme must be restricted.
+  meeting_link: httpUrlField(500, "Meeting link"),
 });
 
 export const sessionNoteSchema = z.object({
@@ -198,8 +215,9 @@ const taskBase = z.object({
     .optional()
     .nullable(),
   due_at: z.string().trim().max(40).optional().nullable(), // datetime-local / ISO
-  youtube_url: z.string().trim().max(500).optional().nullable(),
-  facebook_url: z.string().trim().max(500).optional().nullable(),
+  // Rendered as an iframe src / anchor href — scheme-restricted, see url.ts.
+  youtube_url: httpUrlField(500, "YouTube link"),
+  facebook_url: httpUrlField(500, "Facebook link"),
   video_key: z.string().max(500).optional().nullable(),
   voice_key: z.string().max(500).optional().nullable(),
   question_image_key: z.string().max(500).optional().nullable(),

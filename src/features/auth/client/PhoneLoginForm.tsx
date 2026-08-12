@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { requestOtp } from "@/features/auth/server/actions";
-import { devLoginWithPhone } from "@/features/auth/server/dev-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,20 +33,6 @@ export function PhoneLoginForm() {
     });
   }
 
-  // Until SMSLenz is connected: logs straight in without a real OTP (dev only).
-  function simulate() {
-    setError(null);
-    startTransition(async () => {
-      const res = await devLoginWithPhone({ phone });
-      if (!res.ok) {
-        setError(res.fieldErrors?.phone ?? res.error);
-        return;
-      }
-      router.push(res.data.next);
-      router.refresh();
-    });
-  }
-
   return (
     <Card className="w-full max-w-lg">
       <CardHeader>
@@ -75,17 +60,6 @@ export function PhoneLoginForm() {
           <Button type="submit" className="w-full" disabled={pending}>
             {pending ? "Sending code…" : "Send login code"}
           </Button>
-          {process.env.NODE_ENV !== "production" && (
-            <Button
-              type="button"
-              variant="secondary"
-              className="w-full"
-              disabled={pending}
-              onClick={simulate}
-            >
-              🧪 Simulate OTP login (dev — no SMS needed)
-            </Button>
-          )}
         </form>
       </CardContent>
     </Card>

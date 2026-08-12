@@ -1,6 +1,7 @@
 "use client";
 
 import { toEmbedSrc } from "@/lib/shared/embeds";
+import { safeExternalUrl } from "@/lib/shared/url";
 import { Mic } from "lucide-react";
 
 export interface TaskMediaProps {
@@ -23,11 +24,16 @@ export function TaskMedia({
   voiceUrl,
   questionImageUrl,
 }: TaskMediaProps) {
-  const ytSrc = youtubeUrl ? toEmbedSrc("youtube", youtubeUrl) : null;
-  const fbSrc = facebookUrl ? toEmbedSrc("facebook", facebookUrl) : null;
+  // Never trust a stored link: rows written before scheme validation existed
+  // (or by any future path that skips the schema) must not reach an href.
+  const safeYoutube = safeExternalUrl(youtubeUrl);
+  const safeFacebook = safeExternalUrl(facebookUrl);
+
+  const ytSrc = safeYoutube ? toEmbedSrc("youtube", safeYoutube) : null;
+  const fbSrc = safeFacebook ? toEmbedSrc("facebook", safeFacebook) : null;
 
   const hasAny =
-    questionImageUrl || youtubeUrl || facebookUrl || videoUrl || voiceUrl;
+    questionImageUrl || safeYoutube || safeFacebook || videoUrl || voiceUrl;
   if (!hasAny) return null;
 
   return (
@@ -57,9 +63,9 @@ export function TaskMedia({
           />
         </div>
       )}
-      {!ytSrc && youtubeUrl && (
+      {!ytSrc && safeYoutube && (
         <a
-          href={youtubeUrl}
+          href={safeYoutube}
           target="_blank"
           rel="noreferrer"
           className="text-sm font-medium text-primary underline underline-offset-4"
@@ -79,9 +85,9 @@ export function TaskMedia({
           />
         </div>
       )}
-      {!fbSrc && facebookUrl && (
+      {!fbSrc && safeFacebook && (
         <a
-          href={facebookUrl}
+          href={safeFacebook}
           target="_blank"
           rel="noreferrer"
           className="text-sm font-medium text-primary underline underline-offset-4"

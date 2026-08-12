@@ -221,7 +221,12 @@ async function sendBookingSms(appointmentId: string): Promise<string | null> {
   const phone = appt.profiles?.phone;
   if (phone) {
     const message = await buildBookingSms(appt, appt.availability_slots, token);
-    await sendSms(phone, message);
+    // Best-effort: a failed SMS must not undo a booking the student already
+    // made, but it must be visible in the logs rather than silently swallowed.
+    const res = await sendSms(phone, message, "MathDOC Booking");
+    if (!res.sent) {
+      console.error(`Booking SMS failed for appointment ${appointmentId}: ${res.error}`);
+    }
   }
   return token;
 }

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { safeExternalUrl } from "@/lib/shared/url";
 import { MapPin, Video, X } from "lucide-react";
 
 export interface BookedSession {
@@ -80,9 +81,9 @@ export function BookedSessionCard({
               {session.mode === "online" ? "Online" : "In person"}
               {session.isFollowUp && " · Follow-up with Sir"}
             </p>
-            {session.mode === "online" && session.meetingLink && (
+            {session.mode === "online" && safeExternalUrl(session.meetingLink) && (
               <a
-                href={session.meetingLink}
+                href={safeExternalUrl(session.meetingLink)!}
                 target="_blank"
                 rel="noreferrer"
                 className="text-sm font-medium text-primary underline underline-offset-4"
