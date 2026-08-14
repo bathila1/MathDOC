@@ -10,7 +10,7 @@ nobody can sign in.
 /login  →  requestOtp (server action)
         →  supabase.auth.signInWithOtp({ phone })
         →  Supabase Cloud calls YOUR app over the public internet:
-             POST https://<your-domain>/api/auth/sms-hook
+             POST https://www.mathdoc.edu.lk/api/auth/sms-hook
              (signed with SUPABASE_AUTH_HOOK_SECRET)
         →  sendSms()  →  Hutch  →  student's handset
 ```
@@ -29,61 +29,22 @@ the Supabase → app hop.
 
 ---
 
-## Production setup (Vercel)
+## Production setup
 
-### 1. Set environment variables in Vercel
+The step-by-step setup (Vercel env vars, phone provider, hook secret, R2,
+VAPID) lives in one place so it cannot drift:
 
-Project → Settings → Environment Variables. All of these are **server-side
-secrets** — do not prefix any with `NEXT_PUBLIC_`.
+👉 **[deployment.md](deployment.md)** — the full production runbook.
 
-| Variable | Value |
-|---|---|
-| `HUTCH_SMS_USERNAME` | `mathdoc.lk@gmail.com` |
-| `HUTCH_SMS_PASSWORD` | (from Hutch) |
-| `HUTCH_SMS_MASK` | `MathDOC` |
-| `SUPABASE_AUTH_HOOK_SECRET` | generated in step 3 below |
-| `NEXT_PUBLIC_SUPABASE_URL` | your project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | service role key |
-| `NEXT_PUBLIC_APP_URL` | `https://your-domain` (used in SMS links) |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | **rotated** keys — see SECURITY.md §1.1 |
-| `R2_*` | Cloudflare R2 credentials |
+The app is served from **https://www.mathdoc.edu.lk** (with
+`https://math-doc-five.vercel.app` as a fallback), so the hook URL is
+`https://www.mathdoc.edu.lk/api/auth/sms-hook`.
 
-`HUTCH_SMS_BASE_URL` is optional; it defaults to `https://bsms.hutch.lk/api`.
-
-Do **not** set `ENABLE_DEV_LOGIN` — it no longer exists.
-
-### 2. Enable phone auth in Supabase
-
-Dashboard → **Authentication → Sign In / Up → Phone** → enable the phone
-provider. Without this, `signInWithOtp` fails before your hook is ever called.
-
-You do **not** need to configure Twilio/MessageBird — the Send SMS hook
-replaces the built-in provider entirely.
-
-### 3. Configure the Send SMS hook
-
-Dashboard → **Authentication → Hooks → Send SMS hook**:
-
-- Type: **HTTPS**
-- URL: `https://<your-domain>/api/auth/sms-hook`
-- Copy the generated secret (it looks like `v1,whsec_…`) into the Vercel env
-  var `SUPABASE_AUTH_HOOK_SECRET`, then **redeploy** so the new env is picked up.
-
-The route strips the `v1,whsec_` prefix itself, so paste the value exactly as
-Supabase gives it.
-
-> **Security:** this endpoint is the one externally reachable path that can
-> trigger a billed SMS. The signature check is what stops strangers POSTing to
-> it and draining the customer's SMS balance. The route refuses to run in
-> production when the secret is unset — that is deliberate, not a bug.
-
-### 4. Verify
-
-1. Open `https://<your-domain>/login`, enter a real number, submit.
-2. The SMS should arrive within seconds.
-3. If it does not, check **Supabase → Logs → Auth** for the hook call, then
-   your Vercel function logs for `Hutch SMS`-prefixed errors.
+> **Security note on that endpoint:** it is the one externally reachable path
+> that can trigger a billed SMS. The `SUPABASE_AUTH_HOOK_SECRET` signature check
+> is what stops strangers POSTing to it and draining the customer's SMS balance.
+> The route refuses to run in production when the secret is unset — that is
+> deliberate, not a bug.
 
 ---
 

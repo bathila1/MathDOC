@@ -16,9 +16,29 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // This runs on every request, so a missing value takes the WHOLE site down —
+  // including static assets — with an opaque supabase-js error. Name the
+  // culprit so the deploy log says what to fix. We still fail closed rather
+  // than waving requests through unauthenticated.
+  if (!supabaseUrl || !supabaseAnonKey) {
+    const missing = [
+      !supabaseUrl && "NEXT_PUBLIC_SUPABASE_URL",
+      !supabaseAnonKey && "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    ]
+      .filter(Boolean)
+      .join(", ");
+    throw new Error(
+      `MathDOC is misconfigured: missing ${missing}. Set it in the hosting ` +
+        `environment (Vercel → Settings → Environment Variables) and redeploy. ` +
+        `See docs/deployment.md.`
+    );
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {

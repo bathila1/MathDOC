@@ -1,0 +1,269 @@
+# MathDOC — Production deployment runbook
+
+Everything needed to take the site from "deployed but broken" to fully working.
+Follow the steps **in order** — later steps depend on earlier ones.
+
+Written to be forwarded to whoever owns the Vercel project.
+
+## The domain
+
+**Canonical URL: `https://www.mathdoc.edu.lk`** — use this everywhere below.
+
+DNS is already live and correct (verified):
+
+| Record | Value | Status |
+|---|---|---|
+| `mathdoc.edu.lk` A | `216.198.79.1` (Vercel) | resolving; 308-redirects to www |
+| `www.mathdoc.edu.lk` CNAME | `cd16f6a85d850ff2.vercel-dns-017.com` | resolving; TLS certificate valid |
+
+`https://math-doc-five.vercel.app` still works and is a useful fallback for
+testing, but the custom domain is what students will use.
+
+> DNS TTL is 86400 (24h). If you ever change these records, expect up to a day
+> before the change is visible everywhere.
+
+---
+
+## Current status
+
+The code is deployed and the domain reaches it, but **every page returns HTTP
+500** because no environment variables were ever set in Vercel.
+
+Why the whole site dies rather than just one feature: `src/proxy.ts` runs on
+every request and builds a Supabase client from `NEXT_PUBLIC_SUPABASE_URL` /
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`. When those are undefined it throws, so even
+static files like `/sw.js` 500. Only `/favicon.ico` responds, because it is the
+one path excluded from the proxy — which is how we know the deployment and TLS
+are otherwise healthy.
+
+Setting the variables in **Step 3** fixes the outage.
+
+---
+
+## Step 1 — Rotate the Web Push (VAPID) keys
+
+The previous private key was committed to git, so it must be replaced. A fresh
+pair has been generated and verified:
+
+```
+
+```
+
+Use these in both `.env.local` and Vercel. To generate your own instead:
+`npx web-push generate-vapid-keys`.
+
+Rotating is safe: `src/lib/client/push.ts` notices the key changed and
+re-subscribes each browser automatically, and
+`src/features/notifications/server/push.ts` deletes subscriptions that fail with
+401/403. Existing subscribers heal on their next visit.
+
+> `VAPID_PRIVATE_KEY` is a secret. `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is public by
+> design — it is meant to ship to the browser.
+
+---
+
+## Step 2 — Cloudflare R2 (file storage)
+
+Without this, every proof upload, task video, voice note and chat image fails
+with a 503. The bucket stays **private**; all access is via short-lived
+presigned URLs (5 min for upload, 15 min for download).
+
+1. Cloudflare dashboard → **R2** → **Create bucket**, e.g. `mathdoc-files`.
+   Leave public access **disabled**.
+2. **Manage R2 API Tokens** → create a token with **Object Read & Write**,
+   scoped to that bucket. Copy the Access Key ID and Secret Access Key — the
+   secret is shown only once.
+3. Your **Account ID** is in the R2 overview page (also in the dashboard URL).
+
+### CORS — required, and easy to miss
+
+The browser uploads **directly** to R2 (`src/lib/client/upload.ts` PUTs to the
+presigned URL), so without a CORS rule every upload fails with an opaque
+browser error even though the credentials are correct.
+
+Bucket → **Settings** → **CORS Policy**:
+
+```json
+[
+  {
+    "AllowedOrigins": [
+      "https://www.mathdoc.edu.lk",
+      "https://mathdoc.edu.lk",
+      "https://math-doc-five.vercel.app",
+      "http://localhost:3000"
+    ],
+    "AllowedMethods": ["PUT", "GET"],
+    "AllowedHeaders": ["Content-Type"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Origins must match **exactly** — scheme, host and port, no trailing slash.
+`localhost` is included so uploads work in local development; drop it if you
+would rather keep production strict.
+
+Upload limits are enforced server-side at presign time and need no config:
+10 MB images/PDFs, 60 MB video, 15 MB audio.
+
+---
+
+## Step 3 — Set the environment variables in Vercel
+
+Vercel → project → **Settings → Environment Variables** → scope **Production**
+(tick Preview too if you want preview deploys to work).
+
+| Variable | Value | Secret? |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API → Project URL | no |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same page → `anon` `public` key | no |
+| `SUPABASE_SERVICE_ROLE_KEY` | same page → `service_role` key | **YES** |
+| `NEXT_PUBLIC_APP_URL` | `https://www.mathdoc.edu.lk` (no trailing slash) | no |
+| `HUTCH_SMS_USERNAME` | `mathdoc.lk@gmail.com` | no |
+| `HUTCH_SMS_PASSWORD` | Hutch account password | **YES** |
+| `HUTCH_SMS_MASK` | `MathDOC` | no |
+| `SUPABASE_AUTH_HOOK_SECRET` | leave blank for now — created in Step 5 | **YES** |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | from Step 1 | no |
+| `VAPID_PRIVATE_KEY` | from Step 1 | **YES** |
+| `VAPID_SUBJECT` | `mailto:riseupmediadev@gmail.com` | no |
+| `R2_ACCOUNT_ID` | from Step 2 | no |
+| `R2_ACCESS_KEY_ID` | from Step 2 | **YES** |
+| `R2_SECRET_ACCESS_KEY` | from Step 2 | **YES** |
+| `R2_BUCKET` | `mathdoc-files` | no |
+
+`HUTCH_SMS_BASE_URL` is optional and defaults to `https://bsms.hutch.lk/api`.
+
+Do **not** set `ENABLE_DEV_LOGIN` — that backdoor has been removed from the code.
+
+Never add a `NEXT_PUBLIC_` prefix to anything marked secret; that would ship it
+to every visitor's browser.
+
+**Then redeploy.** Vercel only picks up env changes on a new deployment —
+Deployments → latest → ⋯ → **Redeploy**.
+
+✅ **Checkpoint:** https://www.mathdoc.edu.lk/login should now load. If it still
+500s, check the Vercel function logs — the app now names the missing variable
+explicitly ("MathDOC is misconfigured: missing …"). Do not continue until this
+loads.
+
+---
+
+## Step 4 — Enable phone auth in Supabase
+
+Supabase dashboard → **Authentication → Sign In / Up → Phone** → enable.
+
+While you are in Authentication settings, set **Site URL** to
+`https://www.mathdoc.edu.lk` and add it (plus
+`https://math-doc-five.vercel.app`) to **Redirect URLs**, so links Supabase
+generates point at the real domain.
+
+If this is off, `signInWithOtp` fails before your app is ever contacted, and
+login shows an error no matter how well the SMS gateway is configured.
+
+You do **not** need Twilio, MessageBird or any built-in provider — the hook in
+Step 5 replaces them entirely.
+
+---
+
+## Step 5 — Wire the Send SMS hook
+
+Supabase → **Authentication → Hooks → Send SMS hook**:
+
+- Type: **HTTPS**
+- URL: `https://www.mathdoc.edu.lk/api/auth/sms-hook`
+- Enable it, then **copy the generated secret** (looks like `v1,whsec_…`)
+
+There is only **one** Send SMS hook per Supabase project, so this single URL
+serves both the custom domain and the `.vercel.app` one — no need to change it
+when testing on either.
+
+Paste that value **verbatim** into `SUPABASE_AUTH_HOOK_SECRET` in Vercel, then
+**redeploy again**. The app strips the `v1,whsec_` prefix itself, so do not
+edit it.
+
+> **Why the secret matters:** this endpoint is the only publicly reachable path
+> that can trigger a billed SMS. The signature check is what stops a stranger
+> POSTing to it and draining the customer's SMS balance. The route deliberately
+> refuses to run in production when the secret is unset.
+
+---
+
+## Step 6 — Handing over secrets safely
+
+Four values are genuinely dangerous:
+
+- `SUPABASE_SERVICE_ROLE_KEY` — bypasses **all** database security rules; full
+  read/write to every student's data.
+- `HUTCH_SMS_PASSWORD` — sends SMS billed to the customer's Hutch account.
+- `R2_SECRET_ACCESS_KEY` — read/write to all uploaded files.
+- `VAPID_PRIVATE_KEY` — lets someone send push notifications as MathDOC.
+
+Send them through a password manager share or a one-time secret link
+(e.g. onetimesecret.com). **Not** WhatsApp, email, or a chat message — those
+keep a permanent copy. If whoever holds them stops working on the project,
+rotate all four.
+
+---
+
+## Verification
+
+Run through these in order once all steps are done.
+
+**1. Site is up**
+
+```bash
+curl -sI https://www.mathdoc.edu.lk/login
+```
+Expect `HTTP/2 200`, a `strict-transport-security` header, and a
+`content-security-policy` that does **not** contain `'unsafe-eval'`.
+
+Also check the apex still redirects: `curl -sI https://mathdoc.edu.lk/` → `308`.
+
+**2. Hook is protected**
+
+```bash
+curl -s -o NUL -w "%{http_code}" -X POST https://www.mathdoc.edu.lk/api/auth/sms-hook
+```
+
+| Code | Meaning |
+|---|---|
+| **401** | Correct — signature rejected, hook is live and protected |
+| 500 | `SUPABASE_AUTH_HOOK_SECRET` still unset, or not redeployed |
+| 404 | Wrong URL in the Supabase hook config |
+
+**3. Login end to end** — open `/login`, enter a real Sri Lankan mobile, submit.
+The SMS should arrive within seconds. Hutch itself is already verified working
+(live login returned 200; a test send returned `serverRef: 2638599891` using the
+`MathDOC` mask), so any failure at this point is on the Supabase side — check
+**Supabase → Logs → Auth**, then the Vercel function logs for lines starting
+`Hutch SMS`.
+
+**4. Uploads** — submit a proof with an image, then confirm the object appears
+in the R2 bucket. A CORS error in the browser console means the Step 2 policy is
+wrong or missing.
+
+**5. Push** — allow notifications, then check the `push_subscriptions` table has
+a row.
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Every page 500s | Supabase env vars missing | Step 3, then redeploy |
+| Login: "couldn't send the code" | Phone provider off, or hook unreachable | Steps 4 and 5 |
+| Hook returns 500 | Secret unset in Vercel | Step 5, then redeploy |
+| Hook returns 401 from Supabase | Secret mismatch | Re-copy from Supabase, redeploy |
+| Hook returns 502 | Hutch rejected the send | Vercel logs → `Hutch SMS send failed: HTTP …` |
+| Uploads fail, console shows CORS | R2 CORS policy | Step 2 |
+| Uploads return 503 | R2 env vars missing | Step 3 |
+| SMS links point at localhost | `NEXT_PUBLIC_APP_URL` wrong | Set to the real domain, redeploy |
+| Push never arrives | Stale VAPID subscription | Self-heals on next visit after Step 1 |
+
+---
+
+## Related
+
+- [sms-otp-setup.md](sms-otp-setup.md) — how the OTP chain works in detail
+- [../SECURITY.md](../SECURITY.md) — security model and hardening notes
