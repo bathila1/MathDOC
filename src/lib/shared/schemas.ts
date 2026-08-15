@@ -186,6 +186,11 @@ export const slotUpdateSchema = z.object({
 export const diagnosisSchema = z.object({
   appointment_id: z.string().uuid(),
   diagnosis_notes: z.string().trim().max(5000, "Notes are too long.").optional(),
+  diagnosis_image_keys: z
+    .array(z.string().min(1).max(500))
+    .max(10, "Maximum 10 images.")
+    .optional()
+    .default([]),
 });
 
 // ---------- Tasks ----------

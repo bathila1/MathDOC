@@ -11,6 +11,7 @@ import {
   studentCancelledSms,
 } from "./sms";
 import { notify, notifyAdmins } from "@/features/notifications/server/notify";
+import { allKeysBelongTo } from "@/lib/server/keys";
 import { format } from "date-fns";
 import {
   bookingSchema,
@@ -377,12 +378,26 @@ export async function saveDiagnosis(input: unknown): Promise<ActionResult<undefi
   const parsed = diagnosisSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
 
+  // Images round-trip through the client, so confirm we presigned them for Sir.
+  if (!allKeysBelongTo(parsed.data.diagnosis_image_keys, user.id)) {
+    return fail("One of those images couldn't be attached. Please re-upload.");
+  }
+
   const supabase = await createSupabaseServer();
   const { error } = await supabase
     .from("appointments")
-    .update({ diagnosis_notes: parsed.data.diagnosis_notes ?? null })
+    .update({
+      diagnosis_notes: parsed.data.diagnosis_notes ?? null,
+      diagnosis_image_keys: parsed.data.diagnosis_image_keys,
+    })
     .eq("id", parsed.data.appointment_id);
-  if (error) return fail("Couldn't save the notes.");
+  if (error) {
+    console.error("saveDiagnosis failed:", error.code, error.message);
+    if (error.message.includes("diagnosis_image_keys")) {
+      return fail("Run migration 017 in Supabase, then try again.");
+    }
+    return fail("Couldn't save the notes.");
+  }
 
   revalidatePath(`/admin/appointments/${parsed.data.appointment_id}`);
   return ok(undefined);
@@ -539,7 +554,16 @@ export async function addSessionNote(
     body: parsed.data.body,
   });
   if (error) {
-    console.error("addSessionNote failed:", error.message);
+    console.error("addSessionNote failed:", error.code, error.message);
+    // PGRST205 = the table is missing from PostgREST's schema cache. The table
+    // exists in Postgres, but the API layer can't see it until the cache is
+    // reloaded — a silent "please try again" sends the teacher in circles.
+    if (error.code === "PGRST205" || error.message.includes("schema cache")) {
+      return fail(
+        "The notes table isn't visible to the API yet. In Supabase run: " +
+          "NOTIFY pgrst, 'reload schema';  then try again."
+      );
+    }
     return fail("Couldn't save the note. Please try again.");
   }
 

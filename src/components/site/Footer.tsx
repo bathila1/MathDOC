@@ -29,36 +29,51 @@ function TelegramIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-const socials = [
-  { label: "Facebook", href: "#", icon: FacebookIcon },
-  { label: "YouTube", href: "#", icon: YoutubeIcon },
-  { label: "WhatsApp", href: "#", icon: WhatsAppIcon },
-  { label: "Telegram", href: "#", icon: TelegramIcon },
-];
+export interface FooterSocials {
+  facebookUrl?: string | null;
+  youtubeUrl?: string | null;
+  whatsappUrl?: string | null;
+  telegramUrl?: string | null;
+}
 
-export function SiteFooter() {
+export function SiteFooter({ socials: links = {} }: { socials?: FooterSocials }) {
+  // Only render an icon when Sir has actually set that URL — an icon linking
+  // to "#" is worse than no icon. URLs are scheme-validated on save.
+  const socials = [
+    { label: "Facebook", href: links.facebookUrl, icon: FacebookIcon },
+    { label: "YouTube", href: links.youtubeUrl, icon: YoutubeIcon },
+    { label: "WhatsApp", href: links.whatsappUrl, icon: WhatsAppIcon },
+    { label: "Telegram", href: links.telegramUrl, icon: TelegramIcon },
+  ].filter((s): s is { label: string; href: string; icon: typeof FacebookIcon } =>
+    Boolean(s.href)
+  );
+
   return (
     // Warm charcoal rather than the old blue-navy — it sits under the
     // orange/red brand without the two hues fighting each other.
     <footer className="bg-[oklch(0.21_0.014_45)] text-white">
-      <div className="mx-auto max-w-5xl px-4 py-14 text-center">
-        <p className="text-xs font-semibold tracking-[0.25em] text-sky-400 uppercase">
-          Follow us on
-        </p>
-        <h3 className="mt-1 text-2xl text-white">Social media!</h3>
-        <div className="mt-7 flex justify-center gap-4">
-          {socials.map((s) => (
-            <a
-              key={s.label}
-              href={s.href}
-              aria-label={s.label}
-              className="flex size-12 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
-            >
-              <s.icon className="size-5" />
-            </a>
-          ))}
+      {socials.length > 0 && (
+        <div className="mx-auto max-w-5xl px-4 py-14 text-center">
+          <p className="text-xs font-semibold tracking-[0.25em] text-sky-400 uppercase">
+            Follow us on
+          </p>
+          <h3 className="mt-1 text-2xl text-white">Social media!</h3>
+          <div className="mt-7 flex justify-center gap-4">
+            {socials.map((s) => (
+              <a
+                key={s.label}
+                href={s.href}
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label={s.label}
+                className="flex size-12 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+              >
+                <s.icon className="size-5" />
+              </a>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="border-t border-white/10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-3 px-4 py-5 text-sm text-white/60">

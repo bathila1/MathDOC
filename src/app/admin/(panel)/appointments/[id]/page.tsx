@@ -10,6 +10,7 @@ import {
 import { TaskManager, type AdminTask } from "@/features/tasks/client/TaskManager";
 import { orderTasks, sessionNumbers } from "@/features/tasks/server/logic";
 import { loadProofsByTask } from "@/features/tasks/server/proofs";
+import { getDownloadUrl } from "@/lib/server/files";
 import { SessionNotes } from "@/features/booking/client/SessionNotes";
 import { BackLink } from "@/components/site/BackLink";
 import { appointmentCode } from "@/lib/shared/appointments";
@@ -130,6 +131,15 @@ export default async function AdminAppointmentPage({
     )
   );
 
+  // Diagnosis photos are private R2 objects — presign each for preview.
+  const diagnosisKeys = (appt.diagnosis_image_keys ?? []) as string[];
+  const diagnosisUrls: Record<string, string> = {};
+  await Promise.all(
+    diagnosisKeys.map(async (key) => {
+      diagnosisUrls[key] = await getDownloadUrl(key);
+    })
+  );
+
   const sessionNos = sessionNumbers(rows);
   const tasks: AdminTask[] = orderTasks(rows).map((t) => ({
     ...t,
@@ -212,6 +222,8 @@ export default async function AdminAppointmentPage({
             <DiagnosisForm
               appointmentId={appt.id}
               initial={appt.diagnosis_notes}
+              initialImages={diagnosisKeys}
+              imageUrls={diagnosisUrls}
             />
           </CardContent>
         </Card>

@@ -19,6 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BackLink } from "@/components/site/BackLink";
+import { appointmentCode } from "@/lib/shared/appointments";
 import { format } from "date-fns";
 import { formatPhone } from "@/lib/shared/phone";
 import { Award, ChevronRight } from "lucide-react";
@@ -145,7 +146,7 @@ export default async function ProfilePage() {
                       <p className="text-xs text-muted-foreground">
                         {format(new Date(n.created_at), "d MMM yyyy")}
                         {from &&
-                          ` · from your session on ${format(
+                          ` · session #${appointmentCode(from.id)} on ${format(
                             new Date(from.availability_slots.starts_at),
                             "d MMM"
                           )}`}
@@ -174,8 +175,11 @@ export default async function ProfilePage() {
                 key={a.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm"
               >
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      #{appointmentCode(a.id)}
+                    </span>{" "}
                     {format(
                       new Date(a.availability_slots.starts_at),
                       "EEE d MMM yyyy, h:mm a"
@@ -185,6 +189,16 @@ export default async function ProfilePage() {
                     {a.mode === "online" ? "Online" : "In person"}
                     {a.is_follow_up && " · Follow-up"}
                   </p>
+                  {a.diagnosis_notes && (
+                    <div className="mt-2 rounded-md bg-muted/50 p-2">
+                      <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                        Sir&apos;s diagnosis
+                      </p>
+                      <p className="mt-1 whitespace-pre-line text-sm">
+                        {a.diagnosis_notes}
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <Badge variant="secondary" className="capitalize">
                   {a.status === "completed" ? "Completed" : "Finished"}

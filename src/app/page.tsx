@@ -2,6 +2,10 @@ import Link from "next/link";
 import { Logo } from "@/components/brand/Logo";
 import { TeacherAvatar } from "@/components/brand/TeacherAvatar";
 import { SiteFooter } from "@/components/site/Footer";
+import {
+  getSiteContent,
+  getHeroImageUrl,
+} from "@/features/settings/server/content";
 import { Button } from "@/components/ui/button";
 
 const steps = [
@@ -22,7 +26,10 @@ const steps = [
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const content = await getSiteContent();
+  const heroUrl = await getHeroImageUrl(content);
+
   return (
     <main className="flex-1">
       <header className="border-b">
@@ -38,7 +45,7 @@ export default function LandingPage() {
         <div className="grid items-center gap-12 sm:grid-cols-[1.3fr_1fr]">
           <div>
             <h1 className="max-w-lg text-4xl leading-tight sm:text-5xl">
-              Every student deserves a plan of their own.
+              {content.heroHeading}
             </h1>
             <div className="mt-8">
               <Button size="lg" render={<Link href="/login" />}>
@@ -47,7 +54,16 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mx-auto w-full max-w-[15rem]">
-            <TeacherAvatar className="aspect-square w-full rounded-lg border object-cover" />
+            {heroUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={heroUrl}
+                alt="Sir — your maths teacher"
+                className="aspect-square w-full rounded-lg border object-cover"
+              />
+            ) : (
+              <TeacherAvatar className="aspect-square w-full rounded-lg border object-cover" />
+            )}
           </div>
         </div>
       </section>
@@ -68,7 +84,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <SiteFooter />
+      <SiteFooter socials={content} />
     </main>
   );
 }

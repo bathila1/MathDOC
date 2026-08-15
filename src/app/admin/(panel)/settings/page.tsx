@@ -2,6 +2,11 @@ import { requireAdmin } from "@/lib/server/auth";
 import { getPaymentsEnabled, getSetting } from "@/lib/server/settings";
 import { PaymentsToggle } from "@/features/settings/client/PaymentsToggle";
 import { AdminNotificationSettings } from "@/features/settings/client/AdminNotificationSettings";
+import { SiteContentSettings } from "@/features/settings/client/SiteContentSettings";
+import {
+  getSiteContent,
+  getHeroImageUrl,
+} from "@/features/settings/server/content";
 import { ADMIN_NOTIFY_TYPES, adminNotifyKey } from "@/lib/shared/notifications";
 import {
   Card,
@@ -15,7 +20,7 @@ export const metadata = { title: "Settings" };
 
 export default async function AdminSettingsPage() {
   await requireAdmin();
-  const [paymentsEnabled, notifyPairs] = await Promise.all([
+  const [paymentsEnabled, notifyPairs, siteContent] = await Promise.all([
     getPaymentsEnabled(),
     Promise.all(
       ADMIN_NOTIFY_TYPES.map(
@@ -23,8 +28,10 @@ export default async function AdminSettingsPage() {
           [t.key, (await getSetting(adminNotifyKey(t.key))) !== "false"] as const
       )
     ),
+    getSiteContent(),
   ]);
   const notifyPrefs = Object.fromEntries(notifyPairs);
+  const heroUrl = await getHeroImageUrl(siteContent);
 
   return (
     <div className="space-y-6">
@@ -46,6 +53,22 @@ export default async function AdminSettingsPage() {
         </CardHeader>
         <CardContent>
           <PaymentsToggle enabled={paymentsEnabled} />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Home page content</CardTitle>
+          <CardDescription>
+            The heading, photo and social links shown on the public home page at
+            mathdoc.edu.lk.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SiteContentSettings
+            initial={siteContent}
+            initialHeroUrl={heroUrl}
+          />
         </CardContent>
       </Card>
 

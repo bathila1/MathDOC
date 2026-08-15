@@ -76,6 +76,8 @@ export interface Appointment {
   status: AppointmentStatus;
   meeting_link: string | null;
   diagnosis_notes: string | null;
+  /** R2 object keys for photos attached to the diagnosis (migration 017). */
+  diagnosis_image_keys: string[] | null;
   price: number;
   is_follow_up: boolean;
   created_at: string;
@@ -106,6 +108,7 @@ export interface Task {
   is_priority: boolean;
   /** false => student submits with a button, no upload required. */
   requires_proof: boolean;
+  // (see Appointment for diagnosis_image_keys)
   timer_seconds: number | null;
   due_at: string | null;
   // Media — any combination may be set on one task.

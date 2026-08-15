@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   addSessionNote,
   deleteSessionNote,
@@ -24,6 +25,7 @@ export function SessionNotes({
   appointmentId: string;
   notes: SessionNote[];
 }) {
+  const router = useRouter();
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -37,6 +39,10 @@ export function SessionNotes({
         return;
       }
       setBody("");
+      // The list is rendered from server props, so pull them again — without
+      // this a saved note doesn't appear until a manual reload, which reads
+      // as "adding notes doesn't work".
+      router.refresh();
       toast.success("Note added.");
     });
   }
@@ -82,6 +88,7 @@ export function SessionNotes({
                   startTransition(async () => {
                     const res = await deleteSessionNote(n.id);
                     if (!res.ok) toast.error(res.error);
+                    else router.refresh();
                   })
                 }
               >

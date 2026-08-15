@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { createSupabaseBrowser } from "@/lib/client/supabase";
 import type { DefaultTask, ProofStatus, Task } from "@/lib/shared/types";
 import {
   addTask,
@@ -717,11 +718,51 @@ export function TaskManager({
   // Unread student-message dots. Opening a chat clears it (optimistically here
   // and persisted via markTaskChatSeen).
   const [seenLocal, setSeenLocal] = useState<Set<string>>(new Set());
-  const unseenSet = new Set(unseenChats ?? []);
+  // `unseenChats` is a page-load snapshot; messages arriving while Sir sits on
+  // this page are picked up over Realtime below.
+  const [liveUnseen, setLiveUnseen] = useState<Set<string>>(new Set());
+  const unseenSet = new Set([...(unseenChats ?? []), ...liveUnseen]);
+
+  const taskIdKey = items.map((t) => t.id).join(",");
+  useEffect(() => {
+    const ids = taskIdKey ? taskIdKey.split(",") : [];
+    if (ids.length === 0) return;
+    const supabase = createSupabaseBrowser();
+    // Unique topic per mount, same reasoning as NotificationBell.
+    const channel = supabase
+      .channel(`task-chat-${Math.random().toString(36).slice(2, 8)}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "task_messages" },
+        (payload) => {
+          const m = payload.new as { task_id: string; sender_role: string };
+          // Only a student's message raises a dot, and only for a task on screen.
+          if (m.sender_role !== "student" || !ids.includes(m.task_id)) return;
+          setLiveUnseen((prev) => new Set(prev).add(m.task_id));
+          setSeenLocal((prev) => {
+            if (!prev.has(m.task_id)) return prev;
+            const next = new Set(prev);
+            next.delete(m.task_id); // a new message re-raises a cleared dot
+            return next;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [taskIdKey]);
+
   function openChat(taskId: string) {
     setChatTaskId(taskId);
     if (unseenSet.has(taskId) && !seenLocal.has(taskId)) {
       setSeenLocal((prev) => new Set(prev).add(taskId));
+      setLiveUnseen((prev) => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
       startTransition(async () => {
         await markTaskChatSeen(taskId);
       });
