@@ -109,7 +109,6 @@ export interface Task {
   type: TaskType;
   title: string;
   description: string;
-  attachment_key: string | null;
   status: TaskStatus;
   follow_up_appointment_id: string | null;
   // Phase 2 additions
@@ -119,12 +118,14 @@ export interface Task {
   // (see Appointment for diagnosis_image_keys)
   timer_seconds: number | null;
   due_at: string | null;
-  // Media — any combination may be set on one task.
-  youtube_url: string | null;
-  facebook_url: string | null;
-  video_key: string | null; // R2 key for an uploaded video
-  voice_key: string | null; // R2 key for a voice note
-  question_image_key: string | null;
+  // Media — ANY NUMBER of each type may be attached (migration 018).
+  // The old singular columns are still in the table but are no longer read.
+  youtube_urls: string[];
+  facebook_urls: string[];
+  video_keys: string[]; // R2 keys for uploaded videos
+  voice_keys: string[]; // R2 keys for voice notes
+  question_image_keys: string[];
+  attachment_keys: string[];
   student_flag: StudentFlag | null;
   created_at: string;
   updated_at: string;
@@ -139,6 +140,13 @@ export interface DefaultTask {
   is_priority: boolean;
   requires_proof: boolean;
   timer_seconds: number | null;
+  // Same media options as a real task (migration 018).
+  youtube_urls: string[];
+  facebook_urls: string[];
+  video_keys: string[];
+  voice_keys: string[];
+  question_image_keys: string[];
+  attachment_keys: string[];
   sort_order: number;
   created_at: string;
   updated_at: string;

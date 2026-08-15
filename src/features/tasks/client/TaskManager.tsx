@@ -15,6 +15,7 @@ import { markTaskChatSeen } from "@/features/tasks/server/chat-actions";
 import dynamic from "next/dynamic";
 import { uploadFile } from "@/lib/client/upload";
 import { VoiceRecorder } from "./VoiceRecorder";
+import { LinkList, FileList } from "./MediaLists";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,33 +118,44 @@ interface EditorState {
   type: "task" | "meet_sir";
   title: string;
   description: string;
-  attachment_key: string | null;
   is_priority: boolean;
   requires_proof: boolean;
   timer_minutes: number | null;
   due_at: string | null; // datetime-local string
-  youtube_url: string | null;
-  facebook_url: string | null;
-  video_key: string | null;
-  voice_key: string | null;
-  question_image_key: string | null;
+  // Every media field is a LIST — a task may carry several of each.
+  youtube_urls: string[];
+  facebook_urls: string[];
+  video_keys: string[];
+  voice_keys: string[];
+  question_image_keys: string[];
+  attachment_keys: string[];
   sir_note: string;
 }
+
+/** The media lists an editor holds, used to drive the generic list controls. */
+type MediaListField =
+  | "youtube_urls"
+  | "facebook_urls"
+  | "video_keys"
+  | "voice_keys"
+  | "question_image_keys"
+  | "attachment_keys";
+
 
 const emptyEditor: EditorState = {
   type: "task",
   title: "",
   description: "",
-  attachment_key: null,
   is_priority: false,
   requires_proof: true,
   timer_minutes: null,
   due_at: null,
-  youtube_url: null,
-  facebook_url: null,
-  video_key: null,
-  voice_key: null,
-  question_image_key: null,
+  youtube_urls: [],
+  facebook_urls: [],
+  video_keys: [],
+  voice_keys: [],
+  question_image_keys: [],
+  attachment_keys: [],
   sir_note: "",
 };
 
@@ -160,16 +172,16 @@ function taskToEditor(t: AdminTask): EditorState {
     type: t.type,
     title: t.title,
     description: t.description,
-    attachment_key: t.attachment_key,
     is_priority: t.is_priority,
     requires_proof: t.requires_proof !== false,
     timer_minutes: t.timer_seconds ? Math.round(t.timer_seconds / 60) : null,
     due_at: t.due_at ? isoToLocalInput(t.due_at) : null,
-    youtube_url: t.youtube_url,
-    facebook_url: t.facebook_url,
-    video_key: t.video_key,
-    voice_key: t.voice_key,
-    question_image_key: t.question_image_key,
+    youtube_urls: t.youtube_urls ?? [],
+    facebook_urls: t.facebook_urls ?? [],
+    video_keys: t.video_keys ?? [],
+    voice_keys: t.voice_keys ?? [],
+    question_image_keys: t.question_image_keys ?? [],
+    attachment_keys: t.attachment_keys ?? [],
     sir_note: t.sir_note ?? "",
   };
 }
@@ -218,16 +230,33 @@ function TaskEditor({
   const videoRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLInputElement>(null);
 
-  async function onUpload(
-    file: File | undefined,
-    purpose: "task_attachment" | "task_media" | "question_image",
-    apply: (key: string) => void
+  /** Append to one of the media lists. */
+  function addTo(field: MediaListField, value: string) {
+    setState((s) =>
+      s[field].includes(value) ? s : { ...s, [field]: [...s[field], value] }
+    );
+  }
+  function removeAt(field: MediaListField, index: number) {
+    setState((s) => ({
+      ...s,
+      [field]: s[field].filter((_, i) => i !== index),
+    }));
+  }
+
+  /** Upload one or more files and append each resulting key to `field`. */
+  async function onUploadMany(
+    files: FileList | null,
+    purpose: "task_attachment" | "task_media" | "question_image" | "voice_note",
+    field: MediaListField
   ) {
-    if (!file) return;
+    const picked = Array.from(files ?? []);
+    if (picked.length === 0) return;
     setUploading(true);
     try {
-      const uploaded = await uploadFile(file, purpose);
-      apply(uploaded.key);
+      for (const file of picked) {
+        const uploaded = await uploadFile(file, purpose);
+        addTo(field, uploaded.key);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed.");
     } finally {
@@ -244,6 +273,13 @@ function TaskEditor({
       is_priority: t.is_priority,
       requires_proof: t.requires_proof !== false,
       timer_minutes: t.timer_seconds ? Math.round(t.timer_seconds / 60) : null,
+      // Templates carry media too — bring it across.
+      youtube_urls: t.youtube_urls ?? [],
+      facebook_urls: t.facebook_urls ?? [],
+      video_keys: t.video_keys ?? [],
+      voice_keys: t.voice_keys ?? [],
+      question_image_keys: t.question_image_keys ?? [],
+      attachment_keys: t.attachment_keys ?? [],
     }));
   }
 
@@ -477,176 +513,100 @@ function TaskEditor({
 
               <Separator />
 
-              {/* ---- Media (any combination) ---- */}
+              {/* ---- Media — any number of each ---- */}
               <Section
                 title="Media"
-                hint="Add any combination — a YouTube link, a Facebook link, an uploaded video and a voice note."
+                hint="Add as many as you like of each — links, videos, voice notes."
               >
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5">
-                    <PlayCircle className="size-4" /> YouTube link
-                  </Label>
-                  <Input
-                    placeholder="https://youtu.be/…"
-                    value={state.youtube_url ?? ""}
-                    onChange={(e) =>
-                      setState((s) => ({ ...s, youtube_url: e.target.value || null }))
-                    }
-                  />
-                </div>
+                <LinkList
+                  icon={PlayCircle}
+                  label="YouTube links"
+                  placeholder="https://youtu.be/…"
+                  values={state.youtube_urls}
+                  onAdd={(v) => addTo("youtube_urls", v)}
+                  onRemove={(i) => removeAt("youtube_urls", i)}
+                />
+                <LinkList
+                  icon={MonitorPlay}
+                  label="Facebook video links"
+                  placeholder="https://facebook.com/…/videos/…"
+                  values={state.facebook_urls}
+                  onAdd={(v) => addTo("facebook_urls", v)}
+                  onRemove={(i) => removeAt("facebook_urls", i)}
+                />
+
+                <FileList
+                  icon={Video}
+                  label="Uploaded videos"
+                  accept="video/mp4,video/webm"
+                  addLabel="Add a video (max 60 MB)"
+                  uploading={uploading}
+                  values={state.video_keys}
+                  onPick={(files) => onUploadMany(files, "task_media", "video_keys")}
+                  onRemove={(i) => removeAt("video_keys", i)}
+                />
 
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5">
-                    <MonitorPlay className="size-4" /> Facebook video link
+                    <Mic className="size-4" /> Voice notes
                   </Label>
-                  <Input
-                    placeholder="https://facebook.com/…/videos/…"
-                    value={state.facebook_url ?? ""}
-                    onChange={(e) =>
-                      setState((s) => ({ ...s, facebook_url: e.target.value || null }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5">
-                    <Video className="size-4" /> Upload a video
-                  </Label>
-                  <input
-                    ref={videoRef}
-                    type="file"
-                    accept="video/mp4,video/webm"
-                    className="hidden"
-                    onChange={(e) =>
-                      onUpload(e.target.files?.[0], "task_media", (key) =>
-                        setState((s) => ({ ...s, video_key: key }))
-                      )
-                    }
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={uploading}
-                      onClick={() => videoRef.current?.click()}
+                  {state.voice_keys.map((key, i) => (
+                    <div
+                      key={key}
+                      className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
                     >
-                      <Video className="size-4" />
-                      {uploading
-                        ? "Uploading…"
-                        : state.video_key
-                          ? "Replace video"
-                          : "Choose a video (max 60 MB)"}
-                    </Button>
-                    {state.video_key && (
+                      <Mic className="size-3.5 shrink-0 text-primary" />
+                      <span className="truncate">Voice note {i + 1}</span>
                       <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
-                        onClick={() => setState((s) => ({ ...s, video_key: null }))}
+                        size="icon"
+                        className="ml-auto size-7"
+                        aria-label={`Remove voice note ${i + 1}`}
+                        onClick={() => removeAt("voice_keys", i)}
                       >
-                        Remove
+                        <Trash2 className="size-3.5 text-destructive" />
                       </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5">
-                    <Mic className="size-4" /> Voice note
-                  </Label>
+                    </div>
+                  ))}
+                  {/* Records one at a time; each recording is appended. */}
                   <VoiceRecorder
-                    value={state.voice_key}
-                    onChange={(key) => setState((s) => ({ ...s, voice_key: key }))}
+                    value={null}
+                    onChange={(key) => {
+                      if (key) addTo("voice_keys", key);
+                    }}
                   />
                 </div>
               </Section>
 
               <Separator />
 
-              {/* ---- Question image + attachment ---- */}
-              <Section title="Question & attachment">
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5">
-                    <ImageIcon className="size-4" /> Question as an image
-                  </Label>
-                  <input
-                    ref={imageRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={(e) =>
-                      onUpload(e.target.files?.[0], "question_image", (key) =>
-                        setState((s) => ({ ...s, question_image_key: key }))
-                      )
-                    }
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={uploading}
-                      onClick={() => imageRef.current?.click()}
-                    >
-                      <ImageIcon className="size-4" />
-                      {state.question_image_key ? "Replace image" : "Upload image"}
-                    </Button>
-                    {state.question_image_key && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          setState((s) => ({ ...s, question_image_key: null }))
-                        }
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5">
-                    <Paperclip className="size-4" /> Attachment — paper, PDF or image
-                  </Label>
-                  <input
-                    ref={attachRef}
-                    type="file"
-                    accept="application/pdf,image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={(e) =>
-                      onUpload(e.target.files?.[0], "task_attachment", (key) =>
-                        setState((s) => ({ ...s, attachment_key: key }))
-                      )
-                    }
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={uploading}
-                      onClick={() => attachRef.current?.click()}
-                    >
-                      <Paperclip className="size-4" />
-                      {state.attachment_key ? "Replace file" : "Attach file"}
-                    </Button>
-                    {state.attachment_key && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          setState((s) => ({ ...s, attachment_key: null }))
-                        }
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                </div>
+              {/* ---- Question images + attachments ---- */}
+              <Section title="Questions & attachments">
+                <FileList
+                  icon={ImageIcon}
+                  label="Questions as images"
+                  accept="image/jpeg,image/png,image/webp"
+                  addLabel="Add image"
+                  uploading={uploading}
+                  values={state.question_image_keys}
+                  onPick={(files) =>
+                    onUploadMany(files, "question_image", "question_image_keys")
+                  }
+                  onRemove={(i) => removeAt("question_image_keys", i)}
+                />
+                <FileList
+                  icon={Paperclip}
+                  label="Attachments — papers, PDFs or images"
+                  accept="application/pdf,image/jpeg,image/png,image/webp"
+                  addLabel="Attach file"
+                  uploading={uploading}
+                  values={state.attachment_keys}
+                  onPick={(files) =>
+                    onUploadMany(files, "task_attachment", "attachment_keys")
+                  }
+                  onRemove={(i) => removeAt("attachment_keys", i)}
+                />
               </Section>
             </>
           )}
@@ -673,12 +633,16 @@ function TaskEditor({
 /** Compact media chips summarising what's attached to a task. */
 function MediaChips({ t }: { t: Task }) {
   const items: { icon: typeof Video; label: string }[] = [];
-  if (t.youtube_url) items.push({ icon: PlayCircle, label: "YouTube" });
-  if (t.facebook_url) items.push({ icon: MonitorPlay, label: "Facebook" });
-  if (t.video_key) items.push({ icon: Video, label: "Video" });
-  if (t.voice_key) items.push({ icon: Mic, label: "Voice" });
-  if (t.question_image_key) items.push({ icon: ImageIcon, label: "Image Q" });
-  if (t.attachment_key) items.push({ icon: Paperclip, label: "Attachment" });
+  // Show a count once there's more than one of a kind.
+  const chip = (n: number, icon: typeof Video, label: string) => {
+    if (n > 0) items.push({ icon, label: n > 1 ? `${label} ×${n}` : label });
+  };
+  chip((t.youtube_urls ?? []).length, PlayCircle, "YouTube");
+  chip((t.facebook_urls ?? []).length, MonitorPlay, "Facebook");
+  chip((t.video_keys ?? []).length, Video, "Video");
+  chip((t.voice_keys ?? []).length, Mic, "Voice");
+  chip((t.question_image_keys ?? []).length, ImageIcon, "Image Q");
+  chip((t.attachment_keys ?? []).length, Paperclip, "Attachment");
   return (
     <>
       {items.map((m) => (

@@ -64,7 +64,7 @@ export interface BoardTask {
   status: TaskStatus;
   type: TaskType;
   sessionNo: number;
-  attachmentUrl: string | null;
+  attachmentUrls: string[];
   rejectionNote: string | null;
   followUpAt: string | null; // booked follow-up meeting time (meet_sir)
   // Phase 2
@@ -73,11 +73,12 @@ export interface BoardTask {
   requiresProof: boolean;
   timerSeconds: number | null;
   dueAt: string | null;
-  youtubeUrl: string | null;
-  facebookUrl: string | null;
-  videoUrl: string | null; // presigned url for an uploaded video
-  voiceUrl: string | null; // presigned url for a voice note
-  questionImageUrl: string | null;
+  // Any number of each media type may be attached (migration 018).
+  youtubeUrls: string[];
+  facebookUrls: string[];
+  videoUrls: string[]; // presigned urls for uploaded videos
+  voiceUrls: string[]; // presigned urls for voice notes
+  questionImageUrls: string[];
   studentFlag: StudentFlag | null;
   submissions: BoardSubmission[];
 }
@@ -199,12 +200,12 @@ export function JourneyBoard({
   const fillFraction = total ? approved / total : 0;
   const hasMaterials = !!(
     selected &&
-    (selected.youtubeUrl ||
-      selected.facebookUrl ||
-      selected.videoUrl ||
-      selected.voiceUrl ||
-      selected.questionImageUrl ||
-      selected.attachmentUrl)
+    (selected.youtubeUrls.length ||
+      selected.facebookUrls.length ||
+      selected.videoUrls.length ||
+      selected.voiceUrls.length ||
+      selected.questionImageUrls.length ||
+      selected.attachmentUrls.length)
   );
 
   // Shared task/meeting header (badges + title + description).
@@ -493,26 +494,26 @@ export function JourneyBoard({
                 <Section title="The question">
                   <div className="space-y-3">
                     <TaskMedia
-                      youtubeUrl={selected.youtubeUrl}
-                      facebookUrl={selected.facebookUrl}
-                      videoUrl={selected.videoUrl}
-                      voiceUrl={selected.voiceUrl}
-                      questionImageUrl={selected.questionImageUrl}
+                      youtubeUrls={selected.youtubeUrls}
+                      facebookUrls={selected.facebookUrls}
+                      videoUrls={selected.videoUrls}
+                      voiceUrls={selected.voiceUrls}
+                      questionImageUrls={selected.questionImageUrls}
                     />
-                    {selected.attachmentUrl && (
+                    {selected.attachmentUrls.map((url, i) => (
                       <Button
+                        key={url}
                         variant="outline"
                         render={
-                          <a
-                            href={selected.attachmentUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          />
+                          <a href={url} target="_blank" rel="noreferrer" />
                         }
                       >
-                        <FileText className="size-4" /> Open the attached material
+                        <FileText className="size-4" />
+                        {selected.attachmentUrls.length > 1
+                          ? `Open material ${i + 1}`
+                          : "Open the attached material"}
                       </Button>
-                    )}
+                    ))}
                   </div>
                 </Section>
               )}

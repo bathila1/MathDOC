@@ -10,6 +10,30 @@ import { isSafeExternalUrl } from "./url";
  * http(s). Empty string is normalized to null so optional link inputs can be
  * cleared.
  */
+/**
+ * A list of external links. Empty strings are dropped so a blank "add another"
+ * row never becomes a stored value; every survivor is scheme-checked.
+ */
+export const httpUrlList = (maxItems = 8, label = "Link") =>
+  z
+    .array(z.string().trim().max(500, `${label} is too long.`))
+    .max(maxItems, `Maximum ${maxItems} ${label.toLowerCase()}s.`)
+    .optional()
+    .default([])
+    .transform((list) => list.filter((v) => v.trim() !== ""))
+    .refine((list) => list.every((v) => isSafeExternalUrl(v)), {
+      message: `Every ${label.toLowerCase()} must start with http:// or https://`,
+    });
+
+/** A list of R2 object keys (ownership is re-checked server-side). */
+export const objectKeyList = (maxItems = 10, label = "file") =>
+  z
+    .array(z.string().trim().max(500))
+    .max(maxItems, `Maximum ${maxItems} ${label}s.`)
+    .optional()
+    .default([])
+    .transform((list) => list.filter((v) => v.trim() !== ""));
+
 export const httpUrlField = (max = 500, label = "Link") =>
   z
     .string()
@@ -239,7 +263,6 @@ const taskBase = z.object({
     .max(5000, "Description is too long.")
     .optional()
     .transform((v) => v ?? ""),
-  attachment_key: z.string().max(500).optional().nullable(),
   is_priority: z.boolean().optional().default(false),
   // false => the student gets a plain "Mark as done" button instead of an
   // upload drop-zone (for tasks like "revise today's topic").
@@ -252,12 +275,14 @@ const taskBase = z.object({
     .optional()
     .nullable(),
   due_at: z.string().trim().max(40).optional().nullable(), // datetime-local / ISO
-  // Rendered as an iframe src / anchor href — scheme-restricted, see url.ts.
-  youtube_url: httpUrlField(500, "YouTube link"),
-  facebook_url: httpUrlField(500, "Facebook link"),
-  video_key: z.string().max(500).optional().nullable(),
-  voice_key: z.string().max(500).optional().nullable(),
-  question_image_key: z.string().max(500).optional().nullable(),
+  // Any number of each media type may be attached to one task.
+  // Links are rendered as iframe src / anchor href — scheme-restricted, see url.ts.
+  youtube_urls: httpUrlList(8, "YouTube link"),
+  facebook_urls: httpUrlList(8, "Facebook link"),
+  video_keys: objectKeyList(8, "video"),
+  voice_keys: objectKeyList(8, "voice note"),
+  question_image_keys: objectKeyList(10, "image"),
+  attachment_keys: objectKeyList(10, "attachment"),
   // Private note only the teacher sees (stored in task_sir_notes).
   sir_note: z.string().trim().max(2000, "Note is too long.").optional().nullable(),
 });
@@ -284,6 +309,14 @@ export const defaultTaskSchema = z.object({
   is_priority: z.boolean().optional().default(false),
   requires_proof: z.boolean().optional().default(true),
   timer_minutes: z.number().int().min(1).max(600).optional().nullable(),
+  // Templates carry the same media as a real task (no due date — that is
+  // always specific to the student it's assigned to).
+  youtube_urls: httpUrlList(8, "YouTube link"),
+  facebook_urls: httpUrlList(8, "Facebook link"),
+  video_keys: objectKeyList(8, "video"),
+  voice_keys: objectKeyList(8, "voice note"),
+  question_image_keys: objectKeyList(10, "image"),
+  attachment_keys: objectKeyList(10, "attachment"),
 });
 
 export const proofSubmitSchema = z.object({

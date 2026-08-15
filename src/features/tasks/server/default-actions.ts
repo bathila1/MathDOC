@@ -4,6 +4,7 @@ import { createSupabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/server/auth";
 import { rateLimit } from "@/lib/server/ratelimit";
 import { defaultTaskSchema } from "@/lib/shared/schemas";
+import { allKeysBelongTo } from "@/lib/server/keys";
 import { z } from "zod";
 import {
   ok,
@@ -22,6 +23,22 @@ async function guard(): Promise<string | null> {
   return rl.allowed ? null : rl.message!;
 }
 
+/** Same ownership rule as real tasks: keys must be ones we presigned for Sir. */
+async function mediaKeysOk(
+  d: z.infer<typeof defaultTaskSchema>
+): Promise<boolean> {
+  const { user } = await requireAdmin();
+  return allKeysBelongTo(
+    [
+      ...(d.video_keys ?? []),
+      ...(d.voice_keys ?? []),
+      ...(d.question_image_keys ?? []),
+      ...(d.attachment_keys ?? []),
+    ],
+    user.id
+  );
+}
+
 function toColumns(d: z.infer<typeof defaultTaskSchema>) {
   return {
     title: d.title,
@@ -30,6 +47,12 @@ function toColumns(d: z.infer<typeof defaultTaskSchema>) {
     is_priority: Boolean(d.is_priority),
     requires_proof: d.requires_proof !== false,
     timer_seconds: d.timer_minutes ? d.timer_minutes * 60 : null,
+    youtube_urls: d.youtube_urls ?? [],
+    facebook_urls: d.facebook_urls ?? [],
+    video_keys: d.video_keys ?? [],
+    voice_keys: d.voice_keys ?? [],
+    question_image_keys: d.question_image_keys ?? [],
+    attachment_keys: d.attachment_keys ?? [],
   };
 }
 
@@ -41,6 +64,9 @@ export async function createDefaultTask(
 
   const parsed = defaultTaskSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
+  if (!(await mediaKeysOk(parsed.data))) {
+    return fail("One of those uploads couldn't be attached. Please re-upload.");
+  }
 
   const supabase = await createSupabaseServer();
   const { data: last } = await supabase
@@ -71,6 +97,9 @@ export async function updateDefaultTask(
   if (!id.success) return fail("Unknown template.");
   const parsed = defaultTaskSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
+  if (!(await mediaKeysOk(parsed.data))) {
+    return fail("One of those uploads couldn't be attached. Please re-upload.");
+  }
 
   const supabase = await createSupabaseServer();
   const { error } = await supabase

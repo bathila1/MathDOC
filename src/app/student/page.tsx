@@ -141,9 +141,9 @@ export default async function StudentDashboard() {
         status: t.status,
         type: t.type,
         sessionNo: sessionRank.get(t.appointment_id) ?? 1,
-        attachmentUrl: t.attachment_key
-          ? await getDownloadUrl(t.attachment_key)
-          : null,
+        attachmentUrls: await Promise.all(
+          (t.attachment_keys ?? []).map((k) => getDownloadUrl(k))
+        ),
         rejectionNote:
           proof?.status === "rejected" ? (proof.teacher_note ?? null) : null,
         followUpAt: t.follow_up_appointment_id
@@ -153,13 +153,17 @@ export default async function StudentDashboard() {
         requiresProof: t.requires_proof !== false,
         timerSeconds: t.timer_seconds,
         dueAt: t.due_at,
-        youtubeUrl: t.youtube_url,
-        facebookUrl: t.facebook_url,
-        videoUrl: t.video_key ? await getDownloadUrl(t.video_key) : null,
-        voiceUrl: t.voice_key ? await getDownloadUrl(t.voice_key) : null,
-        questionImageUrl: t.question_image_key
-          ? await getDownloadUrl(t.question_image_key)
-          : null,
+        youtubeUrls: t.youtube_urls ?? [],
+        facebookUrls: t.facebook_urls ?? [],
+        videoUrls: await Promise.all(
+          (t.video_keys ?? []).map((k) => getDownloadUrl(k))
+        ),
+        voiceUrls: await Promise.all(
+          (t.voice_keys ?? []).map((k) => getDownloadUrl(k))
+        ),
+        questionImageUrls: await Promise.all(
+          (t.question_image_keys ?? []).map((k) => getDownloadUrl(k))
+        ),
         studentFlag: t.student_flag,
         submissions: submissionsByTask.get(t.id) ?? [],
       };

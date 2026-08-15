@@ -32,16 +32,26 @@ interface TaskFormFields {
   type: "task" | "meet_sir";
   title: string;
   description: string;
-  attachment_key?: string | null;
   is_priority?: boolean;
   requires_proof?: boolean;
   timer_minutes?: number | null;
   due_at?: string | null;
-  youtube_url?: string | null;
-  facebook_url?: string | null;
-  video_key?: string | null;
-  voice_key?: string | null;
-  question_image_key?: string | null;
+  youtube_urls?: string[];
+  facebook_urls?: string[];
+  video_keys?: string[];
+  voice_keys?: string[];
+  question_image_keys?: string[];
+  attachment_keys?: string[];
+}
+
+/** Every object key attached to a task, for the ownership check. */
+function allMediaKeys(d: TaskFormFields): string[] {
+  return [
+    ...(d.video_keys ?? []),
+    ...(d.voice_keys ?? []),
+    ...(d.question_image_keys ?? []),
+    ...(d.attachment_keys ?? []),
+  ];
 }
 
 const clean = (v?: string | null) => (v && v.trim() ? v.trim() : null);
@@ -52,10 +62,7 @@ const clean = (v?: string | null) => (v && v.trim() ? v.trim() : null);
  * crafted key from pointing the task at somebody else's stored file.
  */
 function mediaKeysOk(d: TaskFormFields, userId: string): boolean {
-  return [d.attachment_key, d.video_key, d.voice_key, d.question_image_key]
-    .map(clean)
-    .filter((k): k is string => k !== null)
-    .every((k) => keyBelongsTo(k, userId));
+  return allKeysBelongTo(allMediaKeys(d), userId);
 }
 
 /** Map validated form fields to task table columns (minutes→seconds, date→ISO). */
@@ -72,16 +79,16 @@ function toTaskColumns(d: TaskFormFields) {
     type: d.type,
     title: d.title,
     description: d.description,
-    attachment_key: clean(d.attachment_key),
     is_priority: Boolean(d.is_priority),
     requires_proof: d.requires_proof !== false,
     timer_seconds,
     due_at,
-    youtube_url: clean(d.youtube_url),
-    facebook_url: clean(d.facebook_url),
-    video_key: clean(d.video_key),
-    voice_key: clean(d.voice_key),
-    question_image_key: clean(d.question_image_key),
+    youtube_urls: d.youtube_urls ?? [],
+    facebook_urls: d.facebook_urls ?? [],
+    video_keys: d.video_keys ?? [],
+    voice_keys: d.voice_keys ?? [],
+    question_image_keys: d.question_image_keys ?? [],
+    attachment_keys: d.attachment_keys ?? [],
   };
 }
 

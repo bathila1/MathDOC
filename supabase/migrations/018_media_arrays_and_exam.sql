@@ -84,7 +84,7 @@ comment on column mcq_questions.image_key is
 
 -- ─────────────────────────────────────────────────────────────
 -- Optional cleanup — run only AFTER confirming the new build works:
---
+
 -- alter table tasks
 --   drop column youtube_url, drop column facebook_url, drop column video_key,
 --   drop column voice_key, drop column question_image_key,

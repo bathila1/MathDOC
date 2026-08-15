@@ -5,112 +5,143 @@ import { safeExternalUrl } from "@/lib/shared/url";
 import { Mic } from "lucide-react";
 
 export interface TaskMediaProps {
-  youtubeUrl: string | null;
-  facebookUrl: string | null;
-  videoUrl: string | null; // presigned url for an uploaded video
-  voiceUrl: string | null; // presigned url for a voice note
-  questionImageUrl: string | null;
+  youtubeUrls: string[];
+  facebookUrls: string[];
+  videoUrls: string[]; // presigned urls for uploaded videos
+  voiceUrls: string[]; // presigned urls for voice notes
+  questionImageUrls: string[];
 }
 
 /**
- * Renders all of a task's media for the student: an image-as-question, a
- * YouTube and/or Facebook embed, an uploaded video, and a WhatsApp-style
- * voice-note bubble — any combination.
+ * Renders all of a task's media for the student: images-as-questions, YouTube
+ * and Facebook embeds, uploaded videos, and WhatsApp-style voice notes — any
+ * number of each (migration 018 made every media field a list).
  */
 export function TaskMedia({
-  youtubeUrl,
-  facebookUrl,
-  videoUrl,
-  voiceUrl,
-  questionImageUrl,
+  youtubeUrls,
+  facebookUrls,
+  videoUrls,
+  voiceUrls,
+  questionImageUrls,
 }: TaskMediaProps) {
   // Never trust a stored link: rows written before scheme validation existed
   // (or by any future path that skips the schema) must not reach an href.
-  const safeYoutube = safeExternalUrl(youtubeUrl);
-  const safeFacebook = safeExternalUrl(facebookUrl);
-
-  const ytSrc = safeYoutube ? toEmbedSrc("youtube", safeYoutube) : null;
-  const fbSrc = safeFacebook ? toEmbedSrc("facebook", safeFacebook) : null;
+  const safeYoutube = youtubeUrls
+    .map((u) => safeExternalUrl(u))
+    .filter((u): u is string => u !== null);
+  const safeFacebook = facebookUrls
+    .map((u) => safeExternalUrl(u))
+    .filter((u): u is string => u !== null);
 
   const hasAny =
-    questionImageUrl || safeYoutube || safeFacebook || videoUrl || voiceUrl;
+    questionImageUrls.length > 0 ||
+    safeYoutube.length > 0 ||
+    safeFacebook.length > 0 ||
+    videoUrls.length > 0 ||
+    voiceUrls.length > 0;
   if (!hasAny) return null;
 
   return (
     <div className="space-y-3">
-      {questionImageUrl && (
-        <div>
-          <p className="mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Question
+      {questionImageUrls.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            {questionImageUrls.length === 1 ? "Question" : "Questions"}
           </p>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={questionImageUrl}
-            alt="Question"
-            className="max-h-[70vh] w-full rounded-lg border object-contain"
-          />
+          {questionImageUrls.map((url, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={url}
+              src={url}
+              alt={`Question ${i + 1}`}
+              className="max-h-[70vh] w-full rounded-lg border object-contain"
+            />
+          ))}
         </div>
       )}
 
-      {ytSrc && (
-        <div className="aspect-video w-full overflow-hidden rounded-lg border">
-          <iframe
-            src={ytSrc}
-            className="h-full w-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            title="YouTube video"
-          />
-        </div>
-      )}
-      {!ytSrc && safeYoutube && (
-        <a
-          href={safeYoutube}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm font-medium text-primary underline underline-offset-4"
+      {safeYoutube.map((url) => {
+        const src = toEmbedSrc("youtube", url);
+        return src ? (
+          <div
+            key={url}
+            className="aspect-video w-full overflow-hidden rounded-lg border"
+          >
+            <iframe
+              src={src}
+              className="h-full w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              title="YouTube video"
+            />
+          </div>
+        ) : (
+          <a
+            key={url}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="block text-sm font-medium text-primary underline underline-offset-4"
+          >
+            Open the YouTube video
+          </a>
+        );
+      })}
+
+      {safeFacebook.map((url) => {
+        const src = toEmbedSrc("facebook", url);
+        return src ? (
+          <div
+            key={url}
+            className="aspect-video w-full overflow-hidden rounded-lg border"
+          >
+            <iframe
+              src={src}
+              className="h-full w-full"
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+              allowFullScreen
+              title="Facebook video"
+            />
+          </div>
+        ) : (
+          <a
+            key={url}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="block text-sm font-medium text-primary underline underline-offset-4"
+          >
+            Open the Facebook video
+          </a>
+        );
+      })}
+
+      {videoUrls.map((url) => (
+        <video
+          key={url}
+          controls
+          src={url}
+          className="w-full rounded-lg border"
+        />
+      ))}
+
+      {voiceUrls.map((url, i) => (
+        <div
+          key={url}
+          className="flex items-center gap-3 rounded-xl bg-primary/10 p-3"
         >
-          Open the YouTube video
-        </a>
-      )}
-
-      {fbSrc && (
-        <div className="aspect-video w-full overflow-hidden rounded-lg border">
-          <iframe
-            src={fbSrc}
-            className="h-full w-full"
-            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
-            allowFullScreen
-            title="Facebook video"
-          />
-        </div>
-      )}
-      {!fbSrc && safeFacebook && (
-        <a
-          href={safeFacebook}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm font-medium text-primary underline underline-offset-4"
-        >
-          Open the Facebook video
-        </a>
-      )}
-
-      {videoUrl && (
-        <video controls src={videoUrl} className="w-full rounded-lg border" />
-      )}
-
-      {voiceUrl && (
-        <div className="flex items-center gap-3 rounded-xl bg-primary/10 p-3">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
             <Mic className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold text-primary">Voice note from Sir</p>
-            <audio controls src={voiceUrl} className="mt-1 h-9 w-full" />
+            <p className="text-xs font-semibold text-primary">
+              Voice note from Sir
+              {voiceUrls.length > 1 ? ` (${i + 1}/${voiceUrls.length})` : ""}
+            </p>
+            <audio controls src={url} className="mt-1 h-9 w-full" />
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }

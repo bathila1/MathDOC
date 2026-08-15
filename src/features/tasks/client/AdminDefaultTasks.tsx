@@ -15,6 +15,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { uploadFile } from "@/lib/client/upload";
+import { LinkList, FileList } from "./MediaLists";
+import { VoiceRecorder } from "./VoiceRecorder";
 import {
   Dialog,
   DialogContent,
@@ -29,11 +33,17 @@ import {
   ArrowDown,
   ArrowUp,
   Handshake,
+  Image as ImageIcon,
+  Mic,
+  MonitorPlay,
+  Paperclip,
   Pencil,
+  PlayCircle,
   Plus,
   Star,
   Timer,
   Trash2,
+  Video,
 } from "lucide-react";
 
 interface EditorState {
@@ -41,15 +51,39 @@ interface EditorState {
   description: string;
   type: "task" | "meet_sir";
   is_priority: boolean;
+  requires_proof: boolean;
   timer_minutes: number | null;
+  // Same media options as the full task form (migration 018). No due date —
+  // that's always specific to the student a task is assigned to.
+  youtube_urls: string[];
+  facebook_urls: string[];
+  video_keys: string[];
+  voice_keys: string[];
+  question_image_keys: string[];
+  attachment_keys: string[];
 }
+
+type MediaListField =
+  | "youtube_urls"
+  | "facebook_urls"
+  | "video_keys"
+  | "voice_keys"
+  | "question_image_keys"
+  | "attachment_keys";
 
 const empty: EditorState = {
   title: "",
   description: "",
   type: "task",
   is_priority: false,
+  requires_proof: true,
   timer_minutes: null,
+  youtube_urls: [],
+  facebook_urls: [],
+  video_keys: [],
+  voice_keys: [],
+  question_image_keys: [],
+  attachment_keys: [],
 };
 
 function TemplateEditor({
@@ -66,6 +100,36 @@ function TemplateEditor({
   const [open, setOpen] = useState(false);
   const [state, setState] = useState(initial);
   const [pending, startTransition] = useTransition();
+  const [uploading, setUploading] = useState(false);
+
+  function addTo(field: MediaListField, value: string) {
+    setState((s) =>
+      s[field].includes(value) ? s : { ...s, [field]: [...s[field], value] }
+    );
+  }
+  function removeAt(field: MediaListField, index: number) {
+    setState((s) => ({ ...s, [field]: s[field].filter((_, i) => i !== index) }));
+  }
+
+  async function onUploadMany(
+    files: FileList | null,
+    purpose: "task_attachment" | "task_media" | "question_image",
+    field: MediaListField
+  ) {
+    const picked = Array.from(files ?? []);
+    if (picked.length === 0) return;
+    setUploading(true);
+    try {
+      for (const file of picked) {
+        const up = await uploadFile(file, purpose);
+        addTo(field, up.key);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <Dialog
@@ -121,6 +185,15 @@ function TemplateEditor({
             />
             <span className="font-medium">Priority by default</span>
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={state.requires_proof}
+              onCheckedChange={(v: boolean) =>
+                setState((s) => ({ ...s, requires_proof: Boolean(v) }))
+              }
+            />
+            <span className="font-medium">Needs proof uploaded</span>
+          </label>
           <div className="space-y-2">
             <Label>Default time limit in minutes (optional)</Label>
             <Input
@@ -136,6 +209,88 @@ function TemplateEditor({
               }
             />
           </div>
+
+          <Separator />
+
+          {/* Same media controls as the full task form. */}
+          <LinkList
+            icon={PlayCircle}
+            label="YouTube links"
+            placeholder="https://youtu.be/…"
+            values={state.youtube_urls}
+            onAdd={(v) => addTo("youtube_urls", v)}
+            onRemove={(i) => removeAt("youtube_urls", i)}
+          />
+          <LinkList
+            icon={MonitorPlay}
+            label="Facebook video links"
+            placeholder="https://facebook.com/…/videos/…"
+            values={state.facebook_urls}
+            onAdd={(v) => addTo("facebook_urls", v)}
+            onRemove={(i) => removeAt("facebook_urls", i)}
+          />
+          <FileList
+            icon={Video}
+            label="Uploaded videos"
+            accept="video/mp4,video/webm"
+            addLabel="Add a video (max 60 MB)"
+            uploading={uploading}
+            values={state.video_keys}
+            onPick={(f) => onUploadMany(f, "task_media", "video_keys")}
+            onRemove={(i) => removeAt("video_keys", i)}
+          />
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5">
+              <Mic className="size-4" /> Voice notes
+            </Label>
+            {state.voice_keys.map((key, i) => (
+              <div
+                key={key}
+                className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm"
+              >
+                <Mic className="size-3.5 shrink-0 text-primary" />
+                <span className="truncate">Voice note {i + 1}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="ml-auto size-7"
+                  aria-label={`Remove voice note ${i + 1}`}
+                  onClick={() => removeAt("voice_keys", i)}
+                >
+                  <Trash2 className="size-3.5 text-destructive" />
+                </Button>
+              </div>
+            ))}
+            <VoiceRecorder
+              value={null}
+              onChange={(key) => {
+                if (key) addTo("voice_keys", key);
+              }}
+            />
+          </div>
+          <FileList
+            icon={ImageIcon}
+            label="Questions as images"
+            accept="image/jpeg,image/png,image/webp"
+            addLabel="Add image"
+            uploading={uploading}
+            values={state.question_image_keys}
+            onPick={(f) =>
+              onUploadMany(f, "question_image", "question_image_keys")
+            }
+            onRemove={(i) => removeAt("question_image_keys", i)}
+          />
+          <FileList
+            icon={Paperclip}
+            label="Attachments — papers, PDFs or images"
+            accept="application/pdf,image/jpeg,image/png,image/webp"
+            addLabel="Attach file"
+            uploading={uploading}
+            values={state.attachment_keys}
+            onPick={(f) => onUploadMany(f, "task_attachment", "attachment_keys")}
+            onRemove={(i) => removeAt("attachment_keys", i)}
+          />
         </div>
         <DialogFooter>
           <Button
@@ -262,9 +417,16 @@ export function AdminDefaultTasks({ templates }: { templates: DefaultTask[] }) {
                     description: t.description,
                     type: t.type,
                     is_priority: t.is_priority,
+                    requires_proof: t.requires_proof !== false,
                     timer_minutes: t.timer_seconds
                       ? Math.round(t.timer_seconds / 60)
                       : null,
+                    youtube_urls: t.youtube_urls ?? [],
+                    facebook_urls: t.facebook_urls ?? [],
+                    video_keys: t.video_keys ?? [],
+                    voice_keys: t.voice_keys ?? [],
+                    question_image_keys: t.question_image_keys ?? [],
+                    attachment_keys: t.attachment_keys ?? [],
                   }}
                   onSave={(s) => edit(t.id, s)}
                   trigger={
