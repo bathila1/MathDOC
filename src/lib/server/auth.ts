@@ -72,6 +72,33 @@ export const getAuth = cache(async (): Promise<AuthContext | null> => {
   return { user, profile };
 });
 
+/** Where a signed-in user belongs when they land on a login page. */
+function homeFor(profile: Profile): string {
+  if (profile.role === "admin") return "/admin";
+  return profile.profile_completed ? "/student" : "/register";
+}
+
+/** Only same-site paths may come back from `?next=` — never an absolute URL. */
+function safeNext(next: string | undefined): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
+/**
+ * Guard for the login pages. A student stays signed in until they log out, so
+ * reaching /login with a live session means they tapped "Student login" out of
+ * habit — send them straight in rather than making them wait for another OTP.
+ *
+ * Uses getAuth() (which validates the token against the Auth server) rather
+ * than a bare cookie check: a stale cookie must fall through to the form, not
+ * bounce between /login and /student forever.
+ */
+export async function redirectIfSignedIn(next?: string): Promise<void> {
+  const auth = await getAuth();
+  if (!auth) return;
+  redirect(safeNext(next) ?? homeFor(auth.profile));
+}
+
 /** For student pages/actions: redirects to /login when not signed in. */
 export async function requireStudent(): Promise<AuthContext> {
   const auth = await getAuth();
