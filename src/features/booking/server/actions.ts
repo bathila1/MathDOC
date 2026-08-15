@@ -5,7 +5,13 @@ import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { getAuth, requireAdmin } from "@/lib/server/auth";
 import { rateLimit } from "@/lib/server/ratelimit";
 import { sendSms } from "@/lib/server/sms";
-import { buildBookingSms } from "./sms";
+import {
+  buildBookingSms,
+  adminCancelledSms,
+  studentCancelledSms,
+} from "./sms";
+import { notify, notifyAdmins } from "@/features/notifications/server/notify";
+import { format } from "date-fns";
 import {
   bookingSchema,
   slotSchema,
@@ -198,12 +204,15 @@ export async function bypassPayment(
   return ok({ invoiceToken: token });
 }
 
-/** Loads appointment + slot + invoice and sends the confirmation SMS. */
+/**
+ * Announce a confirmed booking: SMS the student and notify Sir. Called on
+ * every path that confirms an appointment, so neither side can be missed.
+ */
 async function sendBookingSms(appointmentId: string): Promise<string | null> {
   const admin = createSupabaseAdmin();
   const { data } = await admin
     .from("appointments")
-    .select("*, availability_slots(*), invoices(*), profiles(phone)")
+    .select("*, availability_slots(*), invoices(*), profiles(phone, full_name)")
     .eq("id", appointmentId)
     .single();
   if (!data) return null;
@@ -211,7 +220,7 @@ async function sendBookingSms(appointmentId: string): Promise<string | null> {
   const appt = data as Appointment & {
     availability_slots: AvailabilitySlot;
     invoices: Invoice[] | Invoice | null;
-    profiles: { phone: string | null };
+    profiles: { phone: string | null; full_name: string | null };
   };
   const invoice = Array.isArray(appt.invoices)
     ? appt.invoices[0]
@@ -228,6 +237,18 @@ async function sendBookingSms(appointmentId: string): Promise<string | null> {
       console.error(`Booking SMS failed for appointment ${appointmentId}: ${res.error}`);
     }
   }
+
+  const when = format(
+    new Date(appt.availability_slots.starts_at),
+    "EEE d MMM 'at' h:mm a"
+  );
+  await notifyAdmins({
+    type: "booking",
+    title: appt.is_follow_up ? "New follow-up booked" : "New session booked",
+    body: `${appt.profiles?.full_name ?? "A student"} · ${when}`,
+    link: `/admin/appointments/${appointmentId}`,
+  });
+
   return token;
 }
 
@@ -253,7 +274,9 @@ export async function cancelMyBooking(
   const admin = createSupabaseAdmin();
   const { data: appt } = await admin
     .from("appointments")
-    .select("id, slot_id, status, student_id, availability_slots(ends_at)")
+    .select(
+      "id, slot_id, status, student_id, is_follow_up, availability_slots(*), profiles(phone, full_name)"
+    )
     .eq("id", id.data)
     .eq("student_id", auth.user.id) // ownership check
     .maybeSingle();
@@ -263,7 +286,9 @@ export async function cancelMyBooking(
     id: string;
     slot_id: string;
     status: string;
-    availability_slots: { ends_at: string } | null;
+    is_follow_up: boolean;
+    availability_slots: AvailabilitySlot | null;
+    profiles: { phone: string | null; full_name: string | null } | null;
   };
   if (row.status === "cancelled") return fail("This booking is already cancelled.");
   if (row.status === "completed") {
@@ -290,6 +315,30 @@ export async function cancelMyBooking(
     .from("tasks")
     .update({ follow_up_appointment_id: null })
     .eq("follow_up_appointment_id", id.data);
+
+  // Confirm to the student by SMS, and tell Sir the slot is free again.
+  if (row.availability_slots) {
+    const slot = row.availability_slots;
+    if (row.profiles?.phone) {
+      const res = await sendSms(
+        row.profiles.phone,
+        studentCancelledSms(slot, row.is_follow_up),
+        "MathDOC Booking"
+      );
+      if (!res.sent) {
+        console.error(`Cancellation SMS failed for ${id.data}: ${res.error}`);
+      }
+    }
+    await notifyAdmins({
+      type: "booking_cancelled",
+      title: "Session cancelled",
+      body: `${row.profiles?.full_name ?? "A student"} cancelled ${format(
+        new Date(slot.starts_at),
+        "EEE d MMM 'at' h:mm a"
+      )}`,
+      link: "/admin/appointments",
+    });
+  }
 
   revalidatePath("/student");
   revalidatePath("/student/sessions");
@@ -359,18 +408,59 @@ export async function setAppointmentStatus(
 
   const admin = createSupabaseAdmin();
 
-  // Cancelling frees the slot again
+  // Cancelling frees the slot again, releases any checkpoint it was booked
+  // for, and tells the student — by SMS and in-app — that Sir cancelled.
   if (status === "cancelled") {
     const { data: appt } = await admin
       .from("appointments")
-      .select("slot_id")
+      .select(
+        "slot_id, student_id, is_follow_up, availability_slots(*), profiles(phone)"
+      )
       .eq("id", id.data)
       .single();
+
     if (appt) {
+      const row = appt as unknown as {
+        slot_id: string;
+        student_id: string;
+        is_follow_up: boolean;
+        availability_slots: AvailabilitySlot | null;
+        profiles: { phone: string | null } | null;
+      };
+
       await admin
         .from("availability_slots")
         .update({ status: "free" })
-        .eq("id", appt.slot_id);
+        .eq("id", row.slot_id);
+
+      // Let the student rebook the "Meet with Sir" checkpoint.
+      await admin
+        .from("tasks")
+        .update({ follow_up_appointment_id: null })
+        .eq("follow_up_appointment_id", id.data);
+
+      if (row.availability_slots) {
+        if (row.profiles?.phone) {
+          const res = await sendSms(
+            row.profiles.phone,
+            adminCancelledSms(row.availability_slots, row.is_follow_up),
+            "MathDOC Booking"
+          );
+          if (!res.sent) {
+            console.error(`Admin-cancel SMS failed for ${id.data}: ${res.error}`);
+          }
+        }
+        await notify({
+          userId: row.student_id,
+          type: "booking_cancelled",
+          title: "Sir cancelled your session",
+          body: `${format(
+            new Date(row.availability_slots.starts_at),
+            "EEE d MMM 'at' h:mm a"
+          )} — please book another time.`,
+          link: "/student/book",
+        });
+      }
     }
   }
 

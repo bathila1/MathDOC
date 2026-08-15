@@ -38,7 +38,9 @@ const socials = [
 
 export function SiteFooter() {
   return (
-    <footer className="bg-[oklch(0.19_0.02_260)] text-white">
+    // Warm charcoal rather than the old blue-navy — it sits under the
+    // orange/red brand without the two hues fighting each other.
+    <footer className="bg-[oklch(0.21_0.014_45)] text-white">
       <div className="mx-auto max-w-5xl px-4 py-14 text-center">
         <p className="text-xs font-semibold tracking-[0.25em] text-sky-400 uppercase">
           Follow us on
@@ -59,20 +61,20 @@ export function SiteFooter() {
       </div>
 
       <div className="border-t border-white/10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-5 text-sm text-white/60 sm:flex-row">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-3 px-4 py-5 text-sm text-white/60">
           <p>© {new Date().getFullYear()} MathDOC. All rights reserved.</p>
-          <div className="flex gap-5">
-            <a href="#" className="hover:text-white">
-              Terms &amp; Conditions
-            </a>
-            <a href="#" className="hover:text-white">
-              Privacy Policy
-            </a>
-          </div>
         </div>
         <div className="flex items-center justify-center gap-2 pb-6 text-xs text-white/50">
           <span>Crafted by</span>
-          <RiseupMark />
+          <a
+            href="https://riseup.lk"
+            target="_blank"
+            rel="noreferrer noopener"
+            aria-label="riseup — opens riseup.lk in a new tab"
+            className="transition-opacity hover:opacity-80"
+          >
+            <RiseupMark />
+          </a>
         </div>
       </div>
     </footer>

@@ -17,8 +17,8 @@ const steps = [
   },
   {
     no: "03",
-    title: "Earn your certificate",
-    text: "Your progress fills as Sir approves each task. Reach the end and your certificate is issued.",
+    title: "Fix your doubts",
+    text: "Stuck on something? Ask Sir directly on the task and get it cleared up before you move on.",
   },
 ];
 
@@ -40,10 +40,6 @@ export default function LandingPage() {
             <h1 className="max-w-lg text-4xl leading-tight sm:text-5xl">
               Every student deserves a plan of their own.
             </h1>
-            <p className="mt-5 max-w-md text-lg text-muted-foreground">
-              One-to-one maths coaching with Sir — talk through what&apos;s
-              holding you back, then work through a plan built just for you.
-            </p>
             <div className="mt-8">
               <Button size="lg" render={<Link href="/login" />}>
                 Get started
@@ -52,9 +48,6 @@ export default function LandingPage() {
           </div>
           <div className="mx-auto w-full max-w-[15rem]">
             <TeacherAvatar className="aspect-square w-full rounded-lg border object-cover" />
-            <p className="mt-3 text-center text-sm text-muted-foreground">
-              Sir — your coach
-            </p>
           </div>
         </div>
       </section>

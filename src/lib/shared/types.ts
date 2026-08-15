@@ -104,6 +104,8 @@ export interface Task {
   follow_up_appointment_id: string | null;
   // Phase 2 additions
   is_priority: boolean;
+  /** false => student submits with a button, no upload required. */
+  requires_proof: boolean;
   timer_seconds: number | null;
   due_at: string | null;
   // Media — any combination may be set on one task.
@@ -124,6 +126,7 @@ export interface DefaultTask {
   description: string;
   type: TaskType;
   is_priority: boolean;
+  requires_proof: boolean;
   timer_seconds: number | null;
   sort_order: number;
   created_at: string;

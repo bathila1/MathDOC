@@ -67,23 +67,25 @@ export const adminLoginSchema = z.object({
 
 // ---------- Student profile / registration ----------
 
-// TESTING MODE: nothing is compulsory for now — every field may be left
-// empty. Re-tighten these before going live (see README roadmap).
-const optionalText = (max: number, label: string) =>
+// Registration details are compulsory — Sir needs them to prepare sessions
+// and to reach a guardian. Enforced HERE, server-side; the `required`
+// attributes on the form are only a convenience.
+const requiredText = (max: number, label: string) =>
   z
-    .string()
+    .string({ message: `${label} is required.` })
     .trim()
-    .max(max, `${label} is too long.`)
-    .optional()
-    .transform((v) => (v ? v : null));
+    .min(1, `${label} is required.`)
+    .max(max, `${label} is too long.`);
 
 export const profileSchema = z.object({
-  full_name: optionalText(100, "Name"),
-  school: optionalText(120, "School name"),
-  grade: optionalText(30, "Grade"),
-  guardian_name: optionalText(100, "Guardian name"),
-  guardian_phone: optionalText(30, "Guardian phone"),
-  address: optionalText(300, "Address"),
+  full_name: requiredText(100, "Name"),
+  school: requiredText(120, "School name"),
+  grade: requiredText(30, "Grade"),
+  guardian_name: requiredText(100, "Guardian name"),
+  // Normalised to +947XXXXXXXX like the student's own number, so Sir can
+  // actually dial it.
+  guardian_phone: phoneField,
+  address: requiredText(300, "Address"),
 });
 
 export const categorySchema = z.object({
@@ -207,6 +209,9 @@ const taskBase = z.object({
     .transform((v) => v ?? ""),
   attachment_key: z.string().max(500).optional().nullable(),
   is_priority: z.boolean().optional().default(false),
+  // false => the student gets a plain "Mark as done" button instead of an
+  // upload drop-zone (for tasks like "revise today's topic").
+  requires_proof: z.boolean().optional().default(true),
   timer_minutes: z
     .number()
     .int()
@@ -245,6 +250,7 @@ export const defaultTaskSchema = z.object({
     .transform((v) => v ?? ""),
   type: z.enum(["task", "meet_sir"]),
   is_priority: z.boolean().optional().default(false),
+  requires_proof: z.boolean().optional().default(true),
   timer_minutes: z.number().int().min(1).max(600).optional().nullable(),
 });
 

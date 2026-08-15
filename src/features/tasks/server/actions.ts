@@ -34,6 +34,7 @@ interface TaskFormFields {
   description: string;
   attachment_key?: string | null;
   is_priority?: boolean;
+  requires_proof?: boolean;
   timer_minutes?: number | null;
   due_at?: string | null;
   youtube_url?: string | null;
@@ -73,6 +74,7 @@ function toTaskColumns(d: TaskFormFields) {
     description: d.description,
     attachment_key: clean(d.attachment_key),
     is_priority: Boolean(d.is_priority),
+    requires_proof: d.requires_proof !== false,
     timer_seconds,
     due_at,
     youtube_url: clean(d.youtube_url),

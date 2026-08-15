@@ -139,8 +139,11 @@ function TaskTimerBox({
 export function ProofUploader({
   taskId,
   timerSeconds,
+  requiresProof = true,
 }: {
   taskId: string;
+  /** false => no upload drop-zone; the student just confirms they've done it. */
+  requiresProof?: boolean;
   timerSeconds?: number | null;
 }) {
   const router = useRouter();
@@ -193,31 +196,42 @@ export function ProofUploader({
         <TaskTimerBox timerSeconds={timerSeconds} onElapsed={setTimeSpent} />
       ) : null}
 
-      {/* Big, obvious upload drop-zone */}
-      <input
-        ref={fileRef}
-        type="file"
-        multiple
-        accept="application/pdf,image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={onFiles}
-      />
-      <button
-        type="button"
-        disabled={uploading}
-        onClick={() => fileRef.current?.click()}
-        className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-8 text-center transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-60"
-      >
-        <Upload className="size-8 text-primary" />
-        <span className="text-base font-semibold">
-          {uploading ? "Uploading…" : "Upload proof of your work"}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          Tap to add photos of your answers or a PDF
-        </span>
-      </button>
+      {/* Big, obvious upload drop-zone — only for tasks that need proof. */}
+      {requiresProof && (
+        <>
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept="application/pdf,image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={onFiles}
+          />
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileRef.current?.click()}
+            className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 px-4 py-8 text-center transition-colors hover:border-primary hover:bg-primary/10 disabled:opacity-60"
+          >
+            <Upload className="size-8 text-primary" />
+            <span className="text-base font-semibold">
+              {uploading ? "Uploading…" : "Upload proof of your work"}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Tap to add photos of your answers or a PDF
+            </span>
+          </button>
+        </>
+      )}
 
-      {files.length > 0 && (
+      {!requiresProof && (
+        <p className="rounded-xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+          Nothing to upload for this one — just tell Sir when you&apos;ve
+          finished it.
+        </p>
+      )}
+
+      {requiresProof && files.length > 0 && (
         <ul className="space-y-1 text-sm">
           {files.map((f, i) => (
             <li key={f.key} className="flex items-center gap-2 rounded-md border px-3 py-1.5">
@@ -251,7 +265,11 @@ export function ProofUploader({
       <div className="flex justify-end">
         <Button size="sm" disabled={pending || uploading} onClick={submit}>
           <Send className="size-4" />
-          {pending ? "Sending…" : "Send to Sir"}
+          {pending
+            ? "Sending…"
+            : requiresProof
+              ? "Send to Sir"
+              : "Mark as done & tell Sir"}
         </Button>
       </div>
     </div>

@@ -88,9 +88,13 @@ export function ProfileForm({
     <form onSubmit={onSubmit} className="space-y-4">
       {PROFILE_FIELDS.map((f) => (
         <div key={f.name} className="space-y-2">
-          <Label htmlFor={f.name}>{f.label}</Label>
+          <Label htmlFor={f.name}>
+            {f.label} <span aria-hidden className="text-destructive">*</span>
+          </Label>
           <Input
             id={f.name}
+            required
+            aria-required="true"
             placeholder={f.placeholder}
             value={values[f.name] ?? ""}
             onChange={(e) => set(f.name, e.target.value)}
@@ -101,10 +105,14 @@ export function ProfileForm({
         </div>
       ))}
       <div className="space-y-2">
-        <Label htmlFor="address">Home address</Label>
+        <Label htmlFor="address">
+          Home address <span aria-hidden className="text-destructive">*</span>
+        </Label>
         <Textarea
           id="address"
           rows={2}
+          required
+          aria-required="true"
           value={values.address ?? ""}
           onChange={(e) => set("address", e.target.value)}
         />
@@ -135,29 +143,6 @@ export function ProfileForm({
         )}
       </div>
 
-      {mode === "register" && (
-        <Button
-          type="button"
-          variant="ghost"
-          className="w-full"
-          disabled={pending}
-          onClick={() => {
-            setErrors({});
-            setTopError(null);
-            startTransition(async () => {
-              const res = await saveProfile({});
-              if (!res.ok) {
-                setTopError(res.error);
-                return;
-              }
-              router.push(res.data.next);
-              router.refresh();
-            });
-          }}
-        >
-          Skip for now
-        </Button>
-      )}
     </form>
   );
 
@@ -167,10 +152,6 @@ export function ProfileForm({
     <Card className="w-full max-w-xl">
       <CardHeader>
         <CardTitle className="text-xl">Tell us about yourself</CardTitle>
-        <CardDescription>
-          Sir uses these details to prepare for your sessions. Everything is
-          optional — fill what you like, you can come back later.
-        </CardDescription>
       </CardHeader>
       <CardContent>{body}</CardContent>
     </Card>

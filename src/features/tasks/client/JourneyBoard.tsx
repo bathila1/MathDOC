@@ -69,6 +69,8 @@ export interface BoardTask {
   followUpAt: string | null; // booked follow-up meeting time (meet_sir)
   // Phase 2
   isPriority: boolean;
+  /** false => submit with a button instead of uploading files. */
+  requiresProof: boolean;
   timerSeconds: number | null;
   dueAt: string | null;
   youtubeUrl: string | null;
@@ -466,7 +468,10 @@ export function JourneyBoard({
         ) : (
           <div
             key={selected.id}
-            className="animate-pop-in grid gap-4 lg:grid-cols-[3fr_2fr]"
+            // items-start: without it the grid stretches the left box to match
+            // the taller right column, leaving a large empty area under the
+            // question. Each box should be only as tall as its own content.
+            className="animate-pop-in grid items-start gap-4 lg:grid-cols-[3fr_2fr]"
           >
             {/* LEFT box — the question & its materials */}
             <div
@@ -582,10 +587,13 @@ export function JourneyBoard({
 
                   {/* Upload proof */}
                   {selected.status === "active" && !selectedExpired && (
-                    <Section title="Upload proof">
+                    <Section
+                      title={selected.requiresProof ? "Upload proof" : "Finish this task"}
+                    >
                       <ProofUploader
                         taskId={selected.id}
                         timerSeconds={selected.timerSeconds}
+                        requiresProof={selected.requiresProof}
                       />
                     </Section>
                   )}

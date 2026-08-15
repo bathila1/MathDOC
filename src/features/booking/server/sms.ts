@@ -12,12 +12,19 @@ function appUrl(path: string): string {
   return `${base.replace(/\/$/, "")}${path}`;
 }
 
-/** Booking confirmation SMS with all details + the invoice link. */
+/**
+ * Booking confirmation SMS.
+ *
+ * `invoiceToken` is accepted but intentionally NOT included: the invoice link
+ * is withheld until the payment gateway is live (same rule as the confirmation
+ * screen). Re-add the line below when payments go live.
+ */
 export async function buildBookingSms(
   appointment: Appointment,
   slot: AvailabilitySlot,
   invoiceToken: string | null
 ): Promise<string> {
+  void invoiceToken;
   const when = format(new Date(slot.starts_at), "EEE d MMM yyyy 'at' h:mm a");
   const lines = [
     `${APP_NAME}: Your ${appointment.is_follow_up ? "follow-up " : ""}session with Sir is confirmed.`,
@@ -41,10 +48,31 @@ export async function buildBookingSms(
     if (data?.value) lines.push(`Location: ${data.value}`);
   }
 
-  if (invoiceToken) {
-    lines.push(`Invoice: ${appUrl(`/invoice/${invoiceToken}`)}`);
-  }
   return lines.join("\n");
+}
+
+/** Sent to the student when Sir cancels their session from the admin side. */
+export function adminCancelledSms(
+  slot: AvailabilitySlot,
+  isFollowUp: boolean
+): string {
+  const when = format(new Date(slot.starts_at), "EEE d MMM yyyy 'at' h:mm a");
+  return [
+    `${APP_NAME}: Sir has cancelled your ${isFollowUp ? "follow-up " : ""}session on ${when}.`,
+    "Please book another time on the app. Sorry for the inconvenience.",
+  ].join("\n");
+}
+
+/** Sent to the student confirming they cancelled their own booking. */
+export function studentCancelledSms(
+  slot: AvailabilitySlot,
+  isFollowUp: boolean
+): string {
+  const when = format(new Date(slot.starts_at), "EEE d MMM yyyy 'at' h:mm a");
+  return [
+    `${APP_NAME}: Your ${isFollowUp ? "follow-up " : ""}session on ${when} has been cancelled.`,
+    "You can book a new time on the app whenever you're ready.",
+  ].join("\n");
 }
 
 export function certificateSms(token: string): string {

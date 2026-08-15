@@ -16,8 +16,9 @@ DNS is already live and correct (verified):
 | `mathdoc.edu.lk` A | `216.198.79.1` (Vercel) | resolving; 308-redirects to www |
 | `www.mathdoc.edu.lk` CNAME | `cd16f6a85d850ff2.vercel-dns-017.com` | resolving; TLS certificate valid |
 
-`https://math-doc-five.vercel.app` still works and is a useful fallback for
-testing, but the custom domain is what students will use.
+Since the custom domain was attached, `https://math-doc-five.vercel.app` no
+longer serves the app (it returns 404). Use `https://www.mathdoc.edu.lk` for
+everything — testing included.
 
 > DNS TTL is 86400 (24h). If you ever change these records, expect up to a day
 > before the change is visible everywhere.
@@ -68,12 +69,32 @@ Without this, every proof upload, task video, voice note and chat image fails
 with a 503. The bucket stays **private**; all access is via short-lived
 presigned URLs (5 min for upload, 15 min for download).
 
-1. Cloudflare dashboard → **R2** → **Create bucket**, e.g. `mathdoc-files`.
+1. Cloudflare dashboard → **R2** → **Create bucket**.
    Leave public access **disabled**.
 2. **Manage R2 API Tokens** → create a token with **Object Read & Write**,
    scoped to that bucket. Copy the Access Key ID and Secret Access Key — the
    secret is shown only once.
 3. Your **Account ID** is in the R2 overview page (also in the dashboard URL).
+
+> **Current setup:** the configured bucket is `sagara-lms`, and credentials are
+> verified working (presign succeeds). Two issues were found on it — see the
+> two boxes below.
+
+### ⚠️ Public access is currently ENABLED — turn it off
+
+The bucket answers on its public `https://pub-….r2.dev` URL, which means every
+uploaded object is readable by anyone holding the link, permanently. That
+defeats the whole design: this app serves files through **15-minute presigned
+URLs** precisely so a leaked link expires, and student proof uploads, chat
+images and question images are private material.
+
+Fix: bucket → **Settings** → **Public Development URL** → **Disable**.
+
+Nothing in MathDOC reads that URL — `src/lib/server/files.ts` always presigns,
+and `R2_PUBLIC_URL` is not referenced anywhere in the codebase, so disabling it
+cannot break this app. **Check first whether another project shares this
+bucket** (the name suggests it may), because that project might depend on the
+public URL.
 
 ### CORS — required, and easy to miss
 
@@ -150,7 +171,18 @@ loads.
 
 ## Step 4 — Enable phone auth in Supabase
 
-Supabase dashboard → **Authentication → Sign In / Up → Phone** → enable.
+> ⚠️ **Do not skip this.** Skipping it produces exactly the symptom "We couldn't
+> send the code right now" on `/login`, even when the SMS hook and Hutch are
+> both perfectly configured. The underlying Supabase error is
+> `phone_provider_disabled` / "Unsupported phone provider", visible in the
+> Vercel function logs.
+
+Supabase dashboard → **Authentication → Sign In / Up → Phone** → enable → Save.
+
+Configuring the Send SMS hook (Step 5) is **not** a substitute. The hook
+controls *how* the message is delivered; this toggle controls *whether* phone
+login is permitted at all. With it off, Supabase rejects the request before your
+app is ever contacted.
 
 While you are in Authentication settings, set **Site URL** to
 `https://www.mathdoc.edu.lk` and add it (plus
@@ -252,7 +284,8 @@ a row.
 | Symptom | Cause | Fix |
 |---|---|---|
 | Every page 500s | Supabase env vars missing | Step 3, then redeploy |
-| Login: "couldn't send the code" | Phone provider off, or hook unreachable | Steps 4 and 5 |
+| Login: "couldn't send the code" | **Phone provider disabled** (`phone_provider_disabled`) — by far the most common cause | Step 4 |
+| Login: "couldn't send the code", provider already on | Hook unreachable or misconfigured | Step 5 |
 | Hook returns 500 | Secret unset in Vercel | Step 5, then redeploy |
 | Hook returns 401 from Supabase | Secret mismatch | Re-copy from Supabase, redeploy |
 | Hook returns 502 | Hutch rejected the send | Vercel logs → `Hutch SMS send failed: HTTP …` |

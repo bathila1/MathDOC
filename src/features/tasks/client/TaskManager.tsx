@@ -118,6 +118,7 @@ interface EditorState {
   description: string;
   attachment_key: string | null;
   is_priority: boolean;
+  requires_proof: boolean;
   timer_minutes: number | null;
   due_at: string | null; // datetime-local string
   youtube_url: string | null;
@@ -134,6 +135,7 @@ const emptyEditor: EditorState = {
   description: "",
   attachment_key: null,
   is_priority: false,
+  requires_proof: true,
   timer_minutes: null,
   due_at: null,
   youtube_url: null,
@@ -159,6 +161,7 @@ function taskToEditor(t: AdminTask): EditorState {
     description: t.description,
     attachment_key: t.attachment_key,
     is_priority: t.is_priority,
+    requires_proof: t.requires_proof !== false,
     timer_minutes: t.timer_seconds ? Math.round(t.timer_seconds / 60) : null,
     due_at: t.due_at ? isoToLocalInput(t.due_at) : null,
     youtube_url: t.youtube_url,
@@ -238,6 +241,7 @@ function TaskEditor({
       title: t.title,
       description: t.description,
       is_priority: t.is_priority,
+      requires_proof: t.requires_proof !== false,
       timer_minutes: t.timer_seconds ? Math.round(t.timer_seconds / 60) : null,
     }));
   }
@@ -368,6 +372,21 @@ function TaskEditor({
                 checked={state.is_priority}
                 onCheckedChange={(v) =>
                   setState((s) => ({ ...s, is_priority: v }))
+                }
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <p className="text-sm font-medium">Needs proof uploaded</p>
+                <p className="text-xs text-muted-foreground">
+                  Off for tasks like &ldquo;revise today&apos;s topic&rdquo; —
+                  the student just gets a &ldquo;Mark as done&rdquo; button.
+                </p>
+              </div>
+              <Switch
+                checked={state.requires_proof}
+                onCheckedChange={(v) =>
+                  setState((s) => ({ ...s, requires_proof: v }))
                 }
               />
             </div>

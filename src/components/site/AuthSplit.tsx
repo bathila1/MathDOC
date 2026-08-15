@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogoIcon } from "@/components/brand/Logo";
+import { Logo, LogoIcon } from "@/components/brand/Logo";
 import { TeacherAvatar } from "@/components/brand/TeacherAvatar";
 
 /**
@@ -22,9 +22,6 @@ export function AuthSplit({ children }: { children: React.ReactNode }) {
           <p className="mt-4 font-heading text-4xl leading-tight font-bold">
             Every student deserves a plan of their own.
           </p>
-          <p className="mt-3 text-sm text-white/80">
-            One-to-one maths coaching with Sir.
-          </p>
         </div>
       </div>
 
@@ -34,8 +31,10 @@ export function AuthSplit({ children }: { children: React.ReactNode }) {
           the register form's submit button). */}
       <main className="bg-graph flex min-h-screen w-full flex-col items-center overflow-y-auto px-5 py-10 lg:ml-[63%] lg:h-screen lg:w-[37%]">
         <div className="my-auto flex w-full flex-col items-center gap-6">
+          {/* Mobile has no dark poster behind it, so the wordmark must be
+              brand-orange rather than the white used over the photo. */}
           <Link href="/" className="lg:hidden">
-            <LogoIcon className="size-12" />
+            <Logo iconClassName="size-10" textClassName="text-2xl text-primary" />
           </Link>
           {children}
         </div>

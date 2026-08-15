@@ -19,6 +19,16 @@ export const ADMIN_NOTIFY_TYPES = [
     label: "New student registration",
     description: "When a student finishes signing up.",
   },
+  {
+    key: "booking",
+    label: "New session booked",
+    description: "When a student books a session with you.",
+  },
+  {
+    key: "booking_cancelled",
+    label: "Session cancelled",
+    description: "When a student cancels their booked session.",
+  },
 ] as const;
 
 export type AdminNotifyType = (typeof ADMIN_NOTIFY_TYPES)[number]["key"];

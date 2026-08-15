@@ -150,6 +150,7 @@ export default async function StudentDashboard() {
           ? (followUpAt.get(t.follow_up_appointment_id) ?? null)
           : null,
         isPriority: t.is_priority,
+        requiresProof: t.requires_proof !== false,
         timerSeconds: t.timer_seconds,
         dueAt: t.due_at,
         youtubeUrl: t.youtube_url,

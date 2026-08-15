@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireStudent } from "@/lib/server/auth";
+import { getPaymentsEnabled } from "@/lib/server/settings";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import type {
   Appointment,
@@ -43,6 +44,9 @@ export default async function ConfirmedPage({
   };
   const invoice = Array.isArray(appt.invoices) ? appt.invoices[0] : appt.invoices;
   const slot = appt.availability_slots;
+  // The invoice is meaningless until the payment gateway is live, so the
+  // link only appears once payments are switched on in admin Settings.
+  const paymentsEnabled = await getPaymentsEnabled();
 
   return (
     <div className="mx-auto max-w-md space-y-6 text-center">
@@ -67,7 +71,7 @@ export default async function ConfirmedPage({
               ? "Online — Sir will share the meeting link"
               : "In person"}
           </p>
-          {invoice && (
+          {paymentsEnabled && invoice && (
             <Button
               variant="outline"
               className="mt-4"

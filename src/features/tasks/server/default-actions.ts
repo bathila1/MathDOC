@@ -28,6 +28,7 @@ function toColumns(d: z.infer<typeof defaultTaskSchema>) {
     description: d.description,
     type: d.type,
     is_priority: Boolean(d.is_priority),
+    requires_proof: d.requires_proof !== false,
     timer_seconds: d.timer_minutes ? d.timer_minutes * 60 : null,
   };
 }
