@@ -97,33 +97,60 @@ export const categorySchema = z.object({
 
 // ---------- MCQ ----------
 
-export const mcqQuestionSchema = z.object({
-  text: z
-    .string()
-    .trim()
-    .min(3, "Please write the question.")
-    .max(1000, "Question is too long."),
-  options: z
-    .array(
-      z
-        .string()
-        .trim()
-        .min(1, "Answer options can't be empty.")
-        .max(300, "Option is too long.")
-    )
-    .min(2, "Add at least 2 answer options.")
-    .max(6, "Maximum 6 answer options."),
-  correct_index: z.number().int().min(0),
-  is_active: z.boolean().default(true),
-}).refine((q) => q.correct_index < q.options.length, {
-  message: "Pick which option is the correct answer.",
-  path: ["correct_index"],
-});
+export const mcqQuestionSchema = z
+  .object({
+    // 'mcq' is auto-graded; 'text' is a typed answer Sir reads himself.
+    kind: z.enum(["mcq", "text"]).default("mcq"),
+    text: z
+      .string()
+      .trim()
+      .min(3, "Please write the question.")
+      .max(1000, "Question is too long."),
+    /** Optional picture shown with the question (R2 object key). */
+    image_key: z.string().max(500).optional().nullable(),
+    options: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1, "Answer options can't be empty.")
+          .max(300, "Option is too long.")
+      )
+      .max(6, "Maximum 6 answer options.")
+      .default([]),
+    correct_index: z.number().int().min(0).optional().nullable(),
+    is_active: z.boolean().default(true),
+  })
+  .superRefine((q, ctx) => {
+    if (q.kind === "text") return; // no options, nothing to mark correct
+    if (q.options.length < 2) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["options"],
+        message: "Add at least 2 answer options.",
+      });
+    }
+    if (
+      q.correct_index === null ||
+      q.correct_index === undefined ||
+      q.correct_index >= q.options.length
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["correct_index"],
+        message: "Pick which option is the correct answer.",
+      });
+    }
+  });
 
 export const mcqSubmitSchema = z.object({
+  // A number is a chosen option index; a string is a typed answer.
   answers: z.record(
     z.string().uuid(),
-    z.number().int().min(0).max(5)
+    z.union([
+      z.number().int().min(0).max(5),
+      z.string().trim().max(2000, "That answer is too long."),
+    ])
   ),
 });
 

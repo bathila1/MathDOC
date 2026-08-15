@@ -14,9 +14,12 @@ import { Check, Eye, X } from "lucide-react";
 
 export interface QuizAnswer {
   question: string;
+  /** The picked option, or the student's typed answer. */
   chosen: string | null;
-  correct: string;
-  isCorrect: boolean;
+  /** null for written answers — there is nothing to mark against. */
+  correct: string | null;
+  /** null for written answers, which Sir marks by eye. */
+  isCorrect: boolean | null;
 }
 
 /** Score at a glance; the full answer sheet opens in a popup. */
@@ -69,22 +72,37 @@ export function QuizResultDialog({
                   <p className="text-sm font-medium">
                     {i + 1}. {a.question}
                   </p>
-                  <p
-                    className={`mt-1 flex items-start gap-1.5 text-sm ${
-                      a.isCorrect ? "text-green-700" : "text-destructive"
-                    }`}
-                  >
-                    {a.isCorrect ? (
-                      <Check className="mt-0.5 size-4 shrink-0" />
-                    ) : (
-                      <X className="mt-0.5 size-4 shrink-0" />
-                    )}
-                    <span>{a.chosen ?? "No answer"}</span>
-                  </p>
-                  {!a.isCorrect && (
-                    <p className="mt-0.5 pl-5.5 text-sm text-muted-foreground">
-                      Correct answer: {a.correct}
-                    </p>
+                  {a.isCorrect === null ? (
+                    // Written answer: nothing to mark against, so show it
+                    // plainly for Sir to read rather than flagging it wrong.
+                    <div className="mt-1 rounded-md bg-muted/50 p-2">
+                      <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                        Written answer
+                      </p>
+                      <p className="mt-0.5 whitespace-pre-line text-sm">
+                        {a.chosen?.trim() ? a.chosen : "No answer"}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <p
+                        className={`mt-1 flex items-start gap-1.5 text-sm ${
+                          a.isCorrect ? "text-green-700" : "text-destructive"
+                        }`}
+                      >
+                        {a.isCorrect ? (
+                          <Check className="mt-0.5 size-4 shrink-0" />
+                        ) : (
+                          <X className="mt-0.5 size-4 shrink-0" />
+                        )}
+                        <span>{a.chosen ?? "No answer"}</span>
+                      </p>
+                      {!a.isCorrect && a.correct && (
+                        <p className="mt-0.5 pl-5.5 text-sm text-muted-foreground">
+                          Correct answer: {a.correct}
+                        </p>
+                      )}
+                    </>
                   )}
                 </li>
               ))}

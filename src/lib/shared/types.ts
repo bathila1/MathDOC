@@ -36,11 +36,18 @@ export interface Profile {
   updated_at: string;
 }
 
+export type McqQuestionKind = "mcq" | "text";
+
 export interface McqQuestion {
   id: string;
+  /** 'mcq' auto-marks against correct_index; 'text' is read by Sir. */
+  kind: McqQuestionKind;
   text: string;
+  /** Optional R2 key for a picture shown with the question. */
+  image_key: string | null;
   options: string[];
-  correct_index: number;
+  /** null for written-answer questions. */
+  correct_index: number | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -53,7 +60,8 @@ export type McqQuestionPublic = Omit<McqQuestion, "correct_index">;
 export interface McqAttempt {
   id: string;
   student_id: string;
-  answers: Record<string, number>;
+  /** number = chosen option index; string = typed answer. */
+  answers: Record<string, number | string>;
   score: number;
   total: number;
   submitted_at: string;

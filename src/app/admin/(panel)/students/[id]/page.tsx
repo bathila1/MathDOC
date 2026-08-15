@@ -196,14 +196,29 @@ export default async function AdminStudentPage({
   );
   const mcqAttempt = attempt as McqAttempt | null;
   const quizAnswers: QuizAnswer[] = mcqAttempt
-    ? Object.entries(mcqAttempt.answers).flatMap(([qid, chosen]) => {
+    ? Object.entries(mcqAttempt.answers).flatMap(([qid, given]): QuizAnswer[] => {
         const q = questionById.get(qid);
         if (!q) return [];
+
+        // Written answers carry no correct option — hand the text straight
+        // through for Sir to read, with isCorrect null so it isn't marked.
+        if (q.kind === "text" || q.correct_index === null) {
+          return [
+            {
+              question: q.text,
+              chosen: typeof given === "string" ? given : null,
+              correct: null,
+              isCorrect: null,
+            },
+          ];
+        }
+
+        const chosen = typeof given === "number" ? given : null;
         return [
           {
             question: q.text,
-            chosen: q.options[chosen] ?? null,
-            correct: q.options[q.correct_index],
+            chosen: chosen === null ? null : (q.options[chosen] ?? null),
+            correct: q.options[q.correct_index] ?? null,
             isCorrect: chosen === q.correct_index,
           },
         ];

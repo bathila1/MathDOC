@@ -43,7 +43,7 @@ export async function submitExam(
 
   const { data: questions, error: qErr } = await admin
     .from("mcq_questions")
-    .select("id, correct_index")
+    .select("id, correct_index, kind")
     .eq("is_active", true);
   if (qErr || !questions?.length) {
     return fail("The quiz isn't available right now. Please try again later.");
@@ -51,10 +51,15 @@ export async function submitExam(
 
   const answers = parsed.data.answers;
   let score = 0;
-  for (const q of questions) {
+  let total = 0;
+  for (const q of questions as { id: string; correct_index: number | null; kind: string }[]) {
+    // Typed answers can't be machine-marked — Sir reads them on the student's
+    // page. They're stored but excluded from the score AND the total, so a
+    // student isn't penalised for a question that was never auto-gradable.
+    if (q.kind === "text") continue;
+    total++;
     if (answers[q.id] === q.correct_index) score++;
   }
-  const total = questions.length;
 
   const { error: aErr } = await admin.from("mcq_attempts").insert({
     student_id: auth.user.id,

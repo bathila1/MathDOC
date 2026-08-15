@@ -2,6 +2,7 @@ import { createSupabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/server/auth";
 import { AdminQuestions } from "@/features/exam/client/AdminQuestions";
 import { AdminDefaultTasks } from "@/features/tasks/client/AdminDefaultTasks";
+import { getDownloadUrl } from "@/lib/server/files";
 import type { DefaultTask, McqQuestion } from "@/lib/shared/types";
 import { Separator } from "@/components/ui/separator";
 
@@ -21,6 +22,17 @@ export default async function AdminExamPage() {
       .order("sort_order", { ascending: true }),
   ]);
 
+  // Question pictures live in the private bucket — presign each for preview.
+  const qRows = (questions ?? []) as McqQuestion[];
+  const imageUrls: Record<string, string> = {};
+  await Promise.all(
+    qRows
+      .filter((q) => q.image_key)
+      .map(async (q) => {
+        imageUrls[q.id] = await getDownloadUrl(q.image_key!);
+      })
+  );
+
   return (
     <div className="space-y-8">
       <section className="space-y-4">
@@ -30,7 +42,7 @@ export default async function AdminExamPage() {
             Questions students answer when they register.
           </p>
         </div>
-        <AdminQuestions questions={(questions ?? []) as McqQuestion[]} />
+        <AdminQuestions questions={qRows} imageUrls={imageUrls} />
       </section>
 
       <Separator />

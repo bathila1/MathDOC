@@ -3,6 +3,7 @@
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/server/auth";
 import { rateLimit } from "@/lib/server/ratelimit";
+import { keyBelongsTo } from "@/lib/server/keys";
 import { mcqQuestionSchema } from "@/lib/shared/schemas";
 import { z } from "zod";
 import {
@@ -22,6 +23,20 @@ async function guard(): Promise<string | null> {
   return rl.allowed ? null : rl.message!;
 }
 
+/**
+ * A question picture arrives as a key the client got from our presign
+ * endpoint — confirm it was issued to this admin before storing it.
+ */
+async function checkImageKey(
+  key: string | null | undefined
+): Promise<ActionResult<undefined> | null> {
+  if (!key) return null;
+  const { user } = await requireAdmin();
+  return keyBelongsTo(key, user.id)
+    ? null
+    : fail("That picture couldn't be attached. Please upload it again.");
+}
+
 export async function createQuestion(
   input: unknown
 ): Promise<ActionResult<undefined>> {
@@ -30,6 +45,8 @@ export async function createQuestion(
 
   const parsed = mcqQuestionSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
+  const keyError = await checkImageKey(parsed.data.image_key);
+  if (keyError) return keyError;
 
   const supabase = await createSupabaseServer();
   const { data: last } = await supabase
@@ -60,6 +77,8 @@ export async function updateQuestion(
   if (!id.success) return fail("Unknown question.");
   const parsed = mcqQuestionSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
+  const keyError = await checkImageKey(parsed.data.image_key);
+  if (keyError) return keyError;
 
   const supabase = await createSupabaseServer();
   const { error } = await supabase

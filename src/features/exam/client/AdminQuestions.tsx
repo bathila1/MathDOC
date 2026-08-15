@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { uploadFile } from "@/lib/client/upload";
 import type { McqQuestion } from "@/lib/shared/types";
 import {
   createQuestion,
@@ -23,19 +24,32 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ImagePlus,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 
 interface EditorState {
+  kind: "mcq" | "text";
   text: string;
+  image_key: string | null;
   options: string[];
   correct_index: number;
   is_active: boolean;
 }
 
 const emptyEditor: EditorState = {
+  kind: "mcq",
   text: "",
+  image_key: null,
   options: ["", "", "", ""],
   correct_index: 0,
   is_active: true,
@@ -43,6 +57,7 @@ const emptyEditor: EditorState = {
 
 function QuestionEditor({
   initial,
+  initialImageUrl = null,
   title,
   onSave,
   open,
@@ -50,6 +65,7 @@ function QuestionEditor({
   trigger,
 }: {
   initial: EditorState;
+  initialImageUrl?: string | null;
   title: string;
   onSave: (state: EditorState) => Promise<void>;
   open: boolean;
@@ -59,6 +75,25 @@ function QuestionEditor({
   const [state, setState] = useState<EditorState>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
+  const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const up = await uploadFile(file, "question_image");
+      setState((s) => ({ ...s, image_key: up.key }));
+      setImageUrl(URL.createObjectURL(file));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function setOption(i: number, value: string) {
     setState((s) => ({
@@ -84,6 +119,28 @@ function QuestionEditor({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          <Tabs
+            value={state.kind}
+            onValueChange={(v) =>
+              setState((s) => ({ ...s, kind: v as EditorState["kind"] }))
+            }
+          >
+            <TabsList className="w-full">
+              <TabsTrigger value="mcq" className="flex-1">
+                Multiple choice
+              </TabsTrigger>
+              <TabsTrigger value="text" className="flex-1">
+                Written answer
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          {state.kind === "text" && (
+            <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              Written answers aren&apos;t auto-marked — they don&apos;t count
+              towards the score. You read them on the student&apos;s page.
+            </p>
+          )}
+
           <div className="space-y-2">
             <Label>Question</Label>
             <Textarea
@@ -95,6 +152,52 @@ function QuestionEditor({
               <p className="text-sm text-destructive">{errors.text}</p>
             )}
           </div>
+
+          <div className="space-y-2">
+            <Label>Picture (optional)</Label>
+            <div className="flex items-center gap-3">
+              {imageUrl ? (
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageUrl}
+                    alt="Question"
+                    className="size-20 rounded-md border object-cover"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remove picture"
+                    className="absolute -top-2 -right-2 rounded-full bg-destructive p-1 text-white"
+                    onClick={() => {
+                      setState((s) => ({ ...s, image_key: null }));
+                      setImageUrl(null);
+                    }}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+              ) : null}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={onPickImage}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
+                <ImagePlus className="size-4" />
+                {uploading ? "Uploading…" : imageUrl ? "Replace" : "Add picture"}
+              </Button>
+            </div>
+          </div>
+
+          {state.kind === "mcq" && (
           <div className="space-y-2">
             <Label>Answer options (tick the correct one)</Label>
             <RadioGroup
@@ -152,6 +255,7 @@ function QuestionEditor({
               </p>
             )}
           </div>
+          )}
         </div>
         <DialogFooter>
           <Button
@@ -182,7 +286,14 @@ class SaveError extends Error {
   }
 }
 
-export function AdminQuestions({ questions }: { questions: McqQuestion[] }) {
+export function AdminQuestions({
+  questions,
+  imageUrls,
+}: {
+  questions: McqQuestion[];
+  /** question id -> presigned URL for its picture. */
+  imageUrls?: Record<string, string>;
+}) {
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -192,9 +303,12 @@ export function AdminQuestions({ questions }: { questions: McqQuestion[] }) {
     id?: string
   ): Promise<void> {
     const payload = {
+      kind: state.kind,
       text: state.text,
-      options: state.options,
-      correct_index: state.correct_index,
+      image_key: state.image_key,
+      // A written-answer question has no options and nothing to mark correct.
+      options: state.kind === "text" ? [] : state.options,
+      correct_index: state.kind === "text" ? null : state.correct_index,
       is_active: state.is_active,
     };
     const res = id
@@ -294,11 +408,14 @@ export function AdminQuestions({ questions }: { questions: McqQuestion[] }) {
                 </Button>
                 <QuestionEditor
                   initial={{
+                    kind: q.kind ?? "mcq",
                     text: q.text,
-                    options: q.options,
-                    correct_index: q.correct_index,
+                    image_key: q.image_key ?? null,
+                    options: q.options?.length ? q.options : ["", "", "", ""],
+                    correct_index: q.correct_index ?? 0,
                     is_active: q.is_active,
                   }}
+                  initialImageUrl={imageUrls?.[q.id] ?? null}
                   title="Edit question"
                   onSave={(s) => handleSave(s, q.id)}
                   open={editId === q.id}
