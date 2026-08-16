@@ -3,10 +3,14 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServer } from "./supabase";
 import type { Profile } from "@/lib/shared/types";
-import type { User } from "@supabase/supabase-js";
 
 export interface AuthContext {
-  user: User;
+  /**
+   * The authenticated user. Only `id` is exposed because that is all the app
+   * has ever used, and obtaining the rest would cost an Auth-server round-trip
+   * on every page (see getAuth).
+   */
+  user: { id: string };
   profile: Profile;
 }
 
@@ -27,17 +31,33 @@ function subFromToken(accessToken: string): string | null {
 /**
  * Current session's user + profile, or null when logged out.
  * Wrapped in React `cache()` so the layout and page in one navigation share a
- * single auth resolution instead of firing 2–3 round-trips.
+ * single auth resolution instead of firing it two or three times.
  *
- * getUser() revalidates the token against the Auth server (a network hop). We
- * decode the user id from the session cookie locally so the profile query can
- * run *in parallel* with that validation rather than after it — halving the
- * per-navigation auth latency. Correctness is unchanged: we still bail unless
- * getUser() confirms the token is genuine.
+ * ONE network call, not two. This used to also run `supabase.auth.getUser()`
+ * in parallel to prove the token was genuine. That is redundant: PostgREST
+ * verifies the JWT signature and expiry itself before it will run any query,
+ * so a profile row coming back is already proof of a valid token. Verified
+ * against this project rather than assumed — a JWT with a tampered signature
+ * gets `401 PGRST301 "None of the keys was able to decode the JWT"`, and no
+ * Authorization header at all gets `401` (anon has no SELECT grant on
+ * profiles). Neither returns a row.
  *
- * Further win available: migrate the Supabase project to asymmetric JWT signing
- * keys (Dashboard → Auth → JWT Keys), then swap getUser() for getClaims() here
- * to verify the token locally and drop the Auth-server hop entirely.
+ * The remaining links in the chain:
+ *  - `userId` is decoded from the token WITHOUT checking the signature, so on
+ *    its own it is untrusted. It becomes trustworthy because the query it is
+ *    used in only succeeds if that same token string verifies.
+ *  - RLS on profiles is `id = auth.uid() or is_admin()`, and `auth.uid()` comes
+ *    from the verified claims — so for a student the row is doubly tied to the
+ *    real subject.
+ *  - `profiles.id references auth.users on delete cascade`, so a deleted user
+ *    has no profile row and is logged out on their next request.
+ *
+ * Known trade-off: Supabase's `banned_until` is enforced by the Auth server,
+ * not by PostgREST, so banning a user would leave their existing access token
+ * working until it expires (up to the JWT TTL, default 1 hour). The app has no
+ * ban feature — deletion is the mechanism, and that IS immediate via the
+ * cascade above. If banning is ever added, revoke by deleting the profile row
+ * or shorten the JWT TTL.
  */
 export const getAuth = cache(async (): Promise<AuthContext | null> => {
   const supabase = await createSupabaseServer();
@@ -51,25 +71,19 @@ export const getAuth = cache(async (): Promise<AuthContext | null> => {
   const userId = subFromToken(session.access_token);
   if (!userId) return null;
 
-  // Validate the token and load the profile at the same time.
-  const [userRes, profileRes] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase.from("profiles").select("*").eq("id", userId).single(),
-  ]);
+  const { data } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single();
 
-  const user = userRes.data.user;
-  if (!user) return null; // token invalid/expired — treat as logged out
-  if (!profileRes.data) return null;
+  // Covers all of: invalid signature, expired token, deleted user, RLS denial.
+  if (!data) return null;
 
-  // The profile was fetched using the id decoded from the UNVERIFIED token, so
-  // it must be tied back to the id the Auth server actually vouched for. They
-  // agree in normal operation; if they ever diverge (mid-flight refresh, a
-  // crafted cookie) we must not hand back a profile the token doesn't own.
-  if (user.id !== userId) return null;
-  const profile = profileRes.data as Profile;
-  if (profile.id !== user.id) return null;
+  const profile = data as Profile;
+  if (profile.id !== userId) return null; // defensive; RLS already enforces it
 
-  return { user, profile };
+  return { user: { id: userId }, profile };
 });
 
 /** Where a signed-in user belongs when they land on a login page. */

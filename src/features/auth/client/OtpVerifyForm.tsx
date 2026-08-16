@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  TurnstileWidget,
+  turnstileEnabled,
+} from "@/components/security/TurnstileWidget";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -21,14 +25,24 @@ export function OtpVerifyForm({ phone }: { phone: string }) {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [token, setToken] = useState<string | null>(null);
+  // Tokens are single-use, and this page spends them on two different actions
+  // (verify + resend), so mint a fresh one after every attempt.
+  const [captchaKey, setCaptchaKey] = useState(0);
+
+  function nextCaptcha() {
+    setToken(null);
+    setCaptchaKey((k) => k + 1);
+  }
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const res = await verifyOtp({ phone, code });
+      const res = await verifyOtp({ phone, code, turnstileToken: token ?? "" });
       if (!res.ok) {
         setError(res.fieldErrors?.code ?? res.error);
+        nextCaptcha();
         return;
       }
       router.push(res.data.next);
@@ -40,9 +54,10 @@ export function OtpVerifyForm({ phone }: { phone: string }) {
     setError(null);
     setInfo(null);
     startTransition(async () => {
-      const res = await requestOtp({ phone });
+      const res = await requestOtp({ phone, turnstileToken: token ?? "" });
       if (!res.ok) setError(res.error);
       else setInfo("We sent you a new code.");
+      nextCaptcha();
     });
   }
 
@@ -71,14 +86,25 @@ export function OtpVerifyForm({ phone }: { phone: string }) {
             {error && <p className="text-sm text-destructive">{error}</p>}
             {info && <p className="text-sm text-muted-foreground">{info}</p>}
           </div>
-          <Button type="submit" className="w-full" disabled={pending || code.length !== 6}>
+          <TurnstileWidget
+            action="otp-verify"
+            onToken={setToken}
+            resetKey={captchaKey}
+          />
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={
+              pending || code.length !== 6 || (turnstileEnabled && !token)
+            }
+          >
             {pending ? "Checking…" : "Log in"}
           </Button>
           <Button
             type="button"
             variant="ghost"
             className="w-full"
-            disabled={pending}
+            disabled={pending || (turnstileEnabled && !token)}
             onClick={resend}
           >
             Resend code

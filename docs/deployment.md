@@ -151,8 +151,20 @@ Vercel → project → **Settings → Environment Variables** → scope **Produc
 | `R2_ACCESS_KEY_ID` | from Step 2 | **YES** |
 | `R2_SECRET_ACCESS_KEY` | from Step 2 | **YES** |
 | `R2_BUCKET` | `mathdoc-files` | no |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare → Turnstile → widget → site key | no |
+| `TURNSTILE_SECRET_KEY` | same widget → secret key | **YES** |
 
 `HUTCH_SMS_BASE_URL` is optional and defaults to `https://bsms.hutch.lk/api`.
+
+> ⚠️ **`TURNSTILE_SECRET_KEY` is not optional in production.** The server fails
+> closed without it: student login, OTP verification and teacher login all
+> reject every attempt, and the Vercel log says
+> `TURNSTILE_SECRET_KEY is not set — refusing to accept the request`. This is
+> deliberate — a bot check that silently disables itself because a variable
+> wasn't copied is worse than no check, because you would believe you were
+> protected. In the Cloudflare Turnstile dashboard, the widget's **Hostnames**
+> list must include `www.mathdoc.edu.lk` (add `localhost` too if you want to
+> test the widget locally).
 
 Do **not** set `ENABLE_DEV_LOGIN` — that backdoor has been removed from the code.
 
@@ -166,6 +178,23 @@ Deployments → latest → ⋯ → **Redeploy**.
 500s, check the Vercel function logs — the app now names the missing variable
 explicitly ("MathDOC is misconfigured: missing …"). Do not continue until this
 loads.
+
+---
+
+## Step 3b — Apply pending database migrations
+
+Migrations in `supabase/migrations/` are applied **by hand**, in filename order,
+via Supabase → SQL Editor. Check the highest-numbered file in that folder
+against what you have already run.
+
+**`019_rate_limits.sql` must be applied.** It creates the shared counter table
+and the `check_rate_limit()` function that every rate limit now uses. Until it
+runs, the app falls back to a per-instance in-memory limiter and logs
+`Rate limit DB check failed … Did migration 019 run?` on every attempt. Login
+still works, but the limits are much weaker than they look — on Vercel each
+lambda instance counts separately, so an attacker spreading requests across
+instances gets a fresh budget each time. That is precisely what this migration
+fixes, so do not leave it unapplied.
 
 ---
 

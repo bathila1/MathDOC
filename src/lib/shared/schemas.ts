@@ -65,8 +65,25 @@ export const phoneField = z
 
 // ---------- Auth ----------
 
+/**
+ * Cloudflare Turnstile token.
+ *
+ * Optional HERE on purpose — presence is not what makes it safe. The token is
+ * redeemed by `verifyTurnstile()` in the action, which rejects an empty one in
+ * production and skips the check only in local development where no key is
+ * configured. Bounding the length stops a multi-megabyte string being relayed
+ * to Cloudflare's siteverify endpoint on our dime.
+ */
+export const turnstileField = z
+  .string()
+  .trim()
+  .max(4096, "Invalid human-check token.")
+  .optional()
+  .default("");
+
 export const otpRequestSchema = z.object({
   phone: phoneField,
+  turnstileToken: turnstileField,
 });
 
 export const otpVerifySchema = z.object({
@@ -75,6 +92,7 @@ export const otpVerifySchema = z.object({
     .string()
     .trim()
     .regex(/^\d{6}$/, "The code is the 6-digit number we sent by SMS."),
+  turnstileToken: turnstileField,
 });
 
 export const adminLoginSchema = z.object({
@@ -87,6 +105,7 @@ export const adminLoginSchema = z.object({
     .transform((v) => (v.includes("@") ? v : `${v.toLowerCase()}@mathdoc.local`))
     .pipe(z.string().email("Please enter a valid username or email.")),
   password: z.string().min(1, "Please enter your password."),
+  turnstileToken: turnstileField,
 });
 
 // ---------- Student profile / registration ----------

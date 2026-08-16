@@ -1,11 +1,21 @@
 import "server-only";
 import { headers } from "next/headers";
+import { createSupabaseAdmin } from "./supabase-admin";
 
 /**
- * Simple in-memory sliding-window rate limiter — no external service needed.
- * Good enough for a single-server deployment. If the app later runs on
- * serverless (Vercel) at scale, swap the store for Upstash Redis; every
- * call site already goes through this one rateLimit() function.
+ * Rate limiting, backed by a shared Postgres counter.
+ *
+ * WHY NOT IN-MEMORY: this used to count hits in a module-level Map. On a single
+ * long-lived server that is correct, but on Vercel every concurrent lambda
+ * instance has its OWN Map and cold starts reset it. Requests spread across
+ * instances each got a fresh budget, so the OTP-flood and admin-login limits
+ * were far weaker than they looked. `check_rate_limit()` (migration 019) does
+ * the count in one atomic upsert that every instance shares.
+ *
+ * The in-memory map is kept as a FALLBACK for when the database call fails, so
+ * a transient Supabase blip degrades the limiter rather than removing it (or
+ * taking login down). It is per-instance and therefore weaker, which is exactly
+ * why it is the fallback and not the primary.
  */
 
 type LimiterName =
@@ -15,6 +25,8 @@ type LimiterName =
   | "form" // profile save, MCQ submit, review actions...
   | "booking" // slot booking + payment bypass
   | "upload" // presign requests
+  | "chat" // task messages
+  | "push" // push-subscription registration
   | "public_page"; // invoice / certificate pages per IP
 
 const configs: Record<LimiterName, { requests: number; windowMs: number }> = {
@@ -24,10 +36,12 @@ const configs: Record<LimiterName, { requests: number; windowMs: number }> = {
   form: { requests: 30, windowMs: 10 * 60_000 },
   booking: { requests: 10, windowMs: 10 * 60_000 },
   upload: { requests: 30, windowMs: 10 * 60_000 },
+  chat: { requests: 40, windowMs: 10 * 60_000 },
+  push: { requests: 10, windowMs: 10 * 60_000 },
   public_page: { requests: 60, windowMs: 10 * 60_000 },
 };
 
-// key -> timestamps of recent hits (pruned on every check)
+// Fallback store only. key -> timestamps of recent hits (pruned on every check)
 const hits = new Map<string, number[]>();
 const MAX_KEYS = 10_000;
 
@@ -74,6 +88,13 @@ export interface RateLimitResult {
   message?: string;
 }
 
+function blockedMessage(retryAfterSeconds: number): string {
+  const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+  return `Too many attempts. Please wait ${minutes} minute${
+    minutes === 1 ? "" : "s"
+  } and try again.`;
+}
+
 /**
  * Check a rate limit. `key` should identify the actor: a phone number,
  * user id, or IP address.
@@ -83,18 +104,52 @@ export async function rateLimit(
   key: string
 ): Promise<RateLimitResult> {
   const { requests, windowMs } = configs[name];
-  const now = Date.now();
   const mapKey = `${name}:${key}`;
+
+  try {
+    const admin = createSupabaseAdmin();
+    const { data, error } = await admin.rpc("check_rate_limit", {
+      p_key: mapKey,
+      p_limit: requests,
+      p_window_seconds: Math.round(windowMs / 1000),
+    });
+    if (error) throw error;
+
+    // The function returns a single row.
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | { allowed: boolean; retry_after_seconds: number }
+      | undefined;
+    if (!row) throw new Error("check_rate_limit returned no row");
+
+    return row.allowed
+      ? { allowed: true }
+      : { allowed: false, message: blockedMessage(row.retry_after_seconds) };
+  } catch (err) {
+    console.error(
+      `Rate limit DB check failed for "${name}" — falling back to the ` +
+        `per-instance limiter (weaker). Did migration 019 run?`,
+      err
+    );
+    return memoryRateLimit(mapKey, requests, windowMs);
+  }
+}
+
+/** Per-instance fallback. Only reached when the shared counter is unavailable. */
+function memoryRateLimit(
+  mapKey: string,
+  requests: number,
+  windowMs: number
+): RateLimitResult {
+  const now = Date.now();
 
   const recent = (hits.get(mapKey) ?? []).filter((t) => now - t < windowMs);
 
   if (recent.length >= requests) {
     hits.set(mapKey, recent);
     const oldest = recent[0];
-    const minutes = Math.max(1, Math.ceil((oldest + windowMs - now) / 60_000));
     return {
       allowed: false,
-      message: `Too many attempts. Please wait ${minutes} minute${minutes === 1 ? "" : "s"} and try again.`,
+      message: blockedMessage((oldest + windowMs - now) / 1000),
     };
   }
 

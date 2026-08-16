@@ -23,7 +23,7 @@ export async function sendTaskMessage(
   const auth = await getAuth();
   if (!auth) return fail("Please log in first.");
 
-  const rl = await rateLimit("form", `user:${auth.user.id}`);
+  const rl = await rateLimit("chat", `user:${auth.user.id}`);
   if (!rl.allowed) return fail(rl.message!);
 
   const parsed = taskMessageSchema.safeParse(input);

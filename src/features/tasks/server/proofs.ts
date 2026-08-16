@@ -1,7 +1,25 @@
 import "server-only";
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createSupabaseServer } from "@/lib/server/supabase";
 import { getDownloadUrl } from "@/lib/server/files";
 import type { AdminProof } from "@/features/tasks/client/TaskManager";
+
+/**
+ * How many proofs are waiting for review.
+ *
+ * `cache()` matters here: the admin sidebar badge and the dashboard's "Proofs
+ * waiting" tile both need this number, and they render in the same pass. Without
+ * it, opening /admin ran the identical COUNT twice.
+ */
+export const countPendingProofs = cache(async (): Promise<number> => {
+  const supabase = await createSupabaseServer();
+  const { count } = await supabase
+    .from("proof_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  return count ?? 0;
+});
 
 interface ProofRow {
   id: string;

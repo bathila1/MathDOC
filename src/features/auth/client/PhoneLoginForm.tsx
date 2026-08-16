@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  TurnstileWidget,
+  turnstileEnabled,
+} from "@/components/security/TurnstileWidget";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -19,14 +23,19 @@ export function PhoneLoginForm() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [token, setToken] = useState<string | null>(null);
+  // Turnstile tokens are single-use, so a failed attempt needs a fresh one.
+  const [captchaKey, setCaptchaKey] = useState(0);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const res = await requestOtp({ phone });
+      const res = await requestOtp({ phone, turnstileToken: token ?? "" });
       if (!res.ok) {
         setError(res.fieldErrors?.phone ?? res.error);
+        setToken(null);
+        setCaptchaKey((k) => k + 1);
         return;
       }
       router.push(`/login/verify?phone=${encodeURIComponent(res.data.phone)}`);
@@ -57,7 +66,16 @@ export function PhoneLoginForm() {
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
-          <Button type="submit" className="w-full" disabled={pending}>
+          <TurnstileWidget
+            action="student-login"
+            onToken={setToken}
+            resetKey={captchaKey}
+          />
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={pending || (turnstileEnabled && !token)}
+          >
             {pending ? "Sending code…" : "Send login code"}
           </Button>
         </form>

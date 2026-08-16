@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  TurnstileWidget,
+  turnstileEnabled,
+} from "@/components/security/TurnstileWidget";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -21,16 +25,25 @@ export function AdminLoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
+  const [token, setToken] = useState<string | null>(null);
+  // Turnstile tokens are single-use, so a failed attempt needs a fresh one.
+  const [captchaKey, setCaptchaKey] = useState(0);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setFieldErrors({});
     startTransition(async () => {
-      const res = await adminLogin({ email, password });
+      const res = await adminLogin({
+        email,
+        password,
+        turnstileToken: token ?? "",
+      });
       if (!res.ok) {
         setError(res.error);
         setFieldErrors(res.fieldErrors ?? {});
+        setToken(null);
+        setCaptchaKey((k) => k + 1);
         return;
       }
       router.push(res.data.next);
@@ -75,7 +88,16 @@ export function AdminLoginForm() {
             )}
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={pending}>
+          <TurnstileWidget
+            action="admin-login"
+            onToken={setToken}
+            resetKey={captchaKey}
+          />
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={pending || (turnstileEnabled && !token)}
+          >
             {pending ? "Logging in…" : "Log in"}
           </Button>
         </form>

@@ -27,7 +27,8 @@ const securityHeaders = [
       // 'unsafe-eval' is a DEV-ONLY need: React uses eval to rebuild
       // server-side error stacks. Next does not use eval in production, so it
       // is dropped there — that closes the widest injection primitive.
-      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+      // challenges.cloudflare.com: the Turnstile widget on the login forms.
+      `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       // Uploaded videos / voice notes stream from R2 presigned URLs (https)
@@ -37,7 +38,8 @@ const securityHeaders = [
       // wss for Supabase Realtime (task chat).
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.r2.cloudflarestorage.com",
       // Inline task videos: only YouTube (privacy mode) and Facebook players.
-      "frame-src https://www.youtube-nocookie.com https://www.youtube.com https://www.facebook.com https://web.facebook.com",
+      // Turnstile renders its challenge inside an iframe, so it needs frame-src.
+      "frame-src https://www.youtube-nocookie.com https://www.youtube.com https://www.facebook.com https://web.facebook.com https://challenges.cloudflare.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

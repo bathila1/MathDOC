@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
+import { countPendingProofs } from "@/features/tasks/server/proofs";
 import type {
   Appointment,
   AvailabilitySlot,
@@ -41,7 +42,7 @@ export default async function AdminDashboard() {
 
   const [
     todayRes,
-    proofsRes,
+    pendingProofs,
     studentsRes,
     recentRes,
     expiringRes,
@@ -55,10 +56,8 @@ export default async function AdminDashboard() {
       .in("status", ["confirmed", "pending_payment"])
       .gte("availability_slots.starts_at", startOfDay(now).toISOString())
       .lte("availability_slots.starts_at", endOfDay(now).toISOString()),
-    supabase
-      .from("proof_submissions")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
+    // Shared with the sidebar badge via React cache — see countPendingProofs.
+    countPendingProofs(),
     supabase
       .from("profiles")
       .select("id", { count: "exact", head: true })
@@ -107,7 +106,6 @@ export default async function AdminDashboard() {
       new Date(a.availability_slots.starts_at).getTime() -
       new Date(b.availability_slots.starts_at).getTime()
   );
-  const pendingProofs = proofsRes.count ?? 0;
   const studentCount = studentsRes.count ?? 0;
   const recent = (recentRes.data ?? []) as ApptRow[];
   const expiring = (expiringRes.data ?? []) as unknown as {

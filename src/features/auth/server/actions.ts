@@ -2,6 +2,7 @@
 
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { clientIp, rateLimit } from "@/lib/server/ratelimit";
+import { verifyTurnstile } from "@/lib/server/turnstile";
 import {
   adminLoginSchema,
   otpRequestSchema,
@@ -19,16 +20,31 @@ import { redirect } from "next/navigation";
 /** Step 1 of student login: send a one-time code by SMS. */
 export async function requestOtp(input: {
   phone: string;
+  turnstileToken?: string;
 }): Promise<ActionResult<{ phone: string }>> {
   const parsed = otpRequestSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
-  const { phone } = parsed.data;
+  const { phone, turnstileToken } = parsed.data;
 
   const ip = await clientIp();
-  for (const key of [`phone:${phone}`, `ip:${ip}`]) {
-    const rl = await rateLimit("otp", key);
-    if (!rl.allowed) return fail(rl.message!);
-  }
+
+  // Order matters. The cheap per-IP limit runs first so a flood can't make us
+  // issue unbounded siteverify calls. The human check runs BEFORE the per-phone
+  // limit so a bot cannot burn a real student's OTP budget and lock them out —
+  // every request that reaches the phone bucket has already proven itself.
+  const ipLimit = await rateLimit("otp", `ip:${ip}`);
+  if (!ipLimit.allowed) return fail(ipLimit.message!);
+
+  // "Resend code" reaches this action from the verify page, whose widget mints
+  // otp-verify tokens — both are accepted here (see verifyTurnstile).
+  const human = await verifyTurnstile(turnstileToken, [
+    "student-login",
+    "otp-verify",
+  ]);
+  if (!human.ok) return fail(human.message!);
+
+  const phoneLimit = await rateLimit("otp", `phone:${phone}`);
+  if (!phoneLimit.allowed) return fail(phoneLimit.message!);
 
   const supabase = await createSupabaseServer();
   const { error } = await supabase.auth.signInWithOtp({
@@ -54,10 +70,21 @@ export async function requestOtp(input: {
 export async function verifyOtp(input: {
   phone: string;
   code: string;
+  turnstileToken?: string;
 }): Promise<ActionResult<{ next: string }>> {
   const parsed = otpVerifySchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
-  const { phone, code } = parsed.data;
+  const { phone, code, turnstileToken } = parsed.data;
+
+  // A 6-digit code is only 10^6 wide, so this is the endpoint worth brute
+  // forcing. Limit by IP as well as by phone: without the IP bucket an attacker
+  // can spread guesses across many stolen numbers unimpeded.
+  const ip = await clientIp();
+  const ipLimit = await rateLimit("otp_verify", `ip:${ip}`);
+  if (!ipLimit.allowed) return fail(ipLimit.message!);
+
+  const human = await verifyTurnstile(turnstileToken, "otp-verify");
+  if (!human.ok) return fail(human.message!);
 
   const rl = await rateLimit("otp_verify", `phone:${phone}`);
   if (!rl.allowed) return fail(rl.message!);
@@ -88,6 +115,7 @@ export async function verifyOtp(input: {
 export async function adminLogin(input: {
   email: string;
   password: string;
+  turnstileToken?: string;
 }): Promise<ActionResult<{ next: string }>> {
   const parsed = adminLoginSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
@@ -95,6 +123,15 @@ export async function adminLogin(input: {
   const ip = await clientIp();
   const rl = await rateLimit("login", `ip:${ip}`);
   if (!rl.allowed) return fail(rl.message!);
+
+  const human = await verifyTurnstile(parsed.data.turnstileToken, "admin-login");
+  if (!human.ok) return fail(human.message!);
+
+  // The teacher account is the highest-value credential on the site, so guesses
+  // are also capped per account — an attacker rotating IPs still can't run an
+  // unbounded password spray against it.
+  const accountLimit = await rateLimit("login", `account:${parsed.data.email}`);
+  if (!accountLimit.allowed) return fail(accountLimit.message!);
 
   const supabase = await createSupabaseServer();
   const { data, error } = await supabase.auth.signInWithPassword({

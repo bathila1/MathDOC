@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { requireAdmin } from "@/lib/server/auth";
-import { createSupabaseServer } from "@/lib/server/supabase";
+import { countPendingProofs } from "@/features/tasks/server/proofs";
 import { LogoutButton } from "@/features/auth/client/LogoutButton";
 import { Logo } from "@/components/brand/Logo";
 import { NavLink } from "@/components/site/NavLink";
@@ -113,11 +113,9 @@ export default async function AdminLayout({
 
 /** Streamed so the count query never delays the panel shell rendering. */
 async function PendingProofsBadge({ className }: { className?: string }) {
-  const supabase = await createSupabaseServer();
-  const { count } = await supabase
-    .from("proof_submissions")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+  // Shared (React cache) with the dashboard tile — one COUNT per request, not
+  // one per component that happens to need the number.
+  const count = await countPendingProofs();
   if (!count) return null;
   return <Badge className={className}>{count}</Badge>;
 }
