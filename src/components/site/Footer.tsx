@@ -49,15 +49,16 @@ export function SiteFooter({ socials: links = {} }: { socials?: FooterSocials })
   );
 
   return (
-    // Warm charcoal rather than the old blue-navy — it sits under the
-    // orange/red brand without the two hues fighting each other.
-    <footer className="bg-[oklch(0.21_0.014_45)] text-white">
+    // Pure white (bg-card) against the page's warm off-white canvas: the footer
+    // reads as its own band without a colour change, matching how cards lift
+    // off the background elsewhere. Flips to the dark card surface in dark mode.
+    <footer className="border-t bg-card text-card-foreground">
       {socials.length > 0 && (
         <div className="mx-auto max-w-5xl px-4 py-14 text-center">
-          <p className="text-xs font-semibold tracking-[0.25em] text-sky-400 uppercase">
+          <p className="text-xs font-semibold tracking-[0.25em] text-primary uppercase">
             Follow us on
           </p>
-          <h3 className="mt-1 text-2xl text-white">Social media!</h3>
+          <h3 className="mt-1 text-2xl">Social media!</h3>
           <div className="mt-7 flex justify-center gap-4">
             {socials.map((s) => (
               <a
@@ -66,7 +67,7 @@ export function SiteFooter({ socials: links = {} }: { socials?: FooterSocials })
                 target="_blank"
                 rel="noreferrer noopener"
                 aria-label={s.label}
-                className="flex size-12 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+                className="flex size-12 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <s.icon className="size-5" />
               </a>
@@ -75,11 +76,11 @@ export function SiteFooter({ socials: links = {} }: { socials?: FooterSocials })
         </div>
       )}
 
-      <div className="border-t border-white/10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-3 px-4 py-5 text-sm text-white/60">
+      <div className="border-t">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-center gap-3 px-4 py-5 text-sm text-muted-foreground">
           <p>© {new Date().getFullYear()} MathDOC. All rights reserved.</p>
         </div>
-        <div className="flex items-center justify-center gap-2 pb-6 text-xs text-white/50">
+        <div className="flex items-center justify-center gap-2 pb-6 text-xs text-muted-foreground">
           <span>Crafted by</span>
           <a
             href="https://riseup.lk"
