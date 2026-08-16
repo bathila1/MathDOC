@@ -15,7 +15,7 @@ import {
 import { revalidatePath } from "next/cache";
 
 // Admin CRUD for reusable default-task templates. Runs through RLS
-// ("default_tasks: admin all"). Edited under the Placement exam tab.
+// ("default_tasks: admin all"). Edited under the Survey questions tab.
 
 async function guard(): Promise<string | null> {
   const { user } = await requireAdmin();
@@ -82,7 +82,7 @@ export async function createDefaultTask(
   });
   if (error) return fail("Couldn't add the template. Please try again.");
 
-  revalidatePath("/admin/exam");
+  revalidatePath("/admin/survey");
   return ok(undefined);
 }
 
@@ -108,7 +108,7 @@ export async function updateDefaultTask(
     .eq("id", id.data);
   if (error) return fail("Couldn't update the template. Please try again.");
 
-  revalidatePath("/admin/exam");
+  revalidatePath("/admin/survey");
   return ok(undefined);
 }
 
@@ -128,7 +128,7 @@ export async function deleteDefaultTask(
     .eq("id", id.data);
   if (error) return fail("Couldn't delete the template.");
 
-  revalidatePath("/admin/exam");
+  revalidatePath("/admin/survey");
   return ok(undefined);
 }
 
@@ -169,6 +169,6 @@ export async function moveDefaultTask(
     .update({ sort_order: current.sort_order })
     .eq("id", neighbour.id);
 
-  revalidatePath("/admin/exam");
+  revalidatePath("/admin/survey");
   return ok(undefined);
 }

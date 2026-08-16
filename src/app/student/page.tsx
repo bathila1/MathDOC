@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
-import { getAttemptForStudent } from "@/features/exam/server/queries";
 import { getActiveBooking } from "@/features/booking/server/queries";
 import { BookedSessionCard } from "@/features/booking/client/BookedSessionCard";
 import {
@@ -33,8 +32,7 @@ export default async function StudentDashboard() {
   const { user, profile } = await requireStudent();
   const supabase = await createSupabaseServer();
 
-  const [attempt, booking, taskRes, certRes, proofRes] = await Promise.all([
-    getAttemptForStudent(user.id),
+  const [booking, taskRes, certRes, proofRes] = await Promise.all([
     getActiveBooking(user.id),
     supabase
       .from("tasks")
@@ -186,22 +184,6 @@ export default async function StudentDashboard() {
           Here&apos;s everything on your plate — take it one step at a time.
         </p>
       </div>
-
-      {!attempt && (
-        <Card className="border-primary/40">
-          <CardHeader>
-            <CardTitle>One small step first</CardTitle>
-            <CardDescription>
-              Take the short placement quiz so Sir knows exactly where you are.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button render={<Link href="/student/exam" />}>
-              Start the quiz
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       {/* The student's one live booking. The "no session booked" prompt only
           shows during onboarding (no tasks yet) — once tasks exist it's hidden,

@@ -102,7 +102,9 @@ The browser uploads **directly** to R2 (`src/lib/client/upload.ts` PUTs to the
 presigned URL), so without a CORS rule every upload fails with an opaque
 browser error even though the credentials are correct.
 
-Bucket → **Settings** → **CORS Policy**:
+The live bucket is **`mathdoc`** on account `09f4df4c33f70ae2955172b799b60372`
+(confirmed from a failing upload URL). Cloudflare dashboard → R2 → `mathdoc` →
+**Settings** → **CORS Policy** → Add:
 
 ```json
 [
@@ -113,12 +115,23 @@ Bucket → **Settings** → **CORS Policy**:
       "https://math-doc-five.vercel.app",
       "http://localhost:3000"
     ],
-    "AllowedMethods": ["PUT", "GET"],
-    "AllowedHeaders": ["Content-Type"],
+    "AllowedMethods": ["PUT", "GET", "HEAD"],
+    "AllowedHeaders": ["content-type"],
+    "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600
   }
 ]
 ```
+
+Without this rule the browser's `OPTIONS` preflight returns **403 Forbidden**
+with no `access-control-allow-origin` header, and the upload never even starts.
+That 403 comes from R2 rejecting the preflight, *not* from bad credentials — a
+server-side PUT with the same presigned URL succeeds, because server requests
+are not subject to CORS.
+
+`content-type` is the only header the browser asks permission for; the
+`content-length` in the URL's `X-Amz-SignedHeaders` is set by the browser
+automatically and is not part of the preflight.
 
 Origins must match **exactly** — scheme, host and port, no trailing slash.
 `localhost` is included so uploads work in local development; drop it if you
@@ -150,7 +163,7 @@ Vercel → project → **Settings → Environment Variables** → scope **Produc
 | `R2_ACCOUNT_ID` | from Step 2 | no |
 | `R2_ACCESS_KEY_ID` | from Step 2 | **YES** |
 | `R2_SECRET_ACCESS_KEY` | from Step 2 | **YES** |
-| `R2_BUCKET` | `mathdoc-files` | no |
+| `R2_BUCKET` | `mathdoc` | no |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare → Turnstile → widget → site key | no |
 | `TURNSTILE_SECRET_KEY` | same widget → secret key | **YES** |
 

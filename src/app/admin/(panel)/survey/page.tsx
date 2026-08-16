@@ -1,48 +1,38 @@
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/server/auth";
-import { AdminQuestions } from "@/features/exam/client/AdminQuestions";
+import { getAllSurveyQuestions } from "@/features/survey/server/queries";
+import { AdminSurveyQuestions } from "@/features/survey/client/AdminSurveyQuestions";
 import { AdminDefaultTasks } from "@/features/tasks/client/AdminDefaultTasks";
-import { getDownloadUrl } from "@/lib/server/files";
-import type { DefaultTask, McqQuestion } from "@/lib/shared/types";
+import type { DefaultTask } from "@/lib/shared/types";
 import { Separator } from "@/components/ui/separator";
 
-export const metadata = { title: "Placement exam" };
+export const metadata = { title: "Survey questions" };
 
-export default async function AdminExamPage() {
+export default async function AdminSurveyPage() {
   await requireAdmin();
   const supabase = await createSupabaseServer();
-  const [{ data: questions }, { data: templates }] = await Promise.all([
-    supabase
-      .from("mcq_questions")
-      .select("*")
-      .order("sort_order", { ascending: true }),
+
+  const [questions, { data: templates }] = await Promise.all([
+    getAllSurveyQuestions(),
     supabase
       .from("default_tasks")
       .select("*")
       .order("sort_order", { ascending: true }),
   ]);
 
-  // Question pictures live in the private bucket — presign each for preview.
-  const qRows = (questions ?? []) as McqQuestion[];
-  const imageUrls: Record<string, string> = {};
-  await Promise.all(
-    qRows
-      .filter((q) => q.image_key)
-      .map(async (q) => {
-        imageUrls[q.id] = await getDownloadUrl(q.image_key!);
-      })
-  );
-
   return (
     <div className="space-y-8">
       <section className="space-y-4">
         <div>
-          <h1 className="text-2xl font-bold">Placement exam</h1>
+          <h1 className="text-2xl font-bold">Survey questions</h1>
           <p className="text-sm text-muted-foreground">
-            Questions students answer when they register.
+            Students answer these every time they book a session. Their previous
+            answers are pre-filled, so you see what has changed since last time
+            — put anything you want to track over time (study hours, for
+            instance) in as a <strong>Number</strong> question.
           </p>
         </div>
-        <AdminQuestions questions={qRows} imageUrls={imageUrls} />
+        <AdminSurveyQuestions questions={questions} />
       </section>
 
       <Separator />

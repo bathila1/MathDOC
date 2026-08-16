@@ -2,6 +2,11 @@ import Link from "next/link";
 import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { getActiveBooking } from "@/features/booking/server/queries";
+import {
+  getActiveSurveyQuestions,
+  getLatestSurveyResponse,
+} from "@/features/survey/server/queries";
+import { SurveyGate } from "@/features/survey/client/SurveyGate";
 import { StudentSlotCalendar } from "@/features/booking/client/calendar/StudentSlotCalendar";
 import { BookedSessionCard } from "@/features/booking/client/BookedSessionCard";
 import { BackLink } from "@/components/site/BackLink";
@@ -55,29 +60,39 @@ export default async function BookPage({
 
   const supabase = await createSupabaseServer();
   // Include booked slots too — they show dimmed so students see what's taken.
-  const { data } = await supabase
-    .from("availability_slots")
-    .select("*")
-    .gt("starts_at", new Date().toISOString())
-    .order("starts_at", { ascending: true });
+  const [{ data }, questions, lastResponse] = await Promise.all([
+    supabase
+      .from("availability_slots")
+      .select("*")
+      .gt("starts_at", new Date().toISOString())
+      .order("starts_at", { ascending: true }),
+    getActiveSurveyQuestions(),
+    getLatestSurveyResponse(user.id),
+  ]);
 
   return (
-    <div className="space-y-6">
-      <BackLink href="/student" label="My plan" />
-      <div>
-        <h1 className="text-3xl">
-          {followUpTaskId ? "Book your follow-up with Sir" : "Book a session"}
-        </h1>
-        <p className="text-muted-foreground">
-          {followUpTaskId
-            ? "Pick a free time to talk about your progress. Follow-up meetings are free."
-            : "Choose how you want to meet, then tap a free time on the calendar."}
-        </p>
+    <SurveyGate
+      questions={questions}
+      previous={lastResponse?.answers ?? {}}
+      answeredBefore={lastResponse !== null}
+    >
+      <div className="space-y-6">
+        <BackLink href="/student" label="My plan" />
+        <div>
+          <h1 className="text-3xl">
+            {followUpTaskId ? "Book your follow-up with Sir" : "Book a session"}
+          </h1>
+          <p className="text-muted-foreground">
+            {followUpTaskId
+              ? "Pick a free time to talk about your progress. Follow-up meetings are free."
+              : "Choose how you want to meet, then tap a free time on the calendar."}
+          </p>
+        </div>
+        <StudentSlotCalendar
+          slots={(data ?? []) as AvailabilitySlot[]}
+          followUpTaskId={followUpTaskId}
+        />
       </div>
-      <StudentSlotCalendar
-        slots={(data ?? []) as AvailabilitySlot[]}
-        followUpTaskId={followUpTaskId}
-      />
-    </div>
+    </SurveyGate>
   );
 }

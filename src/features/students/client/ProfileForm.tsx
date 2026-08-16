@@ -78,8 +78,6 @@ export function ProfileForm({
         onSaved(); // inline editing — stay where we are
         return;
       }
-      // Registering follows the server's suggestion (the quiz only if it
-      // hasn't been taken yet).
       router.push(mode === "edit" ? "/student/profile" : res.data.next);
     });
   }
@@ -128,7 +126,7 @@ export function ProfileForm({
             ? "Saving…"
             : mode === "edit"
               ? "Save changes"
-              : "Continue to the quiz"}
+              : "Finish and go to my plan"}
         </Button>
         {onCancel && (
           <Button

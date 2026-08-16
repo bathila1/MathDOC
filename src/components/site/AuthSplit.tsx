@@ -15,9 +15,9 @@ export function AuthSplit({ children }: { children: React.ReactNode }) {
         <TeacherAvatar className="absolute inset-0 size-full" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/25" />
         <div className="absolute bottom-12 left-12 max-w-lg text-white">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <LogoIcon className="size-10" />
-            <span className="font-heading text-2xl font-bold">MathDOC</span>
+          {/* The tile carries the wordmark itself — no separate text needed. */}
+          <Link href="/" className="inline-flex items-center">
+            <LogoIcon className="size-16" />
           </Link>
           <p className="mt-4 font-heading text-4xl leading-tight font-bold">
             Every student deserves a plan of their own.
@@ -31,10 +31,8 @@ export function AuthSplit({ children }: { children: React.ReactNode }) {
           the register form's submit button). */}
       <main className="bg-graph flex min-h-screen w-full flex-col items-center overflow-y-auto px-5 py-10 lg:ml-[63%] lg:h-screen lg:w-[37%]">
         <div className="my-auto flex w-full flex-col items-center gap-6">
-          {/* Mobile has no dark poster behind it, so the wordmark must be
-              brand-orange rather than the white used over the photo. */}
           <Link href="/" className="lg:hidden">
-            <Logo iconClassName="size-10" textClassName="text-2xl text-primary" />
+            <Logo className="size-16" />
           </Link>
           {children}
         </div>

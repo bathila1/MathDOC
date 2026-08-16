@@ -15,9 +15,12 @@ when the plan is complete.
 
 **Student journey**
 1. Log in with a phone number — one-time SMS code (OTP), no password.
-2. Register: personal details + a short **placement quiz** (auto-graded; Sir
-   uses the score to categorize the student: Beginner / Intermediate / Advanced).
-3. Book a session — in person or online — on a **Google-Calendar-style week
+2. Register: personal details, then straight to the dashboard.
+3. Book a session. A **survey** pops up first (study hours, favourite topic,
+   when they study — Sir writes the questions). It reappears before *every*
+   booking, pre-filled with last time's answers, so the student updates what
+   has changed and Sir can see study habits move over time.
+   Then pick a slot — in person or online — on a **Google-Calendar-style week
    view**: free times appear as cards on the grid; tap one to select it.
    (Sir creates availability the same way: click an empty space on his
    calendar → an event-creation dialog pops up.)
@@ -46,10 +49,11 @@ when the plan is complete.
   mark completed/cancelled, and **Add Task** (title, description, PDF/image
   attachment, or a Meet-with-Sir checkpoint). Tasks are editable, deletable
   and reorderable.
-- **Students**: profiles, quiz scores with answers, category assignment,
+- **Students**: profiles, survey answers over time, category assignment,
   history and progress.
 - **Proof reviews**: view uploaded files, Accept / Reject with a note.
-- **Placement exam**: build/edit/reorder/deactivate the quiz questions.
+- **Survey questions**: build/edit/reorder/deactivate the questions students
+  answer before every booking (written, choose-one, or number).
 
 ---
 
@@ -75,7 +79,7 @@ font, playful animations. The logo is recreated as an inline SVG
 **`public/sir.jpg`** to replace the placeholder avatar on the landing page.
 
 **⚠ TESTING MODE — forms are not compulsory right now**: the registration
-form, quiz and proof uploads all accept empty/partial submissions so the flow
+form and proof uploads all accept empty/partial submissions so the flow
 can be clicked through quickly. Re-tighten before launch (see Roadmap).
 
 **Dev simulation modes** (until third-party services are connected):
@@ -208,7 +212,7 @@ src/
 supabase/
   SETUP.sql               # ← paste this one file into the Supabase SQL editor
   migrations/             # the same, split into numbered files
-  seed.sql                # sample quiz questions + slots
+  seed.sql                # sample slots
 scripts/create-admin.mjs  # creates/promotes the teacher's admin account
 ```
 
@@ -268,7 +272,7 @@ testing it.
   stops / restarts once; the time taken is sent to Sir with the proof), and an
   **expiry date** that blocks late submissions and shows an "expiring soon"
   alert on the admin dashboard. Plus **default-task templates** (managed under
-  the Placement exam tab, picked from the "Add task" box). A task can carry
+  the Survey questions tab, picked from the "Add task" box). A task can carry
   **any combination** of media at once. Migrations:
   `007_phase2_task_media.sql` then `008_phase2_multi_media.sql` (needs the
   strict CSP relaxation already in `next.config.ts` for YouTube/Facebook
@@ -292,7 +296,7 @@ testing it.
 
 ## Roadmap / TODO
 
-- [ ] **Re-enable required form fields** (profile, quiz answers, proof files) — currently relaxed for testing (`src/lib/shared/schemas.ts`).
+- [ ] **Re-enable required form fields** (profile, proof files) — currently relaxed for testing (`src/lib/shared/schemas.ts`).
 - [ ] Link a real payment gateway (PayHere / Stripe) and remove the bypass, then turn the **Settings → Payments** toggle on.
 - [ ] Connect SMSLenz + configure the Supabase Send-SMS hook (remove simulate button reliance).
 - [ ] Set up Cloudflare R2 for production file storage.

@@ -59,17 +59,11 @@ export async function saveProfile(
     });
   }
 
-  // Only send them to the quiz if they still owe it; otherwise straight in.
-  const { data: attempt } = await admin
-    .from("mcq_attempts")
-    .select("id")
-    .eq("student_id", auth.user.id)
-    .limit(1)
-    .maybeSingle();
-
   revalidatePath("/student");
   revalidatePath("/student/profile");
-  return ok({ next: attempt ? "/student" : "/student/exam" });
+  // Registration is the last step — straight to the dashboard. (The survey is
+  // asked later, at booking time, so it can be re-answered each session.)
+  return ok({ next: "/student" });
 }
 
 /** Teacher assigns a knowledge category to a student. */

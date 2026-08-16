@@ -16,7 +16,7 @@ export default async function AdminLoginPage({
   return (
     <main className="bg-graph flex flex-1 flex-col items-center justify-center gap-6 p-4">
       <Link href="/">
-        <Logo iconClassName="size-12" textClassName="text-2xl" />
+        <Logo className="size-20" />
       </Link>
       <AdminLoginForm />
     </main>

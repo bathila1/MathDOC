@@ -138,19 +138,16 @@ export const categorySchema = z.object({
   }),
 });
 
-// ---------- MCQ ----------
+// ---------- Survey (asked before every booking) ----------
 
-export const mcqQuestionSchema = z
+export const surveyQuestionSchema = z
   .object({
-    // 'mcq' is auto-graded; 'text' is a typed answer Sir reads himself.
-    kind: z.enum(["mcq", "text"]).default("mcq"),
+    kind: z.enum(["text", "choice", "number"]).default("text"),
     text: z
       .string()
       .trim()
       .min(3, "Please write the question.")
       .max(1000, "Question is too long."),
-    /** Optional picture shown with the question (R2 object key). */
-    image_key: z.string().max(500).optional().nullable(),
     options: z
       .array(
         z
@@ -159,13 +156,21 @@ export const mcqQuestionSchema = z
           .min(1, "Answer options can't be empty.")
           .max(300, "Option is too long.")
       )
-      .max(6, "Maximum 6 answer options.")
+      .max(10, "Maximum 10 answer options.")
       .default([]),
-    correct_index: z.number().int().min(0).optional().nullable(),
+    /** Shown after a numeric answer, e.g. "hours / week". */
+    unit: z
+      .string()
+      .trim()
+      .max(30, "Unit is too long.")
+      .optional()
+      .nullable()
+      .transform((v) => (v ? v : null)),
+    is_required: z.boolean().default(true),
     is_active: z.boolean().default(true),
   })
   .superRefine((q, ctx) => {
-    if (q.kind === "text") return; // no options, nothing to mark correct
+    if (q.kind !== "choice") return; // free typing / numbers need no options
     if (q.options.length < 2) {
       ctx.addIssue({
         code: "custom",
@@ -173,27 +178,27 @@ export const mcqQuestionSchema = z
         message: "Add at least 2 answer options.",
       });
     }
-    if (
-      q.correct_index === null ||
-      q.correct_index === undefined ||
-      q.correct_index >= q.options.length
-    ) {
+    if (new Set(q.options).size !== q.options.length) {
+      // Answers are stored by option TEXT, so duplicates would be ambiguous.
       ctx.addIssue({
         code: "custom",
-        path: ["correct_index"],
-        message: "Pick which option is the correct answer.",
+        path: ["options"],
+        message: "Answer options must be different from each other.",
       });
     }
   });
 
-export const mcqSubmitSchema = z.object({
-  // A number is a chosen option index; a string is a typed answer.
+/**
+ * A student's survey submission.
+ *
+ * Shape only — whether every REQUIRED question was answered, and whether a
+ * choice answer is actually one of that question's options, can only be decided
+ * against the current questions, so it is checked server-side in submitSurvey().
+ */
+export const surveySubmitSchema = z.object({
   answers: z.record(
     z.string().uuid(),
-    z.union([
-      z.number().int().min(0).max(5),
-      z.string().trim().max(2000, "That answer is too long."),
-    ])
+    z.string().trim().max(2000, "That answer is too long.")
   ),
 });
 
@@ -407,7 +412,7 @@ export const presignSchema = z
   });
 
 export type ProfileInput = z.infer<typeof profileSchema>;
-export type McqQuestionInput = z.infer<typeof mcqQuestionSchema>;
+export type SurveyQuestionInput = z.infer<typeof surveyQuestionSchema>;
 export type SlotInput = z.infer<typeof slotSchema>;
 export type BookingInput = z.infer<typeof bookingSchema>;
 export type TaskInput = z.infer<typeof taskSchema>;

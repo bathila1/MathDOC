@@ -24,6 +24,7 @@ import {
 import { recalcTaskStatuses } from "@/features/tasks/server/logic";
 import { getPaymentsEnabled } from "@/lib/server/settings";
 import { getActiveBooking } from "./queries";
+import { hasAnsweredSurvey } from "@/features/survey/server/queries";
 import { z } from "zod";
 import {
   ok,
@@ -111,6 +112,16 @@ export async function bookSlot(
     return fail(
       "You already have a session booked. Please cancel it before booking another one."
     );
+  }
+
+  // The survey dialog on /student/book is a UI gate only — this action is
+  // reachable directly, so the requirement is enforced here too. We check that
+  // a response EXISTS rather than that one was filed since the last session:
+  // the dialog always inserts a fresh row, so the stricter rule would only ever
+  // catch someone bypassing the UI, at the cost of locking out real students in
+  // edge cases (questions added mid-flow, a retried submit).
+  if (!(await hasAnsweredSurvey(auth.user.id))) {
+    return fail("Please answer the survey questions before booking.");
   }
 
   const supabase = await createSupabaseServer();
@@ -555,13 +566,16 @@ export async function addSessionNote(
   });
   if (error) {
     console.error("addSessionNote failed:", error.code, error.message);
-    // PGRST205 = the table is missing from PostgREST's schema cache. The table
-    // exists in Postgres, but the API layer can't see it until the cache is
-    // reloaded — a silent "please try again" sends the teacher in circles.
+    // PGRST205 = PostgREST cannot find the table. Two different causes, and the
+    // message must not assume the wrong one: either the table was never created
+    // (the actual cause here — 005_session_notes.sql had not been applied), or
+    // it exists but the schema cache is stale. Telling the operator to reload
+    // the cache when the table is simply absent sends them in circles.
     if (error.code === "PGRST205" || error.message.includes("schema cache")) {
       return fail(
-        "The notes table isn't visible to the API yet. In Supabase run: " +
-          "NOTIFY pgrst, 'reload schema';  then try again."
+        "The session_notes table is missing from the database. Apply " +
+          "supabase/migrations/020_session_notes_fix.sql in the Supabase SQL " +
+          "editor — it creates the table and reloads the API schema cache."
       );
     }
     return fail("Couldn't save the note. Please try again.");

@@ -22,7 +22,7 @@ type LimiterName =
   | "otp" // OTP request: strict — per phone
   | "otp_verify" // code entry attempts
   | "login" // admin password attempts
-  | "form" // profile save, MCQ submit, review actions...
+  | "form" // profile save, survey submit, review actions...
   | "booking" // slot booking + payment bypass
   | "upload" // presign requests
   | "chat" // task messages

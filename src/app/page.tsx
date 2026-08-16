@@ -12,7 +12,7 @@ const steps = [
   {
     no: "01",
     title: "Book a session",
-    text: "Register with your phone number, sit a short placement quiz, and pick a time that suits you.",
+    text: "Register with your phone number, answer a few quick questions, and pick a time that suits you.",
   },
   {
     no: "02",
@@ -34,7 +34,7 @@ export default async function LandingPage() {
     <main className="flex-1">
       <header className="border-b">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <Logo />
+          <Logo className="size-12" />
           <Button size="sm" render={<Link href="/login" />}>
             Student login
           </Button>

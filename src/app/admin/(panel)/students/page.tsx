@@ -103,9 +103,6 @@ export default async function AdminStudentsPage({
                 {s.phone ? formatPhone(s.phone) : "—"}
               </span>
               <span className="text-muted-foreground">Grade {s.grade ?? "—"}</span>
-              <span className="tabular-nums text-muted-foreground">
-                {s.mcq_score != null ? `${s.mcq_score}/${s.mcq_total}` : "—"}
-              </span>
               {s.category ? (
                 <Badge variant="secondary" className="ml-auto">
                   {s.category}
@@ -157,12 +154,6 @@ export default async function AdminStudentsPage({
                 <span className="inline-flex items-center gap-1">
                   <GraduationCap className="size-3.5" />
                   Grade {s.grade ?? "—"}
-                </span>
-                <span>
-                  Quiz:{" "}
-                  <span className="font-medium text-foreground tabular-nums">
-                    {s.mcq_score != null ? `${s.mcq_score}/${s.mcq_total}` : "—"}
-                  </span>
                 </span>
               </div>
 

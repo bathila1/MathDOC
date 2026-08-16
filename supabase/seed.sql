@@ -20,20 +20,20 @@ insert into settings (key, value) values
   ('location', 'No. 12, Temple Road, Kandy')  -- shown in SMS for physical meetings
 on conflict (key) do update set value = excluded.value;
 
--- NOTE: kept deliberately ASCII-only. Special characters (pi, degree signs,
--- ellipses) get mangled when this file is copied through tools that assume
--- a non-UTF-8 encoding. Type them directly in the admin panel instead.
-insert into mcq_questions (text, options, correct_index, sort_order) values
-  ('What is the value of 3x when x = 4?',
-   '["7", "12", "34", "1"]', 1, 1),
-  ('The angle in a semicircle is always...',
-   '["45 degrees", "60 degrees", "90 degrees", "180 degrees"]', 2, 2),
-  ('Solve: 2x + 6 = 14',
-   '["x = 4", "x = 10", "x = 7", "x = 2"]', 0, 3),
-  ('The circumference of a circle with radius r is...',
-   '["pi * r^2", "2 * pi * r", "pi * d^2", "r^2 / 2"]', 1, 4),
-  ('If a triangle has angles 50 and 60 degrees, the third angle is...',
-   '["70 degrees", "80 degrees", "90 degrees", "60 degrees"]', 0, 5);
+-- A starter survey. Sir edits these under Admin -> Survey questions.
+-- The 'number' question is the one worth tracking: study hours are compared
+-- against the previous submission on the student's page.
+-- NOTE: kept deliberately ASCII-only. Special characters get mangled when this
+-- file is copied through tools that assume a non-UTF-8 encoding.
+insert into survey_questions (kind, text, options, unit, is_required, sort_order) values
+  ('number', 'How many hours a week are you studying maths at the moment?',
+   '{}', 'hours / week', true, 1),
+  ('choice', 'When do you usually study?',
+   '{"Early morning","Afternoon","Evening","Late night"}', null, true, 2),
+  ('text',   'Which topic are you most interested in right now?',
+   '{}', null, true, 3),
+  ('text',   'Which topic is giving you the most trouble?',
+   '{}', null, true, 4);
 
 -- Sample free slots for the next 7 days (4pm & 5pm daily)
 insert into availability_slots (starts_at, ends_at, mode)

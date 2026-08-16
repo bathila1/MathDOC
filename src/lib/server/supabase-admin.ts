@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 /**
  * Service-role client — BYPASSES RLS. Only for trusted server code paths:
- * MCQ grading, invoice/certificate lookup by token, task-state recalcs,
+ * invoice/certificate lookup by token, task-state recalcs,
  * R2 key ownership checks. Never expose results without an ownership check.
  */
 export function createSupabaseAdmin() {

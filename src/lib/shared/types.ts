@@ -28,42 +28,35 @@ export interface Profile {
   guardian_phone: string | null;
   address: string | null;
   category: string | null;
-  mcq_score: number | null;
-  mcq_total: number | null;
   profile_completed: boolean;
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export type McqQuestionKind = "mcq" | "text";
+export type SurveyQuestionKind = "text" | "choice" | "number";
 
-export interface McqQuestion {
+/** A question Sir asks every student before they book a session. */
+export interface SurveyQuestion {
   id: string;
-  /** 'mcq' auto-marks against correct_index; 'text' is read by Sir. */
-  kind: McqQuestionKind;
+  /** 'text' = free typing; 'choice' = one of `options`; 'number' = numeric. */
+  kind: SurveyQuestionKind;
   text: string;
-  /** Optional R2 key for a picture shown with the question. */
-  image_key: string | null;
   options: string[];
-  /** null for written-answer questions. */
-  correct_index: number | null;
+  /** Shown after a numeric answer, e.g. "hours / week". */
+  unit: string | null;
+  is_required: boolean;
   is_active: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
 
-/** Question as exposed to students (no correct_index). */
-export type McqQuestionPublic = Omit<McqQuestion, "correct_index">;
-
-export interface McqAttempt {
+export interface SurveyResponse {
   id: string;
   student_id: string;
-  /** number = chosen option index; string = typed answer. */
-  answers: Record<string, number | string>;
-  score: number;
-  total: number;
+  /** question id → answer text (choice answers store the option's text). */
+  answers: Record<string, string>;
   submitted_at: string;
 }
 

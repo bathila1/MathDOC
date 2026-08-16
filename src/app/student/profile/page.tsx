@@ -78,12 +78,6 @@ export default async function ProfilePage() {
       profile.guardian_phone ? formatPhone(profile.guardian_phone) : null,
     ],
     ["Address", profile.address],
-    [
-      "Placement quiz",
-      profile.mcq_score != null
-        ? `${profile.mcq_score} / ${profile.mcq_total}`
-        : null,
-    ],
     ["Category", profile.category],
   ];
 

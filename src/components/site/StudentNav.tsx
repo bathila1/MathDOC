@@ -33,7 +33,7 @@ export function StudentNav({ userId }: { userId: string }) {
       {/* Full width: logo pinned to the far-left, actions to the far-right */}
       <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6">
         <Link href="/student" className="shrink-0" aria-label="MathDOC home">
-          <Logo iconClassName="size-8" textClassName="text-lg" />
+          <Logo className="size-11" />
         </Link>
 
         {/* Desktop: centred pill group with a raised active tab */}

@@ -27,7 +27,7 @@ const nav = [
   { href: "/admin/students", label: "Students", icon: Users },
   { href: "/admin/proofs", label: "Proof reviews", icon: FileCheck },
   { href: "/admin/activity", label: "Activity", icon: Activity },
-  { href: "/admin/exam", label: "Placement exam", icon: ClipboardList },
+  { href: "/admin/survey", label: "Survey questions", icon: ClipboardList },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -44,7 +44,7 @@ export default async function AdminLayout({
       {/* fixed sidebar — never scrolls with the content */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r bg-muted/30 sm:flex">
         <div className="px-4 py-4">
-          <Logo iconClassName="size-8" textClassName="text-lg" />
+          <Logo className="size-12" />
           <p className="mt-0.5 text-xs font-semibold text-muted-foreground">
             Teacher panel
           </p>
@@ -75,7 +75,7 @@ export default async function AdminLayout({
 
       <div className="flex min-h-screen flex-col sm:ml-56">
         <header className="flex items-center justify-between border-b px-4 py-3 sm:hidden">
-          <Logo iconClassName="size-7" textClassName="text-base" />
+          <Logo className="size-10" />
           <div className="flex items-center gap-1">
             <NotificationBell userId={user.id} />
             <ThemeToggle />

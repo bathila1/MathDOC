@@ -36,6 +36,16 @@ function r2Client() {
         accessKeyId: process.env.R2_ACCESS_KEY_ID!,
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
       },
+      // MUST stay WHEN_REQUIRED for presigned uploads.
+      //
+      // The SDK default is WHEN_SUPPORTED, which makes it compute a CRC32 of
+      // the request body and bake it into the signed URL as
+      // `x-amz-checksum-crc32`. At presign time there IS no body, so it signs
+      // the checksum of zero bytes (AAAAAA== — CRC32 of empty). The browser
+      // then PUTs the real file, R2 recomputes the checksum, they disagree, and
+      // the upload is rejected. It also adds `x-amz-sdk-checksum-algorithm`,
+      // which R2 does not accept on presigned PUTs.
+      requestChecksumCalculation: "WHEN_REQUIRED",
     });
   }
   return _client;

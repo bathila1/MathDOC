@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/server/auth";
 import { CategorySelect } from "@/features/students/client/CategorySelect";
+import { SurveyHistory } from "@/features/survey/client/SurveyHistory";
 import {
-  QuizResultDialog,
-  type QuizAnswer,
-} from "@/features/exam/client/QuizResultDialog";
+  getAllSurveyQuestions,
+  getSurveyHistory,
+} from "@/features/survey/server/queries";
 import { orderTasks, sessionNumbers } from "@/features/tasks/server/logic";
 import { TaskManager, type AdminTask } from "@/features/tasks/client/TaskManager";
 import { loadProofsByTask } from "@/features/tasks/server/proofs";
@@ -17,8 +18,6 @@ import type {
   AvailabilitySlot,
   Certificate,
   DefaultTask,
-  McqAttempt,
-  McqQuestion,
   Profile,
   SessionNote,
   StudentTeacherNote,
@@ -58,10 +57,10 @@ export default async function AdminStudentPage({
   // student turns out not to exist we just notFound() after.
   const [
     { data: student },
-    { data: attempt },
+    surveyResponses,
     { data: appts },
     { data: tasks },
-    { data: questions },
+    surveyQuestions,
     { data: noteRows },
     { data: certRows },
     { data: templateRows },
@@ -73,13 +72,7 @@ export default async function AdminStudentPage({
       .eq("id", id)
       .eq("role", "student")
       .maybeSingle(),
-    supabase
-      .from("mcq_attempts")
-      .select("*")
-      .eq("student_id", id)
-      .order("submitted_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    getSurveyHistory(id),
     supabase
       .from("appointments")
       .select("*, availability_slots(*)")
@@ -89,7 +82,7 @@ export default async function AdminStudentPage({
       .from("tasks")
       .select("*, appointments!tasks_appointment_id_fkey(created_at)")
       .eq("student_id", id),
-    supabase.from("mcq_questions").select("*"),
+    getAllSurveyQuestions(),
     supabase
       .from("session_notes")
       .select("*")
@@ -191,40 +184,6 @@ export default async function AdminStudentPage({
     ? format(new Date(latestAppointment.availability_slots.starts_at), "d MMM yyyy")
     : null;
 
-  const questionById = new Map(
-    ((questions ?? []) as McqQuestion[]).map((q) => [q.id, q])
-  );
-  const mcqAttempt = attempt as McqAttempt | null;
-  const quizAnswers: QuizAnswer[] = mcqAttempt
-    ? Object.entries(mcqAttempt.answers).flatMap(([qid, given]): QuizAnswer[] => {
-        const q = questionById.get(qid);
-        if (!q) return [];
-
-        // Written answers carry no correct option — hand the text straight
-        // through for Sir to read, with isCorrect null so it isn't marked.
-        if (q.kind === "text" || q.correct_index === null) {
-          return [
-            {
-              question: q.text,
-              chosen: typeof given === "string" ? given : null,
-              correct: null,
-              isCorrect: null,
-            },
-          ];
-        }
-
-        const chosen = typeof given === "number" ? given : null;
-        return [
-          {
-            question: q.text,
-            chosen: chosen === null ? null : (q.options[chosen] ?? null),
-            correct: q.options[q.correct_index] ?? null,
-            isCorrect: chosen === q.correct_index,
-          },
-        ];
-      })
-    : [];
-
   const appointmentById = new Map(appointments.map((a) => [a.id, a]));
 
   return (
@@ -290,15 +249,10 @@ export default async function AdminStudentPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Placement quiz</CardTitle>
+            <CardTitle>Student level</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <QuizResultDialog
-              score={profile.mcq_score}
-              total={profile.mcq_total}
-              answers={quizAnswers}
-            />
-            <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">
                 Set their level:
               </span>
@@ -307,6 +261,23 @@ export default async function AdminStudentPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Survey answers over time — the whole reason it is re-asked */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Survey answers</CardTitle>
+          <CardDescription>
+            Filled in before every booking. Numbers show the change since the
+            previous session.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SurveyHistory
+            questions={surveyQuestions}
+            responses={surveyResponses}
+          />
+        </CardContent>
+      </Card>
 
       {/* Private, admin-only notes about this student */}
       <Card>
