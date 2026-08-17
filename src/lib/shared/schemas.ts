@@ -2,6 +2,7 @@ import { z } from "zod";
 import { normalizePhone } from "./phone";
 import { STUDENT_CATEGORIES, UPLOAD_RULES } from "./constants";
 import { isSafeExternalUrl } from "./url";
+import { CLEAR_CONFIRM_PHRASE, CLEAR_SCOPE_KEYS } from "./data-scopes";
 
 /**
  * A link we will later render into an href/src. `z.string().url()` is NOT
@@ -129,6 +130,24 @@ export const profileSchema = z.object({
   // actually dial it.
   guardian_phone: phoneField,
   address: requiredText(300, "Address"),
+});
+
+/** Teacher adding a student by hand — the student fills in the rest later. */
+export const newStudentSchema = z.object({
+  full_name: requiredText(100, "Name"),
+  phone: phoneField,
+});
+
+export const clearDataSchema = z.object({
+  scopes: z
+    .array(z.enum(CLEAR_SCOPE_KEYS))
+    .min(1, "Choose at least one thing to clear."),
+  // A literal, not a boolean: an accidental double-click or a replayed request
+  // cannot satisfy it, the admin has to type the word.
+  confirm: z.literal(
+    CLEAR_CONFIRM_PHRASE,
+    `Type ${CLEAR_CONFIRM_PHRASE} to confirm.`
+  ),
 });
 
 export const categorySchema = z.object({

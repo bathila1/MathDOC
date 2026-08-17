@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/server/auth";
 import { CategorySelect } from "@/features/students/client/CategorySelect";
+import { DeleteStudentButton } from "@/features/students/client/StudentAdminControls";
 import { SurveyHistory } from "@/features/survey/client/SurveyHistory";
 import {
   getAllSurveyQuestions,
@@ -205,9 +206,13 @@ export default async function AdminStudentPage({
             return <Badge variant={meta.variant}>{meta.label}</Badge>;
           })()}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Category:</span>
           <CategorySelect studentId={profile.id} value={profile.category} />
+          <DeleteStudentButton
+            studentId={profile.id}
+            studentName={profile.full_name ?? "Unregistered student"}
+          />
         </div>
       </div>
 

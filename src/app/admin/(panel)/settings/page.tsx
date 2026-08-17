@@ -3,6 +3,7 @@ import { getPaymentsEnabled, getSetting } from "@/lib/server/settings";
 import { PaymentsToggle } from "@/features/settings/client/PaymentsToggle";
 import { AdminNotificationSettings } from "@/features/settings/client/AdminNotificationSettings";
 import { SiteContentSettings } from "@/features/settings/client/SiteContentSettings";
+import { DataManagement } from "@/features/settings/client/DataManagement";
 import {
   getSiteContent,
   getHeroImageUrl,
@@ -69,6 +70,20 @@ export default async function AdminSettingsPage() {
             initial={siteContent}
             initialHeroUrl={heroUrl}
           />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl border-destructive/40">
+        <CardHeader>
+          <CardTitle className="text-destructive">Clear data</CardTitle>
+          <CardDescription>
+            Permanently delete records — useful at the end of a year, or to
+            clear out test data. Pick exactly what goes; your settings, survey
+            questions and task templates are always kept.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataManagement />
         </CardContent>
       </Card>
 

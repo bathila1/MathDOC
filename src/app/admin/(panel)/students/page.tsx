@@ -16,6 +16,7 @@ import { formatPhone } from "@/lib/shared/phone";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, Phone, User } from "lucide-react";
+import { AddStudentDialog } from "@/features/students/client/StudentAdminControls";
 
 export const metadata = { title: "Students" };
 
@@ -68,7 +69,10 @@ export default async function AdminStudentsPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Students</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">Students</h1>
+        <AddStudentDialog />
+      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <SearchBox paramName="q" placeholder="Search by name or phone…" />
