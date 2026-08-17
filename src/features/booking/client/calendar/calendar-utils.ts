@@ -65,3 +65,92 @@ export function sameDay(a: Date, b: Date): boolean {
     a.getDate() === b.getDate()
   );
 }
+
+export interface Positioned<T> {
+  slot: T;
+  top: number;
+  height: number;
+  /** Percent offset from the left of the day column. */
+  leftPct: number;
+  /** Percent width of the day column. */
+  widthPct: number;
+}
+
+interface TimeSpan {
+  starts_at: string;
+  ends_at: string;
+}
+
+/**
+ * Place a day's slots, giving overlapping ones their own side-by-side column
+ * the way Google Calendar does.
+ *
+ * Previously every card was positioned `inset-x-0.5`, so two slots at the same
+ * time were drawn exactly on top of each other — the top one simply hid the
+ * one underneath. Overlaps should not normally exist (createSlot now rejects
+ * them), but when they do the teacher has to be able to SEE them in order to
+ * delete one, and a hidden card is also a slot a student can't discover.
+ */
+export function layoutDaySlots<T extends TimeSpan>(
+  slots: T[],
+  range: HourRange = DEFAULT_RANGE
+): Positioned<T>[] {
+  const sorted = [...slots].sort((a, b) => {
+    const d = new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
+    // Longer slot first on a tie, so the wider block takes the left column.
+    return d !== 0
+      ? d
+      : new Date(b.ends_at).getTime() - new Date(a.ends_at).getTime();
+  });
+
+  const out: Positioned<T>[] = [];
+
+  // A cluster is a run of slots connected by overlap; column count is decided
+  // per cluster so one busy hour doesn't shrink the whole day.
+  let cluster: T[] = [];
+  let clusterEnd = -Infinity;
+
+  const flush = () => {
+    if (cluster.length === 0) return;
+
+    // Greedy column packing: reuse the first column that has already finished.
+    const columnEnds: number[] = [];
+    const columnOf = new Map<T, number>();
+
+    for (const s of cluster) {
+      const start = new Date(s.starts_at).getTime();
+      const end = new Date(s.ends_at).getTime();
+      let col = columnEnds.findIndex((e) => e <= start);
+      if (col === -1) {
+        col = columnEnds.length;
+        columnEnds.push(end);
+      } else {
+        columnEnds[col] = end;
+      }
+      columnOf.set(s, col);
+    }
+
+    const cols = columnEnds.length;
+    for (const s of cluster) {
+      out.push({
+        slot: s,
+        top: topOf(s.starts_at, range),
+        height: heightOf(s.starts_at, s.ends_at),
+        leftPct: ((columnOf.get(s) ?? 0) * 100) / cols,
+        widthPct: 100 / cols,
+      });
+    }
+    cluster = [];
+    clusterEnd = -Infinity;
+  };
+
+  for (const s of sorted) {
+    const start = new Date(s.starts_at).getTime();
+    if (cluster.length > 0 && start >= clusterEnd) flush();
+    cluster.push(s);
+    clusterEnd = Math.max(clusterEnd, new Date(s.ends_at).getTime());
+  }
+  flush();
+
+  return out;
+}

@@ -167,8 +167,20 @@ export function SurveyGate({
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <DialogFooter>
-              <Button type="submit" className="w-full" disabled={pending}>
+            <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+              {/* A way out that doesn't bypass the gate: leaving the page
+                  entirely, rather than dismissing the dialog and landing on a
+                  booking calendar the survey is supposed to guard. */}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                disabled={pending}
+                onClick={() => router.push("/student")}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="w-full flex-1" disabled={pending}>
                 {pending ? "Saving…" : "Save and continue to booking"}
               </Button>
             </DialogFooter>

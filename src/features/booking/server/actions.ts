@@ -55,6 +55,37 @@ export async function createSlot(input: unknown): Promise<ActionResult<undefined
   }
 
   const supabase = await createSupabaseServer();
+
+  // Reject anything that collides with an existing slot. Without this, saving
+  // the same time twice (a double click, or re-adding a time already there)
+  // silently created a duplicate: two cards stacked on the calendar, and — when
+  // one of them was already booked — a "free" copy a second student could book
+  // for a time Sir was no longer available.
+  //
+  // Overlap is `existing.start < new.end AND existing.end > new.start`;
+  // touching edges (10:00–11:00 then 11:00–12:00) are NOT an overlap.
+  const { data: clashes } = await supabase
+    .from("availability_slots")
+    .select("starts_at, ends_at, status")
+    .lt("starts_at", ends_at.toISOString())
+    .gt("ends_at", starts_at.toISOString())
+    .limit(1);
+
+  const clash = clashes?.[0] as
+    | { starts_at: string; ends_at: string; status: string }
+    | undefined;
+  if (clash) {
+    const when = `${format(new Date(clash.starts_at), "h:mm a")}–${format(
+      new Date(clash.ends_at),
+      "h:mm a"
+    )}`;
+    return fail(
+      `That overlaps a slot you already have (${when}${
+        clash.status === "booked" ? ", already booked" : ""
+      }). Pick a different time, or remove the existing one first.`
+    );
+  }
+
   const { error } = await supabase.from("availability_slots").insert({
     starts_at: starts_at.toISOString(),
     ends_at: ends_at.toISOString(),
@@ -80,7 +111,21 @@ export async function deleteSlot(slotId: string): Promise<ActionResult<undefined
     .delete()
     .eq("id", id.data)
     .eq("status", "free"); // booked slots can't be removed
-  if (error) return fail("Couldn't delete the slot.");
+
+  if (error) {
+    // 23503 = the slot is still referenced by an appointment. A *free* slot can
+    // still have one: a student booked it and later cancelled, which releases
+    // the slot but keeps the cancelled booking (and its invoice) as history.
+    // The generic "couldn't delete" left the teacher clicking with no idea why.
+    if (error.code === "23503") {
+      return fail(
+        "This time can't be removed because a past booking still refers to it. " +
+          "Cancelled bookings are kept as a record."
+      );
+    }
+    console.error("deleteSlot failed:", error.code, error.message);
+    return fail("Couldn't delete the slot.");
+  }
 
   revalidatePath("/admin/availability");
   return ok(undefined);

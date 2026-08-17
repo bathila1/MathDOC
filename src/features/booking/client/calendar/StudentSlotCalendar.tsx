@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Check, Laptop, Users } from "lucide-react";
 import { WeekCalendar } from "./WeekCalendar";
-import { heightOf, rangeForSlots, sameDay, topOf } from "./calendar-utils";
+import { layoutDaySlots, rangeForSlots, sameDay } from "./calendar-utils";
 
 /** Google-Calendar-style slot picker: tap a card on the week grid to select. */
 export function StudentSlotCalendar({
@@ -124,56 +124,72 @@ export function StudentSlotCalendar({
         onAnchorChange={setAnchor}
         range={range}
         legend={
-          <p className="text-xs font-medium text-muted-foreground">
-            Tap a free time to pick it
-          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-sm bg-primary" />
+              Free — tap to choose
+            </span>
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <span className="size-2.5 rounded-sm bg-muted-foreground/40" />
+              Taken
+            </span>
+          </div>
         }
         renderDay={(day) =>
-          visible
-            .filter((s) => sameDay(new Date(s.starts_at), day))
-            .sort(
-              (a, b) =>
-                new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
-            )
-            .map((s, idx) => {
-              const style = {
-                top: topOf(s.starts_at, range),
-                height: heightOf(s.starts_at, s.ends_at),
-              };
-              // Booked times stay visible but dimmed and non-selectable.
-              if (s.status === "booked") {
-                return (
-                  <div
-                    key={s.id}
-                    style={style}
-                    className="pointer-events-none absolute inset-x-0.5 z-10 overflow-hidden rounded-lg border-l-4 border-muted-foreground/40 bg-muted px-1.5 py-1 text-left text-[11px] leading-tight font-bold text-muted-foreground opacity-60 sm:inset-x-1 sm:px-2 sm:text-xs"
-                  >
-                    #{idx + 1} {format(new Date(s.starts_at), "h:mm")}
-                    <span className="block font-medium">Booked</span>
-                  </div>
-                );
-              }
-              const isSelected = selected?.id === s.id;
+          layoutDaySlots(
+            visible.filter((s) => sameDay(new Date(s.starts_at), day)),
+            range
+          ).map(({ slot: s, top, height, leftPct, widthPct }) => {
+            const style = {
+              top,
+              height,
+              left: `calc(${leftPct}% + 2px)`,
+              width: `calc(${widthPct}% - 4px)`,
+            };
+            const timeLabel = `${format(new Date(s.starts_at), "h:mm")}–${format(
+              new Date(s.ends_at),
+              "h:mm a"
+            )}`;
+
+            // Taken times stay visible but dimmed, so the week doesn't look
+            // emptier than it is and students can see Sir is busy then.
+            if (s.status === "booked") {
               return (
-                <button
+                <div
                   key={s.id}
-                  type="button"
-                  onClick={() => setSelected(isSelected ? null : s)}
                   style={style}
-                  className={cn(
-                    "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-lg border-l-4 px-1.5 py-1 text-left text-[11px] leading-tight font-bold shadow-sm transition-all sm:inset-x-1 sm:px-2 sm:text-xs",
-                    isSelected
-                      ? "bg-primary border-primary-foreground text-primary-foreground shadow-md"
-                      : "border-primary bg-primary/10 text-primary hover:bg-primary/20"
-                  )}
+                  title={`${timeLabel} — already taken`}
+                  className="pointer-events-none absolute z-10 overflow-hidden rounded-lg border-l-4 border-muted-foreground/40 bg-muted px-1.5 py-1 text-left text-[11px] leading-tight font-bold text-muted-foreground opacity-60 sm:px-2 sm:text-xs"
                 >
-                  #{idx + 1} {format(new Date(s.starts_at), "h:mm")}
-                  <span className="block font-medium opacity-80">
-                    {isSelected ? "Selected" : "Free"}
-                  </span>
-                </button>
+                  {timeLabel}
+                  <span className="block font-medium">Taken</span>
+                </div>
               );
-            })
+            }
+
+            const isSelected = selected?.id === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                aria-pressed={isSelected}
+                title={`${timeLabel} — tap to choose`}
+                onClick={() => setSelected(isSelected ? null : s)}
+                style={style}
+                className={cn(
+                  "pointer-events-auto absolute z-10 overflow-hidden rounded-lg border-l-4 px-1.5 py-1 text-left text-[11px] leading-tight font-bold shadow-sm transition-all sm:px-2 sm:text-xs",
+                  isSelected
+                    ? "bg-primary border-primary-foreground text-primary-foreground shadow-md ring-2 ring-primary"
+                    : "border-primary bg-primary/10 text-primary hover:bg-primary/20"
+                )}
+              >
+                {timeLabel}
+                <span className="block font-medium opacity-80">
+                  {isSelected ? "✓ Chosen" : "Free"}
+                </span>
+              </button>
+            );
+          })
         }
       />
 

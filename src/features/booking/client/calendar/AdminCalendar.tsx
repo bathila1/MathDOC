@@ -31,10 +31,9 @@ import { WeekCalendar } from "./WeekCalendar";
 import {
   DEFAULT_END_HOUR,
   DEFAULT_START_HOUR,
-  heightOf,
+  layoutDaySlots,
   rangeForSlots,
   sameDay,
-  topOf,
 } from "./calendar-utils";
 import type { AvailabilitySlot } from "@/lib/shared/types";
 
@@ -97,13 +96,26 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
     setCreateOpen(true);
   }
 
+  /** Human length of the drafted slot, e.g. "1 hr 30 min". */
+  const durationLabel = useMemo(() => {
+    const [sh, sm] = draft.start_time.split(":").map(Number);
+    const [eh, em] = draft.end_time.split(":").map(Number);
+    const mins = eh * 60 + em - (sh * 60 + sm);
+    if (!Number.isFinite(mins) || mins <= 0) return null;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return [h && `${h} hr`, m && `${m} min`].filter(Boolean).join(" ");
+  }, [draft.start_time, draft.end_time]);
+
   function saveDraft() {
     setErrors({});
     startTransition(async () => {
       const res = await createSlot(draft);
       if (!res.ok) {
         setErrors(res.fieldErrors ?? {});
-        if (!res.fieldErrors) toast.error(res.error);
+        // Overlap/date problems come back without a field, so surface them
+        // inside the dialog instead of only as a toast the teacher may miss.
+        if (!res.fieldErrors) setErrors({ date: res.error });
         return;
       }
       toast.success("Free time added.");
@@ -132,61 +144,73 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
         onCellClick={openCreate}
         range={range}
         legend={
-          <p className="text-xs font-medium text-muted-foreground">
-            Click any empty space to add a free time
-          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-sm bg-emerald-500" />
+              Free
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rounded-sm bg-primary" />
+              Booked
+            </span>
+            <span className="text-muted-foreground">
+              Click an empty space to add a free time
+            </span>
+          </div>
         }
         renderDay={(day) =>
-          slots
-            .filter((s) => sameDay(new Date(s.starts_at), day))
-            .sort(
-              (a, b) =>
-                new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
-            )
-            .map((s, idx) => {
-              const booked = s.status === "booked";
-              const appt = s.appointments?.find((a) => a.status !== "cancelled");
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setManaged(s)}
-                  style={{
-                    top: topOf(s.starts_at, range),
-                    height: heightOf(s.starts_at, s.ends_at),
-                  }}
-                  className={cn(
-                    "pointer-events-auto absolute inset-x-0.5 z-10 overflow-hidden rounded-lg border-l-4 py-1 pr-7 pl-2 text-left text-[11px] leading-tight font-bold shadow-sm ring-1 transition-shadow hover:shadow-md sm:inset-x-1 sm:text-xs",
-                    booked
-                      ? "border-primary bg-primary/15 text-primary ring-primary/30 dark:bg-primary/25"
-                      : "border-emerald-500 bg-emerald-500/10 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300"
-                  )}
-                >
-                  {/* Big, noticeable slot number in the top-right corner */}
-                  <span
-                    className={cn(
-                      "absolute top-0.5 right-0.5 flex min-w-5 items-center justify-center rounded-md px-1 text-sm font-black tabular-nums shadow-sm sm:text-base",
-                      booked
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-emerald-600 text-white"
-                    )}
-                  >
-                    {idx + 1}
+          layoutDaySlots(
+            slots.filter((s) => sameDay(new Date(s.starts_at), day)),
+            range
+          ).map(({ slot: s, top, height, leftPct, widthPct }) => {
+            const booked = s.status === "booked";
+            const appt = s.appointments?.find((a) => a.status !== "cancelled");
+            // Anything narrower than a full column is sharing the hour with
+            // another slot — that should not happen, so flag it for cleanup.
+            const clashes = widthPct < 99;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setManaged(s)}
+                title={`${format(new Date(s.starts_at), "h:mm a")} – ${format(
+                  new Date(s.ends_at),
+                  "h:mm a"
+                )}`}
+                style={{
+                  top,
+                  height,
+                  left: `calc(${leftPct}% + 2px)`,
+                  width: `calc(${widthPct}% - 4px)`,
+                }}
+                className={cn(
+                  "pointer-events-auto absolute z-10 overflow-hidden rounded-lg border-l-4 px-1.5 py-1 text-left text-[11px] leading-tight font-bold shadow-sm ring-1 transition-shadow hover:shadow-md sm:text-xs",
+                  booked
+                    ? "border-primary bg-primary/15 text-primary ring-primary/30 dark:bg-primary/25"
+                    : "border-emerald-500 bg-emerald-500/10 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300",
+                  clashes && "ring-2 ring-destructive"
+                )}
+              >
+                <span className="block">
+                  {format(new Date(s.starts_at), "h:mm")}–
+                  {format(new Date(s.ends_at), "h:mm a")}
+                </span>
+                <span className="block truncate font-medium opacity-85">
+                  {booked ? (bookedBy(s) ?? "Booked") : modeLabels[s.mode]}
+                </span>
+                {clashes && (
+                  <span className="block truncate font-semibold text-destructive">
+                    Clash!
                   </span>
-                  <span className="block">
-                    {format(new Date(s.starts_at), "h:mm")}
+                )}
+                {appt && (
+                  <span className="block truncate font-mono text-[9px] font-semibold opacity-40 sm:text-[10px]">
+                    #{appointmentCode(appt.id)}
                   </span>
-                  <span className="block truncate font-medium opacity-85">
-                    {booked ? (bookedBy(s) ?? "Booked") : modeLabels[s.mode]}
-                  </span>
-                  {appt && (
-                    <span className="block truncate font-mono text-[9px] font-semibold opacity-40 sm:text-[10px]">
-                      #{appointmentCode(appt.id)}
-                    </span>
-                  )}
-                </button>
-              );
-            })
+                )}
+              </button>
+            );
+          })
         }
       />
 
@@ -244,6 +268,12 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
                 </SelectContent>
               </Select>
             </div>
+            {/* Live duration so the length is obvious before saving. */}
+            {durationLabel && (
+              <p className="text-xs font-medium text-muted-foreground">
+                Length: {durationLabel}
+              </p>
+            )}
             {(errors.end_time || errors.date || errors.start_time) && (
               <p className="text-sm text-destructive">
                 {errors.end_time ?? errors.date ?? errors.start_time}
@@ -267,8 +297,15 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
             </div>
           </div>
           <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={() => setCreateOpen(false)}
+            >
+              Cancel
+            </Button>
             <Button disabled={pending} onClick={saveDraft}>
-              {pending ? "Saving…" : "Save"}
+              {pending ? "Saving…" : "Add free time"}
             </Button>
           </DialogFooter>
         </DialogContent>
