@@ -32,9 +32,13 @@ import {
   DEFAULT_END_HOUR,
   DEFAULT_START_HOUR,
   layoutDaySlots,
+  localInstant,
+  minutesFromTime,
   rangeForSlots,
   sameDay,
+  timeFromMinutes,
 } from "./calendar-utils";
+import { BulkSlotDialog } from "./BulkSlotDialog";
 import type { AvailabilitySlot } from "@/lib/shared/types";
 
 export type AdminSlot = AvailabilitySlot & {
@@ -72,24 +76,25 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
 
   // create dialog
   const [createOpen, setCreateOpen] = useState(false);
-  const [draft, setDraft] = useState({
-    date: "",
-    start_time: "16:00",
-    end_time: "17:00",
-    mode: "either",
-  });
+  // `day` is kept as a Date, not a "yyyy-MM-dd" string: the instant is built
+  // from local date parts so it lands in the teacher's timezone, not the
+  // server's. See localInstant().
+  const [draft, setDraft] = useState<{
+    day: Date | null;
+    start_time: string;
+    end_time: string;
+    mode: string;
+  }>({ day: null, start_time: "16:00", end_time: "17:00", mode: "either" });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // manage dialog
   const [managed, setManaged] = useState<AdminSlot | null>(null);
 
-  function openCreate(day: Date, hour: number) {
-    const start = `${String(hour).padStart(2, "0")}:00`;
-    const end = `${String(Math.min(hour + 1, DEFAULT_END_HOUR)).padStart(2, "0")}:00`;
+  function openCreate(day: Date, startMinutes: number, endMinutes: number) {
     setDraft({
-      date: format(day, "yyyy-MM-dd"),
-      start_time: start,
-      end_time: end,
+      day,
+      start_time: timeFromMinutes(startMinutes),
+      end_time: timeFromMinutes(Math.min(endMinutes, DEFAULT_END_HOUR * 60)),
       mode: "either",
     });
     setErrors({});
@@ -109,13 +114,19 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
 
   function saveDraft() {
     setErrors({});
+    const day = draft.day;
+    if (!day) return;
     startTransition(async () => {
-      const res = await createSlot(draft);
+      const res = await createSlot({
+        starts_at: localInstant(day, minutesFromTime(draft.start_time)),
+        ends_at: localInstant(day, minutesFromTime(draft.end_time)),
+        mode: draft.mode,
+      });
       if (!res.ok) {
         setErrors(res.fieldErrors ?? {});
         // Overlap/date problems come back without a field, so surface them
         // inside the dialog instead of only as a toast the teacher may miss.
-        if (!res.fieldErrors) setErrors({ date: res.error });
+        if (!res.fieldErrors) setErrors({ starts_at: res.error });
         return;
       }
       toast.success("Free time added.");
@@ -138,10 +149,13 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <BulkSlotDialog />
+      </div>
       <WeekCalendar
         anchor={anchor}
         onAnchorChange={setAnchor}
-        onCellClick={openCreate}
+        onRangeSelect={openCreate}
         range={range}
         legend={
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium">
@@ -154,7 +168,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
               Booked
             </span>
             <span className="text-muted-foreground">
-              Click an empty space to add a free time
+              Click or drag on an empty space to add a free time
             </span>
           </div>
         }
@@ -172,6 +186,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
               <button
                 key={s.id}
                 type="button"
+                data-slot-card
                 onClick={() => setManaged(s)}
                 title={`${format(new Date(s.starts_at), "h:mm a")} – ${format(
                   new Date(s.ends_at),
@@ -227,8 +242,7 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm font-bold">
-              {draft.date &&
-                format(new Date(`${draft.date}T00:00`), "EEEE, d MMMM yyyy")}
+              {draft.day && format(draft.day, "EEEE, d MMMM yyyy")}
             </p>
             <div className="flex items-center gap-2">
               <Clock className="size-4 shrink-0 text-muted-foreground" />
@@ -274,9 +288,9 @@ export function AdminCalendar({ slots }: { slots: AdminSlot[] }) {
                 Length: {durationLabel}
               </p>
             )}
-            {(errors.end_time || errors.date || errors.start_time) && (
+            {(errors.ends_at || errors.starts_at) && (
               <p className="text-sm text-destructive">
-                {errors.end_time ?? errors.date ?? errors.start_time}
+                {errors.ends_at ?? errors.starts_at}
               </p>
             )}
             <div className="space-y-2">

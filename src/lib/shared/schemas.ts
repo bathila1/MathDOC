@@ -204,19 +204,56 @@ export const surveySubmitSchema = z.object({
 
 // ---------- Availability & booking ----------
 
-export const slotSchema = z
-  .object({
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Please pick a date."),
-    start_time: z.string().regex(/^\d{2}:\d{2}$/, "Please pick a start time."),
-    end_time: z.string().regex(/^\d{2}:\d{2}$/, "Please pick an end time."),
-    mode: z.enum(["physical", "online", "either"], {
-      message: "Please choose physical, online, or either.",
-    }),
-  })
-  .refine((s) => s.start_time < s.end_time, {
+/**
+ * An absolute instant, as an ISO string.
+ *
+ * Availability MUST arrive already resolved to an instant. It used to be sent
+ * as {date, start_time} and turned into a Date on the server — but
+ * `new Date("2026-08-18T08:00")` uses the SERVER's timezone, and Vercel runs in
+ * UTC while the school is UTC+5:30. Every slot was stored 5½ hours early, so
+ * "8:00 AM" appeared to everyone as 1:30 PM. Only the browser knows the
+ * teacher's timezone, so the browser does the conversion.
+ */
+const instant = z
+  .string()
+  .trim()
+  .refine((v) => !Number.isNaN(Date.parse(v)), "That date and time isn't valid.");
+
+const slotMode = z.enum(["physical", "online", "either"], {
+  message: "Please choose physical, online, or either.",
+});
+
+/** A slot's start/end plus the shared checks both single and bulk creation need. */
+const slotTimes = z
+  .object({ starts_at: instant, ends_at: instant })
+  .refine((s) => Date.parse(s.ends_at) > Date.parse(s.starts_at), {
     message: "End time must be after the start time.",
-    path: ["end_time"],
-  });
+    path: ["ends_at"],
+  })
+  .refine(
+    (s) => Date.parse(s.ends_at) - Date.parse(s.starts_at) <= 8 * 60 * 60_000,
+    { message: "A single slot can't be longer than 8 hours.", path: ["ends_at"] }
+  );
+
+export const slotSchema = z
+  .object({ starts_at: instant, ends_at: instant, mode: slotMode })
+  .refine((s) => Date.parse(s.ends_at) > Date.parse(s.starts_at), {
+    message: "End time must be after the start time.",
+    path: ["ends_at"],
+  })
+  .refine(
+    (s) => Date.parse(s.ends_at) - Date.parse(s.starts_at) <= 8 * 60 * 60_000,
+    { message: "A single slot can't be longer than 8 hours.", path: ["ends_at"] }
+  );
+
+/** Many slots at once — "every Mon/Wed 4-5pm for the next 6 weeks". */
+export const slotBulkSchema = z.object({
+  slots: z
+    .array(slotTimes)
+    .min(1, "Pick at least one day.")
+    .max(200, "That's too many times at once — narrow the date range."),
+  mode: slotMode,
+});
 
 export const bookingSchema = z.object({
   slot_id: z.string().uuid("Please choose a time slot."),

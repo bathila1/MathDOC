@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { addDays } from "date-fns";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,8 @@ import {
   HOUR_PX,
   hoursOfDay,
   sameDay,
+  SNAP_MINUTES,
+  timeFromMinutes,
   weekDaysFor,
   type HourRange,
 } from "./calendar-utils";
@@ -23,14 +26,18 @@ export function WeekCalendar({
   anchor,
   onAnchorChange,
   renderDay,
-  onCellClick,
+  onRangeSelect,
   legend,
   range = DEFAULT_RANGE,
 }: {
   anchor: Date;
   onAnchorChange: (d: Date) => void;
   renderDay: (day: Date) => React.ReactNode;
-  onCellClick?: (day: Date, hour: number) => void;
+  /**
+   * Drag (or click) an empty area to pick a time span. Minutes are past
+   * midnight and snapped; a plain click yields a one-hour span.
+   */
+  onRangeSelect?: (day: Date, startMinutes: number, endMinutes: number) => void;
   legend?: React.ReactNode;
   /** Visible hour window — widened by callers so no slot falls outside. */
   range?: HourRange;
@@ -38,6 +45,19 @@ export function WeekCalendar({
   const days = weekDaysFor(anchor);
   const hours = hoursOfDay(range);
   const today = new Date();
+  const [drag, setDrag] = useState<{
+    day: Date;
+    fromMin: number;
+    toMin: number;
+  } | null>(null);
+
+  /** Pointer Y within a day column → snapped minutes past midnight. */
+  function minutesAt(clientY: number, el: HTMLElement): number {
+    const rect = el.getBoundingClientRect();
+    const raw = ((clientY - rect.top) / HOUR_PX + range.start) * 60;
+    const snapped = Math.round(raw / SNAP_MINUTES) * SNAP_MINUTES;
+    return Math.min(Math.max(snapped, range.start * 60), range.end * 60);
+  }
   const startOfToday = new Date(
     today.getFullYear(),
     today.getMonth(),
@@ -132,7 +152,32 @@ export function WeekCalendar({
               return (
               <div
                 key={day.toISOString()}
-                className={cn("relative border-l border-border/60", isPastDay && "bg-muted/40")}
+                className={cn(
+                  "relative border-l border-border/60",
+                  isPastDay && "bg-muted/40",
+                  onRangeSelect && !isPastDay && "cursor-crosshair touch-none"
+                )}
+                onPointerDown={(e) => {
+                  if (!onRangeSelect || isPastDay) return;
+                  // Let clicks on an existing slot card open that card instead.
+                  if ((e.target as HTMLElement).closest("[data-slot-card]")) return;
+                  const m = minutesAt(e.clientY, e.currentTarget);
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  setDrag({ day, fromMin: m, toMin: m });
+                }}
+                onPointerMove={(e) => {
+                  if (!drag || !sameDay(drag.day, day)) return;
+                  setDrag({ ...drag, toMin: minutesAt(e.clientY, e.currentTarget) });
+                }}
+                onPointerUp={() => {
+                  if (!drag || !sameDay(drag.day, day)) return;
+                  const a = Math.min(drag.fromMin, drag.toMin);
+                  const b = Math.max(drag.fromMin, drag.toMin);
+                  setDrag(null);
+                  // A tap with no movement means "one hour starting here".
+                  onRangeSelect?.(day, a, b > a ? b : a + 60);
+                }}
+                onPointerCancel={() => setDrag(null)}
               >
                 {hours.map((h) => {
                   // past cells are shaded and can't be clicked
@@ -147,16 +192,33 @@ export function WeekCalendar({
                       className={cn(
                         "border-b border-border/40",
                         cellPast && "bg-muted/30",
-                        onCellClick &&
+                        onRangeSelect &&
                           !cellPast &&
-                          "cursor-pointer transition-colors hover:bg-primary/5"
+                          "transition-colors hover:bg-primary/5"
                       )}
-                      onClick={() => {
-                        if (!cellPast) onCellClick?.(day, h);
-                      }}
                     />
                   );
                 })}
+
+                {/* live preview of the span being dragged */}
+                {drag && sameDay(drag.day, day) && (
+                  <div
+                    className="pointer-events-none absolute inset-x-1 z-30 rounded-lg border-2 border-dashed border-primary bg-primary/20 px-1 py-0.5 text-[10px] font-bold text-primary"
+                    style={{
+                      top:
+                        (Math.min(drag.fromMin, drag.toMin) / 60 - range.start) *
+                        HOUR_PX,
+                      height: Math.max(
+                        (Math.abs(drag.toMin - drag.fromMin) / 60) * HOUR_PX,
+                        18
+                      ),
+                    }}
+                  >
+                    {timeFromMinutes(Math.min(drag.fromMin, drag.toMin))}
+                    {drag.toMin !== drag.fromMin &&
+                      `–${timeFromMinutes(Math.max(drag.fromMin, drag.toMin))}`}
+                  </div>
+                )}
                 {/* slot cards re-enable pointer events on themselves;
                     overflow-hidden keeps any stray card inside the grid */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">

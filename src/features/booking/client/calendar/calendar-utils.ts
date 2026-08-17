@@ -66,6 +66,38 @@ export function sameDay(a: Date, b: Date): boolean {
   );
 }
 
+/** Snap granularity for dragging out a new slot. */
+export const SNAP_MINUTES = 30;
+
+/**
+ * Absolute instant for "this many minutes past midnight on this day", resolved
+ * in the BROWSER's timezone.
+ *
+ * This is the fix for slots landing 5½ hours early: the times must become an
+ * instant here, where the teacher's timezone is known. Building the Date from
+ * numeric parts (rather than parsing "2026-08-18T08:00") is what makes it
+ * local — a parsed wall-clock string is interpreted in whatever zone the
+ * runtime happens to use, which on the server was UTC.
+ */
+export function localInstant(day: Date, minutes: number): string {
+  const d = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0);
+  d.setMinutes(minutes);
+  return d.toISOString();
+}
+
+/** "16:30" → 990 minutes past midnight. */
+export function minutesFromTime(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+
+/** 990 → "16:30" */
+export function timeFromMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 export interface Positioned<T> {
   slot: T;
   top: number;

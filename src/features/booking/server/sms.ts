@@ -1,5 +1,5 @@
 import "server-only";
-import { format } from "date-fns";
+import { formatSchoolDateTime } from "@/lib/shared/time";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { APP_NAME } from "@/lib/shared/constants";
 import type {
@@ -25,7 +25,7 @@ export async function buildBookingSms(
   invoiceToken: string | null
 ): Promise<string> {
   void invoiceToken;
-  const when = format(new Date(slot.starts_at), "EEE d MMM yyyy 'at' h:mm a");
+  const when = formatSchoolDateTime(slot.starts_at);
   const lines = [
     `${APP_NAME}: Your ${appointment.is_follow_up ? "follow-up " : ""}session with Sir is confirmed.`,
     `Date: ${when}`,
@@ -56,7 +56,7 @@ export function adminCancelledSms(
   slot: AvailabilitySlot,
   isFollowUp: boolean
 ): string {
-  const when = format(new Date(slot.starts_at), "EEE d MMM yyyy 'at' h:mm a");
+  const when = formatSchoolDateTime(slot.starts_at);
   return [
     `${APP_NAME}: Sir has cancelled your ${isFollowUp ? "follow-up " : ""}session on ${when}.`,
     "Please book another time on the app. Sorry for the inconvenience.",
@@ -68,7 +68,7 @@ export function studentCancelledSms(
   slot: AvailabilitySlot,
   isFollowUp: boolean
 ): string {
-  const when = format(new Date(slot.starts_at), "EEE d MMM yyyy 'at' h:mm a");
+  const when = formatSchoolDateTime(slot.starts_at);
   return [
     `${APP_NAME}: Your ${isFollowUp ? "follow-up " : ""}session on ${when} has been cancelled.`,
     "You can book a new time on the app whenever you're ready.",

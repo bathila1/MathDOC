@@ -1,4 +1,5 @@
 import "server-only";
+import { formatSchoolDate, formatSchoolDateTime } from "@/lib/shared/time";
 import {
   Document,
   Page,
@@ -7,7 +8,7 @@ import {
   StyleSheet,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import { format } from "date-fns";
+
 import type { InvoiceView } from "./queries";
 import { formatPhone } from "@/lib/shared/phone";
 
@@ -79,7 +80,7 @@ export async function renderInvoicePdf(view: InvoiceView): Promise<Buffer> {
           </View>
           <View>
             <Text style={styles.label}>Issued</Text>
-            <Text>{format(new Date(invoice.issued_at), "d MMMM yyyy")}</Text>
+            <Text>{formatSchoolDate(invoice.issued_at)}</Text>
           </View>
         </View>
 
@@ -95,7 +96,7 @@ export async function renderInvoicePdf(view: InvoiceView): Promise<Buffer> {
           <Text style={styles.cellDesc}>
             One-to-one tutoring session (
             {appointment.mode === "online" ? "online" : "in person"}) —{" "}
-            {format(new Date(slot.starts_at), "EEE d MMM yyyy, h:mm a")}
+            {formatSchoolDateTime(slot.starts_at)}
           </Text>
           <Text style={styles.cellAmount}>
             Rs. {Number(invoice.amount).toLocaleString()}

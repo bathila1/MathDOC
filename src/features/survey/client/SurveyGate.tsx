@@ -83,15 +83,19 @@ export function SurveyGate({
   return (
     <>
       {/*
-        Controlled with no onOpenChange, so Escape cannot close it, plus
-        disablePointerDismissal for clicks on the backdrop. Booking is gated on
-        this dialog, so there is deliberately no way out of it except answering.
+        Every exit — the X, Escape, the Cancel button — LEAVES THE PAGE rather
+        than dismissing the dialog in place. Booking is gated on this survey, so
+        closing it must not drop the student onto the calendar behind it.
+        Backdrop clicks stay disabled so a stray tap doesn't navigate away.
       */}
-      <Dialog open={!done} disablePointerDismissal>
-        <DialogContent
-          className="max-h-[85vh] overflow-y-auto sm:max-w-lg"
-          showCloseButton={false}
-        >
+      <Dialog
+        open={!done}
+        disablePointerDismissal
+        onOpenChange={(next: boolean) => {
+          if (!next) router.push("/student");
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardList className="size-5 text-primary" />

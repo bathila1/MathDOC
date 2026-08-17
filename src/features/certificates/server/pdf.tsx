@@ -1,4 +1,5 @@
 import "server-only";
+import { formatSchoolDate } from "@/lib/shared/time";
 import {
   Document,
   Page,
@@ -7,7 +8,7 @@ import {
   StyleSheet,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import { format } from "date-fns";
+
 import type { CertificateView } from "./queries";
 
 const styles = StyleSheet.create({
@@ -88,7 +89,7 @@ export async function renderCertificatePdf(
             <View style={styles.signRow}>
               <View style={styles.signBlock}>
                 <Text style={styles.signText}>
-                  {format(new Date(certificate.issued_at), "d MMMM yyyy")}
+                  {formatSchoolDate(certificate.issued_at)}
                 </Text>
                 <Text style={styles.signLine}>Date</Text>
               </View>

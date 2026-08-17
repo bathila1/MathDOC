@@ -15,6 +15,7 @@ import { allKeysBelongTo } from "@/lib/server/keys";
 import { format } from "date-fns";
 import {
   bookingSchema,
+  slotBulkSchema,
   slotSchema,
   slotUpdateSchema,
   meetingLinkSchema,
@@ -44,13 +45,16 @@ export async function createSlot(input: unknown): Promise<ActionResult<undefined
 
   const parsed = slotSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
-  const { date, start_time, end_time, mode } = parsed.data;
+  const { mode } = parsed.data;
 
-  const starts_at = new Date(`${date}T${start_time}:00`);
-  const ends_at = new Date(`${date}T${end_time}:00`);
+  // Already absolute instants — the browser resolved them in the teacher's
+  // timezone. Parsing a wall-clock string here would use the server's zone
+  // (UTC on Vercel) and shift every slot by the offset.
+  const starts_at = new Date(parsed.data.starts_at);
+  const ends_at = new Date(parsed.data.ends_at);
   if (starts_at <= new Date()) {
     return fail("Please pick a time in the future.", {
-      date: "Please pick a time in the future.",
+      starts_at: "Please pick a time in the future.",
     });
   }
 
@@ -75,14 +79,13 @@ export async function createSlot(input: unknown): Promise<ActionResult<undefined
     | { starts_at: string; ends_at: string; status: string }
     | undefined;
   if (clash) {
-    const when = `${format(new Date(clash.starts_at), "h:mm a")}–${format(
-      new Date(clash.ends_at),
-      "h:mm a"
-    )}`;
+    // Deliberately no formatted time here: date-fns on the server formats in
+    // the SERVER's timezone, which would print a time the teacher never chose.
+    // The calendar already shows the conflicting slot.
     return fail(
-      `That overlaps a slot you already have (${when}${
-        clash.status === "booked" ? ", already booked" : ""
-      }). Pick a different time, or remove the existing one first.`
+      clash.status === "booked"
+        ? "That time overlaps a session that's already booked."
+        : "That time overlaps a slot already on your calendar. Remove it first, or pick another time."
     );
   }
 
@@ -95,6 +98,83 @@ export async function createSlot(input: unknown): Promise<ActionResult<undefined
 
   revalidatePath("/admin/availability");
   return ok(undefined);
+}
+
+/**
+ * Add many slots in one go ("every Mon & Wed, 4–5pm, for 6 weeks").
+ *
+ * Times that clash with something already on the calendar are SKIPPED rather
+ * than failing the whole batch — re-running a weekly pattern should fill in the
+ * gaps, not refuse because one week is already there. The result reports how
+ * many of each so the teacher knows what happened.
+ */
+export async function createSlotsBulk(
+  input: unknown
+): Promise<ActionResult<{ created: number; skipped: number }>> {
+  const { user } = await requireAdmin();
+  const rl = await rateLimit("form", `user:${user.id}`);
+  if (!rl.allowed) return fail(rl.message!);
+
+  const parsed = slotBulkSchema.safeParse(input);
+  if (!parsed.success) return fromZodError(parsed.error);
+  const { slots, mode } = parsed.data;
+
+  const now = Date.now();
+  const future = slots.filter((s) => Date.parse(s.starts_at) > now);
+  if (future.length === 0) {
+    return fail("All of those times are in the past. Pick a later date range.");
+  }
+
+  const windowStart = new Date(
+    Math.min(...future.map((s) => Date.parse(s.starts_at)))
+  ).toISOString();
+  const windowEnd = new Date(
+    Math.max(...future.map((s) => Date.parse(s.ends_at)))
+  ).toISOString();
+
+  const supabase = await createSupabaseServer();
+
+  // One query for the whole window instead of a clash check per slot.
+  const { data: existingRows } = await supabase
+    .from("availability_slots")
+    .select("starts_at, ends_at")
+    .lt("starts_at", windowEnd)
+    .gt("ends_at", windowStart);
+
+  const taken = ((existingRows ?? []) as { starts_at: string; ends_at: string }[])
+    .map((r) => [Date.parse(r.starts_at), Date.parse(r.ends_at)] as const);
+
+  const toInsert: { starts_at: string; ends_at: string; mode: string }[] = [];
+  for (const s of future) {
+    const from = Date.parse(s.starts_at);
+    const to = Date.parse(s.ends_at);
+    // Compare against what's stored AND what we've already accepted in this
+    // batch, so a pattern can't collide with itself.
+    const clashes = taken.some(([a, b]) => a < to && from < b);
+    if (clashes) continue;
+    taken.push([from, to]);
+    toInsert.push({
+      starts_at: new Date(from).toISOString(),
+      ends_at: new Date(to).toISOString(),
+      mode,
+    });
+  }
+
+  if (toInsert.length > 0) {
+    const { error } = await supabase
+      .from("availability_slots")
+      .insert(toInsert);
+    if (error) {
+      console.error("createSlotsBulk failed:", error.code, error.message);
+      return fail("Couldn't add those times. Please try again.");
+    }
+  }
+
+  revalidatePath("/admin/availability");
+  return ok({
+    created: toInsert.length,
+    skipped: slots.length - toInsert.length,
+  });
 }
 
 export async function deleteSlot(slotId: string): Promise<ActionResult<undefined>> {
