@@ -129,6 +129,54 @@ That 403 comes from R2 rejecting the preflight, *not* from bad credentials — a
 server-side PUT with the same presigned URL succeeds, because server requests
 are not subject to CORS.
 
+### This cannot be done with the app's API token
+
+`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` are scoped to **Object Read &
+Write**, which can upload and download objects but cannot change bucket
+configuration — `GetBucketCors` / `PutBucketCors` both return `AccessDenied`.
+The CORS rule must be set in the **Cloudflare dashboard** (or with a separate
+Admin Read & Write token). Keep the app's token object-scoped; it does not need
+more.
+
+### Where the setting actually is
+
+R2 → **Overview** → click the **`mathdoc`** bucket → **Settings** tab → scroll to
+**CORS Policy** → *Add CORS policy* → paste the JSON → **Save**.
+
+It is easy to set the wrong thing here: **CORS Policy** is a different section
+from **Public access / R2.dev subdomain** further up the same page. Turning on
+the public dev URL does nothing for uploads (see below).
+
+### Verifying it worked
+
+```bash
+curl -s -o /dev/null -D - -X OPTIONS \
+  "https://mathdoc.09f4df4c33f70ae2955172b799b60372.r2.cloudflarestorage.com/probe/x" \
+  -H "Origin: https://www.mathdoc.edu.lk" \
+  -H "Access-Control-Request-Method: PUT" \
+  -H "Access-Control-Request-Headers: content-type"
+```
+
+Before: `HTTP/1.1 403 Forbidden`, no `access-control-*` headers at all.
+After: `HTTP/1.1 200` plus `access-control-allow-origin: https://www.mathdoc.edu.lk`.
+
+A 403 for **every** origin — including ones you never listed — means no rule
+exists. A 403 for only *some* origins means the rule is there but the origin
+string does not match exactly (scheme, host and port, no trailing slash).
+
+### The public dev URL is not part of uploads
+
+`https://pub-feebe911c22f4168a32273bf87c6fde1.r2.dev` is **read-only**: a `PUT`
+to it returns `401 Unauthorized`, a `GET` returns `200`. Uploads go to the S3 API
+host (`mathdoc.<account>.r2.cloudflarestorage.com`) — a completely different
+endpoint. Enabling or disabling the dev URL has no effect on the upload error.
+
+⚠️ It is currently **enabled**, which means every uploaded object is readable by
+anyone who has the URL, with no expiry — student proof photos, diagnosis images,
+invoices. That defeats the presigned-URL design the rest of the app uses.
+`R2_PUBLIC_URL` is set in the environment but **no application code reads it**,
+so switching public access off breaks nothing. Recommended: turn it off.
+
 `content-type` is the only header the browser asks permission for; the
 `content-length` in the URL's `X-Amz-SignedHeaders` is set by the browser
 automatically and is not part of the preflight.

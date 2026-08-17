@@ -60,7 +60,7 @@ function QuestionEditor({
 }: {
   initial: EditorState;
   onSave: (state: EditorState) => Promise<boolean>;
-  trigger: React.ReactNode;
+  trigger: React.ReactElement<Record<string, unknown>>;
   title: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -79,7 +79,7 @@ function QuestionEditor({
         if (v) reset();
       }}
     >
-      <DialogTrigger render={trigger as React.ReactElement} />
+      <DialogTrigger render={trigger} />
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

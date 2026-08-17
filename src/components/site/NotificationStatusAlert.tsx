@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { subscribeToPush } from "@/lib/client/push";
+import {
+  useNotificationPermission,
+  useRequestNotificationPermission,
+} from "@/lib/client/browser";
 import { toast } from "sonner";
 import { BellOff, Bell } from "lucide-react";
 
@@ -12,33 +15,25 @@ import { BellOff, Bell } from "lucide-react";
  * hard-blocked it can't re-prompt, so we then point them to site settings.
  */
 export function NotificationStatusAlert() {
-  const [denied, setDenied] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setDenied(Notification.permission === "denied");
-    }
-  }, []);
+  // Subscribed, not read once on mount: if the student unblocks notifications
+  // in browser settings and returns to the tab, this alert now disappears by
+  // itself instead of lingering until a reload.
+  const permission = useNotificationPermission();
+  const requestPermission = useRequestNotificationPermission();
 
   async function enable() {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    try {
-      const result = await Notification.requestPermission();
-      setDenied(result === "denied");
-      if (result === "granted") {
-        toast.success("Notifications on — you're all set.");
-        subscribeToPush();
-      } else {
-        toast(
-          "Notifications are still blocked. Turn them on from your browser's site settings (tap the padlock next to the address bar)."
-        );
-      }
-    } catch {
-      /* ignore */
+    const result = await requestPermission();
+    if (result === "granted") {
+      toast.success("Notifications on — you're all set.");
+      subscribeToPush();
+    } else if (result !== "unsupported") {
+      toast(
+        "Notifications are still blocked. Turn them on from your browser's site settings (tap the padlock next to the address bar)."
+      );
     }
   }
 
-  if (!denied) return null;
+  if (permission !== "denied") return null;
 
   return (
     <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm">

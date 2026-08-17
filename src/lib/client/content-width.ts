@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
+import { useHydrated } from "./browser";
 
 /**
  * Student-area content width preference ("normal" vs "wide"), remembered in
@@ -18,26 +19,29 @@ function read(): ContentWidth {
   return window.localStorage.getItem(KEY) === "wide" ? "wide" : "normal";
 }
 
-export function useContentWidth() {
-  const [width, setWidthState] = useState<ContentWidth>("normal");
-  const [mounted, setMounted] = useState(false);
+/**
+ * localStorage is the store; `storage` covers other tabs and our own custom
+ * event covers other components in this one (storage does not fire on the tab
+ * that wrote the value).
+ */
+function subscribe(onChange: () => void): () => void {
+  window.addEventListener(EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
 
-  useEffect(() => {
-    setMounted(true);
-    setWidthState(read());
-    const sync = () => setWidthState(read());
-    window.addEventListener(EVENT, sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener(EVENT, sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
+export function useContentWidth() {
+  // read() returns a string, so React's snapshot comparison is by value and
+  // cannot loop — no memoisation needed.
+  const width = useSyncExternalStore(subscribe, read, () => "normal" as const);
+  const mounted = useHydrated();
 
   const setWidth = useCallback((w: ContentWidth) => {
     window.localStorage.setItem(KEY, w);
-    setWidthState(w);
-    // Notify other subscribers in this tab (storage event only fires cross-tab).
+    // Notify this tab's subscribers; the store read above picks up the value.
     window.dispatchEvent(new Event(EVENT));
   }, []);
 

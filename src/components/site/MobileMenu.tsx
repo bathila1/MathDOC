@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
@@ -19,7 +19,15 @@ export function MobileMenu({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  useEffect(() => setOpen(false), [pathname]);
+
+  // Close on navigation by comparing against the previous render rather than in
+  // an effect. The effect version rendered the panel open once more after the
+  // route had already changed, so the menu visibly lingered over the new page.
+  const [lastPath, setLastPath] = useState(pathname);
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    setOpen(false);
+  }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>

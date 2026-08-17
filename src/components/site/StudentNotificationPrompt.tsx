@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,10 +11,14 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { subscribeToPush } from "@/lib/client/push";
+import {
+  useNotificationPermission,
+  useRequestNotificationPermission,
+} from "@/lib/client/browser";
 import { toast } from "sonner";
 import { Bell, BellOff } from "lucide-react";
 
-type Perm = "default" | "granted" | "denied" | "unsupported";
+const DISMISS_KEY = "notif-prompt-dismissed";
 
 /**
  * Asks students to allow browser notifications. If they block them, it nags once
@@ -22,47 +26,43 @@ type Perm = "default" | "granted" | "denied" | "unsupported";
  * on the profile page (see NotificationStatusAlert).
  */
 export function StudentNotificationPrompt() {
-  const [perm, setPerm] = useState<Perm | null>(null);
-  const [open, setOpen] = useState(false);
-  const [nag, setNag] = useState(false);
+  const perm = useNotificationPermission();
+  const requestPermission = useRequestNotificationPermission();
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setPerm("unsupported");
-      return;
-    }
-    const p = Notification.permission as Perm;
-    setPerm(p);
-    const dismissed = sessionStorage.getItem("notif-prompt-dismissed");
-    if (p === "default") setOpen(true);
-    else if (p === "denied" && !dismissed) {
-      setNag(true);
-      setOpen(true);
-    }
-  }, []);
+  // Read once, lazily. On the server this is false, but `perm` is "unsupported"
+  // there so nothing renders either way — no hydration mismatch.
+  const [dismissed, setDismissed] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(DISMISS_KEY) === "1"
+  );
+
+  // Whether the student actively declined during THIS visit, which switches the
+  // dialog from an invitation to an explanation.
+  const [justDenied, setJustDenied] = useState(false);
 
   async function enable() {
-    try {
-      const result = (await Notification.requestPermission()) as Perm;
-      setPerm(result);
-      if (result === "granted") {
-        toast.success("Notifications on — you won't miss Sir's updates.");
-        setOpen(false);
-        subscribeToPush();
-      } else {
-        setNag(true); // denied → show the nag
-      }
-    } catch {
-      setNag(true);
+    const result = await requestPermission();
+    if (result === "granted") {
+      toast.success("Notifications on — you won't miss Sir's updates.");
+      subscribeToPush();
+      return; // `perm` flips to "granted" and the dialog unmounts
     }
+    setJustDenied(true);
   }
 
   function dismiss() {
-    sessionStorage.setItem("notif-prompt-dismissed", "1");
-    setOpen(false);
+    sessionStorage.setItem(DISMISS_KEY, "1");
+    setDismissed(true);
   }
 
-  if (perm === "granted" || perm === "unsupported" || perm === null) return null;
+  if (perm === "granted" || perm === "unsupported") return null;
+  if (dismissed) return null;
+
+  // Nag only when blocked — either from a previous visit or just now.
+  const nag = perm === "denied" || justDenied;
+  const open = perm === "default" || nag;
+  if (!open) return null;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && dismiss()}>

@@ -4,7 +4,7 @@ import { createSupabaseServer } from "@/lib/server/supabase";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { getAuth, requireAdmin } from "@/lib/server/auth";
 import { rateLimit } from "@/lib/server/ratelimit";
-import { allKeysBelongTo, keyBelongsTo } from "@/lib/server/keys";
+import { allKeysBelongTo } from "@/lib/server/keys";
 import { notify, notifyAdmins } from "@/features/notifications/server/notify";
 import { recalcTaskStatuses } from "./logic";
 import {
@@ -53,8 +53,6 @@ function allMediaKeys(d: TaskFormFields): string[] {
     ...(d.attachment_keys ?? []),
   ];
 }
-
-const clean = (v?: string | null) => (v && v.trim() ? v.trim() : null);
 
 /**
  * Every media key on a task form was handed to the client by our own presign

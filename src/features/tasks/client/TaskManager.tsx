@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { createSupabaseBrowser } from "@/lib/client/supabase";
 import type { DefaultTask, ProofStatus, Task } from "@/lib/shared/types";
 import {
@@ -226,9 +226,6 @@ function TaskEditor({
   const [state, setState] = useState(initial);
   const [uploading, setUploading] = useState(false);
   const [pending, startTransition] = useTransition();
-  const attachRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLInputElement>(null);
-  const imageRef = useRef<HTMLInputElement>(null);
 
   /** Append to one of the media lists. */
   function addTo(field: MediaListField, value: string) {
