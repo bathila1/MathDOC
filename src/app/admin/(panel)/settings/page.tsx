@@ -1,9 +1,14 @@
 import { requireAdmin } from "@/lib/server/auth";
-import { getPaymentsEnabled, getSetting } from "@/lib/server/settings";
+import {
+  getDebugErrorsEnabled,
+  getPaymentsEnabled,
+  getSetting,
+} from "@/lib/server/settings";
 import { PaymentsToggle } from "@/features/settings/client/PaymentsToggle";
 import { AdminNotificationSettings } from "@/features/settings/client/AdminNotificationSettings";
 import { SiteContentSettings } from "@/features/settings/client/SiteContentSettings";
 import { DataManagement } from "@/features/settings/client/DataManagement";
+import { DebugErrorsToggle } from "@/features/settings/client/DebugErrorsToggle";
 import {
   getSiteContent,
   getHeroImageUrl,
@@ -21,16 +26,21 @@ export const metadata = { title: "Settings" };
 
 export default async function AdminSettingsPage() {
   await requireAdmin();
-  const [paymentsEnabled, notifyPairs, siteContent] = await Promise.all([
-    getPaymentsEnabled(),
-    Promise.all(
-      ADMIN_NOTIFY_TYPES.map(
-        async (t) =>
-          [t.key, (await getSetting(adminNotifyKey(t.key))) !== "false"] as const
-      )
-    ),
-    getSiteContent(),
-  ]);
+  const [paymentsEnabled, debugErrors, notifyPairs, siteContent] =
+    await Promise.all([
+      getPaymentsEnabled(),
+      getDebugErrorsEnabled(),
+      Promise.all(
+        ADMIN_NOTIFY_TYPES.map(
+          async (t) =>
+            [
+              t.key,
+              (await getSetting(adminNotifyKey(t.key))) !== "false",
+            ] as const
+        )
+      ),
+      getSiteContent(),
+    ]);
   const notifyPrefs = Object.fromEntries(notifyPairs);
   const heroUrl = await getHeroImageUrl(siteContent);
 
@@ -84,6 +94,25 @@ export default async function AdminSettingsPage() {
         </CardHeader>
         <CardContent>
           <DataManagement />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl border-destructive/40">
+        <CardHeader>
+          <CardTitle>Debug errors</CardTitle>
+          <CardDescription>
+            While on, login and SMS failures show the exact underlying cause
+            instead of a friendly message — the gateway response, the config
+            key, the provider that refused. Turn it on to diagnose a problem,
+            then turn it back off:{" "}
+            <strong className="text-destructive">
+              these messages are shown to anyone on the public login page
+            </strong>
+            , not just to you.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DebugErrorsToggle enabled={debugErrors} />
         </CardContent>
       </Card>
 

@@ -25,3 +25,14 @@ export async function setSetting(key: string, value: string): Promise<void> {
 export async function getPaymentsEnabled(): Promise<boolean> {
   return (await getSetting("payments_enabled")) === "true";
 }
+
+/**
+ * Whether to report the underlying cause of a failure instead of a friendly
+ * summary. Off by default, and deliberately a stored setting rather than an
+ * env var: the point is to diagnose a live production fault without a
+ * redeploy. These messages surface on the PUBLIC login page, so the Settings
+ * card says plainly that it is meant to be switched back off.
+ */
+export async function getDebugErrorsEnabled(): Promise<boolean> {
+  return (await getSetting("debug_errors")) === "true";
+}

@@ -32,6 +32,26 @@ export async function setPaymentsEnabled(
   return ok(undefined);
 }
 
+/**
+ * Turn detailed error reporting on or off. Admin-only and rate limited like
+ * every other setting; what makes it worth a second look is that it widens
+ * what unauthenticated visitors are told when something breaks.
+ */
+export async function setDebugErrors(
+  enabled: unknown
+): Promise<ActionResult<undefined>> {
+  const { user } = await requireAdmin();
+  const rl = await rateLimit("form", `user:${user.id}`);
+  if (!rl.allowed) return fail(rl.message!);
+
+  const parsed = z.boolean().safeParse(enabled);
+  if (!parsed.success) return fail("Invalid value.");
+
+  await setSetting("debug_errors", parsed.data ? "true" : "false");
+  revalidatePath("/admin/settings");
+  return ok(undefined);
+}
+
 /** Enable/disable one category of admin notification (control centre). */
 export async function setAdminNotifyPref(
   input: unknown

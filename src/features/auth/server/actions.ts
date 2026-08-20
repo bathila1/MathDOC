@@ -15,6 +15,8 @@ import {
   type ActionResult,
 } from "@/lib/shared/action-result";
 import { recordStudentLogin } from "@/features/students/server/activity";
+import { SMS_GATEWAY_AUTH_ERROR } from "@/lib/shared/constants";
+import { getDebugErrorsEnabled } from "@/lib/server/settings";
 import { redirect } from "next/navigation";
 
 /** Step 1 of student login: send a one-time code by SMS. */
@@ -54,9 +56,21 @@ export async function requestOtp(input: {
 
   if (error) {
     console.error("signInWithOtp failed:", error.status, error.message);
-    // Production keeps the reason private (it can name providers/config).
-    // Locally, surfacing it turns a dead end into an actionable message.
-    if (process.env.NODE_ENV !== "production") {
+    const debug = await getDebugErrorsEnabled();
+
+    // Our own Send-SMS hook raised this and Supabase relayed it verbatim.
+    // Named even with debug off: it is a fault no amount of retrying can work
+    // around, so "check the number" only wastes the student's time and hides
+    // an outage from whoever can actually fix it. Debug mode adds the precise
+    // gateway reason the hook appended.
+    if (error.message?.includes(SMS_GATEWAY_AUTH_ERROR)) {
+      return fail(debug ? error.message : SMS_GATEWAY_AUTH_ERROR);
+    }
+
+    // Otherwise the reason stays private unless someone asked for it — it can
+    // name providers and config keys. Local dev always shows it, since there
+    // a dead end is just a slower way to learn the same thing.
+    if (debug || process.env.NODE_ENV !== "production") {
       return fail(`Supabase couldn't send the OTP: ${error.message}`);
     }
     return fail(
@@ -97,6 +111,11 @@ export async function verifyOtp(input: {
   });
 
   if (error || !data.user) {
+    if (await getDebugErrorsEnabled()) {
+      return fail(
+        `OTP verification failed: ${error?.message ?? "no user returned"}`
+      );
+    }
     return fail("That code didn't match. Please check the SMS and try again.");
   }
 
@@ -140,6 +159,11 @@ export async function adminLogin(input: {
   });
 
   if (error || !data.user) {
+    // Supabase answers wrong-email and wrong-password identically, so even
+    // the detailed form here does not reveal whether an account exists.
+    if (await getDebugErrorsEnabled()) {
+      return fail(`Admin login failed: ${error?.message ?? "no user returned"}`);
+    }
     return fail("Incorrect email or password.");
   }
 

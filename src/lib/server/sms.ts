@@ -79,12 +79,22 @@ interface TokenSet {
   accessExpiresAt: number;
 }
 
+/**
+ * The two ways authenticating to Hutch can fail, kept apart because only one
+ * of them is an operator's problem to fix.
+ */
+type AuthFailure = Extract<SendSmsFailure, "gateway_auth" | "gateway_rejected">;
+
+type AuthAttempt =
+  | { tokens: TokenSet; error?: undefined }
+  | { tokens?: undefined; error: AuthFailure };
+
 // Module-scoped: one process reuses tokens instead of logging in per message.
 // Serverless cold starts simply log in again, which is correct but slower.
 let tokens: TokenSet | null = null;
 // Single-flight guard: a burst of sends must not fire N concurrent logins
 // against the customer's account (which can look like credential stuffing).
-let authInFlight: Promise<TokenSet | null> | null = null;
+let authInFlight: Promise<AuthAttempt> | null = null;
 
 /**
  * Read `exp` out of a JWT to schedule renewal. This is OUR token from Hutch —
@@ -104,10 +114,10 @@ function expiryFromJwt(token: string): number {
   return Date.now() + 5 * 60_000;
 }
 
-async function login(): Promise<TokenSet | null> {
+async function login(): Promise<AuthAttempt> {
   const username = process.env.HUTCH_SMS_USERNAME;
   const password = process.env.HUTCH_SMS_PASSWORD;
-  if (!username || !password) return null;
+  if (!username || !password) return { error: "gateway_auth" };
 
   const res = await hutchFetch("/login", {
     method: "POST",
@@ -117,7 +127,17 @@ async function login(): Promise<TokenSet | null> {
   if (!res.ok) {
     // Deliberately does not echo the response body or the credentials.
     console.error(`Hutch SMS login failed: HTTP ${res.status}`);
-    return null;
+    // 401/403 means the account itself is the problem — wrong password,
+    // expired, or suspended — and no retry will help until someone rotates
+    // the credentials. Any other status is Hutch being unwell, which is worth
+    // telling apart so we don't send an operator chasing a password that was
+    // never wrong.
+    return {
+      error:
+        res.status === 401 || res.status === 403
+          ? "gateway_auth"
+          : "gateway_rejected",
+    };
   }
 
   const data = (await res.json().catch(() => null)) as {
@@ -126,13 +146,15 @@ async function login(): Promise<TokenSet | null> {
   } | null;
   if (!data?.accessToken || !data?.refreshToken) {
     console.error("Hutch SMS login returned no tokens.");
-    return null;
+    return { error: "gateway_auth" };
   }
 
   return {
-    accessToken: data.accessToken,
-    refreshToken: data.refreshToken,
-    accessExpiresAt: expiryFromJwt(data.accessToken),
+    tokens: {
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      accessExpiresAt: expiryFromJwt(data.accessToken),
+    },
   };
 }
 
@@ -161,14 +183,18 @@ async function renew(refreshToken: string): Promise<TokenSet | null> {
   };
 }
 
+type TokenResult =
+  | { token: string; error?: undefined }
+  | { token?: undefined; error: AuthFailure };
+
 /** Current access token, renewing or logging in as needed. */
-async function getAccessToken(forceRefresh = false): Promise<string | null> {
+async function getAccessToken(forceRefresh = false): Promise<TokenResult> {
   if (
     !forceRefresh &&
     tokens &&
     Date.now() < tokens.accessExpiresAt - EXPIRY_SKEW_MS
   ) {
-    return tokens.accessToken;
+    return { token: tokens.accessToken };
   }
 
   // Coalesce concurrent callers onto one login/renew.
@@ -176,7 +202,7 @@ async function getAccessToken(forceRefresh = false): Promise<string | null> {
     authInFlight = (async () => {
       if (tokens?.refreshToken) {
         const renewed = await renew(tokens.refreshToken);
-        if (renewed) return renewed;
+        if (renewed) return { tokens: renewed };
       }
       return login();
     })().finally(() => {
@@ -184,15 +210,37 @@ async function getAccessToken(forceRefresh = false): Promise<string | null> {
     });
   }
 
-  tokens = await authInFlight;
-  return tokens?.accessToken ?? null;
+  const attempt = await authInFlight;
+  tokens = attempt.tokens ?? null;
+  return attempt.tokens
+    ? { token: attempt.tokens.accessToken }
+    : { error: attempt.error };
 }
 
 // ---------------- sending ----------------
 
+/**
+ * Why a send failed. Callers map this to a message for their own audience —
+ * the same failure is a log line for a booking confirmation but a blocking
+ * error on the login form.
+ */
+export type SendSmsFailure =
+  /** HUTCH_SMS_* missing from the environment. */
+  | "not_configured"
+  /** Hutch refused our account credentials. */
+  | "gateway_auth"
+  /** Not a Sri Lankan mobile in 947XXXXXXXX form. */
+  | "bad_number"
+  /** Hutch authenticated us but refused the message. */
+  | "gateway_rejected"
+  /** Timeout or transport failure reaching Hutch. */
+  | "network";
+
 export interface SendSmsResult {
   sent: boolean;
   error?: string;
+  /** Absent when `sent` is true. */
+  reason?: SendSmsFailure;
   /** Hutch's reference for a delivered message, useful for support tickets. */
   serverRef?: number;
 }
@@ -217,13 +265,21 @@ export async function sendSms(
       "SMS not sent: Hutch credentials are missing (HUTCH_SMS_USERNAME / " +
         "HUTCH_SMS_PASSWORD / HUTCH_SMS_MASK)."
     );
-    return { sent: false, error: "SMS is not configured." };
+    return {
+      sent: false,
+      reason: "not_configured",
+      error: "SMS is not configured.",
+    };
   }
 
   const numbers = toMsisdn(phoneE164);
   if (!/^94\d{9}$/.test(numbers)) {
     console.error(`SMS not sent: bad number format ${maskNumber(numbers)}`);
-    return { sent: false, error: "That mobile number looks wrong." };
+    return {
+      sent: false,
+      reason: "bad_number",
+      error: "That mobile number looks wrong.",
+    };
   }
 
   const content = message.slice(0, MAX_CONTENT_LENGTH);
@@ -235,25 +291,33 @@ export async function sendSms(
     content,
   });
 
+  /** Both auth call sites fail the same way; keep the mapping in one place. */
+  const authFailed = (error: AuthFailure): SendSmsResult => ({
+    sent: false,
+    reason: error,
+    error:
+      error === "gateway_auth"
+        ? "The SMS gateway rejected our credentials."
+        : "Could not reach the SMS gateway.",
+  });
+
   try {
-    let token = await getAccessToken();
-    if (!token) return { sent: false, error: "Could not reach the SMS gateway." };
+    const auth = await getAccessToken();
+    if (auth.error) return authFailed(auth.error);
 
     let res = await hutchFetch("/sendsms", {
       method: "POST",
-      bearer: token,
+      bearer: auth.token,
       body,
     });
 
     // Access token expired mid-flight — renew once and retry, per the guide.
     if (res.status === 401) {
-      token = await getAccessToken(true);
-      if (!token) {
-        return { sent: false, error: "Could not reach the SMS gateway." };
-      }
+      const retry = await getAccessToken(true);
+      if (retry.error) return authFailed(retry.error);
       res = await hutchFetch("/sendsms", {
         method: "POST",
-        bearer: token,
+        bearer: retry.token,
         body,
       });
     }
@@ -264,7 +328,16 @@ export async function sendSms(
       console.error(
         `Hutch SMS send failed for ${maskNumber(numbers)}: HTTP ${res.status} ${detail.slice(0, 200)}`
       );
-      return { sent: false, error: "The SMS gateway rejected the message." };
+      // A 401 that survived the renew-and-retry above is a credential
+      // problem, not a bad message — report it as one.
+      return {
+        sent: false,
+        reason: res.status === 401 ? "gateway_auth" : "gateway_rejected",
+        error:
+          res.status === 401
+            ? "The SMS gateway rejected our credentials."
+            : "The SMS gateway rejected the message.",
+      };
     }
 
     const data = (await res.json().catch(() => null)) as {
@@ -277,6 +350,10 @@ export async function sendSms(
       `Hutch SMS request ${timedOut ? "timed out" : "failed"} for ${maskNumber(numbers)}`,
       e
     );
-    return { sent: false, error: "Could not reach the SMS gateway." };
+    return {
+      sent: false,
+      reason: "network",
+      error: "Could not reach the SMS gateway.",
+    };
   }
 }

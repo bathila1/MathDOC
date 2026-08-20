@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Webhook } from "standardwebhooks";
 import { sendSms } from "@/lib/server/sms";
-import { APP_NAME } from "@/lib/shared/constants";
+import { APP_NAME, SMS_GATEWAY_AUTH_ERROR } from "@/lib/shared/constants";
+import { getDebugErrorsEnabled } from "@/lib/server/settings";
 
 /**
  * Supabase Auth "Send SMS" hook. Supabase calls this endpoint whenever it
- * needs to deliver an OTP; we forward the code through SMSLenz.
+ * needs to deliver an OTP; we forward the code through Hutch.
  * Configure in Supabase: Auth → Hooks → Send SMS hook → HTTPS →
  *   https://<your-domain>/api/auth/sms-hook  (secret goes in SUPABASE_AUTH_HOOK_SECRET)
  */
@@ -55,8 +56,34 @@ export async function POST(request: NextRequest) {
   );
 
   if (!result.sent) {
+    // Supabase relays this message back through signInWithOtp, so it is what
+    // the student ends up reading. A credential failure gets named rather
+    // than blamed on the number — it takes an operator to fix, and the
+    // generic wording had people re-typing a number that was never wrong.
+    const credentialFailure =
+      result.reason === "gateway_auth" || result.reason === "not_configured";
+
+    if (credentialFailure) {
+      console.error(
+        "STUDENT LOGIN IS DOWN: could not authenticate to the Hutch SMS " +
+          `gateway (${result.reason}). No OTP can be delivered until the ` +
+          "HUTCH_SMS_* credentials are fixed — see docs/sms-otp-setup.md."
+      );
+    }
+
+    const message = credentialFailure
+      ? SMS_GATEWAY_AUTH_ERROR
+      : (result.error ?? "SMS failed.");
+
+    // Debug mode (admin → Settings) appends which of the failure modes it
+    // was, so an operator can tell a wrong password from a Hutch outage
+    // without reading the server logs.
+    const detailed = (await getDebugErrorsEnabled())
+      ? `${message} (reason: ${result.reason})`
+      : message;
+
     return NextResponse.json(
-      { error: { http_code: 502, message: result.error ?? "SMS failed." } },
+      { error: { http_code: 502, message: detailed } },
       { status: 502 }
     );
   }

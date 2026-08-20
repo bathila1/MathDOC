@@ -1,4 +1,13 @@
 export const APP_NAME = "MathDOC";
+
+/**
+ * Shown on /login when the SMS gateway refuses our credentials. Deliberately
+ * names the cause: "check the number" sends a student chasing a fault that is
+ * ours, and only an operator can fix this one (see docs/sms-otp-setup.md).
+ * The Send-SMS hook returns this string and Supabase passes it back through
+ * signInWithOtp, so both ends must use this constant, not a copy.
+ */
+export const SMS_GATEWAY_AUTH_ERROR = "Hutch SMS Gateway Authentication Error.";
 export const TEACHER_NAME = "Sir"; // display name used across the UI
 
 // Appointment price in LKR (payment gateway comes later; invoice uses this)
