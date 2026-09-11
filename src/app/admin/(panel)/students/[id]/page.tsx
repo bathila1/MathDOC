@@ -36,7 +36,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import { Award, ExternalLink, Lock } from "lucide-react";
 
 export const metadata = { title: "Student" };

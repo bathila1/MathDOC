@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BackLink } from "@/components/site/BackLink";
 import { BookedSessionCard } from "@/features/booking/client/BookedSessionCard";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 
 export const metadata = { title: "My sessions" };
 

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ImagePlus, Loader2, Send, X } from "lucide-react";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import type { TaskMessage } from "@/lib/shared/types";
 
 /**

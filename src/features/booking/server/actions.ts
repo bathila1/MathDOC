@@ -12,7 +12,7 @@ import {
 } from "./sms";
 import { notify, notifyAdmins } from "@/features/notifications/server/notify";
 import { allKeysBelongTo } from "@/lib/server/keys";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import {
   bookingSchema,
   slotBulkSchema,

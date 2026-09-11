@@ -1,6 +1,6 @@
 "use client";
 
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import type { SurveyQuestion, SurveyResponse } from "@/lib/shared/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

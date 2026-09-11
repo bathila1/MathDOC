@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireStudent } from "@/lib/server/auth";
-import { getPaymentsEnabled } from "@/lib/server/settings";
+import { getPaymentsEnabled, getSmsEnabled } from "@/lib/server/settings";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import type {
   Appointment,
@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import { CheckCircle2 } from "lucide-react";
 
 export const metadata = { title: "Booking confirmed" };
@@ -46,7 +46,13 @@ export default async function ConfirmedPage({
   const slot = appt.availability_slots;
   // The invoice is meaningless until the payment gateway is live, so the
   // link only appears once payments are switched on in admin Settings.
-  const paymentsEnabled = await getPaymentsEnabled();
+  // Likewise the SMS line: while sending is off nothing is texted, and
+  // promising a message that will never arrive is how a student ends up
+  // waiting for it instead of reading the details right here.
+  const [paymentsEnabled, smsEnabled] = await Promise.all([
+    getPaymentsEnabled(),
+    getSmsEnabled(),
+  ]);
 
   return (
     <div className="mx-auto max-w-md space-y-6 text-center">
@@ -55,7 +61,9 @@ export default async function ConfirmedPage({
         <CardHeader>
           <CardTitle>Your session is booked! 🎉</CardTitle>
           <CardDescription>
-            We&apos;ve sent all the details to your phone by SMS.
+            {smsEnabled
+              ? "We've sent all the details to your phone by SMS."
+              : "Here are the details — you'll also find them on your dashboard."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">

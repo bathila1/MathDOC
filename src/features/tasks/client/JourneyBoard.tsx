@@ -28,7 +28,7 @@ import {
   Hourglass,
   Zap,
 } from "lucide-react";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import type {
   ProofStatus,
   StudentFlag,

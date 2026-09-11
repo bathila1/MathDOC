@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BackLink } from "@/components/site/BackLink";
 import { appointmentCode } from "@/lib/shared/appointments";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import { formatPhone } from "@/lib/shared/phone";
 import { Award, ChevronRight } from "lucide-react";
 

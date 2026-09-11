@@ -10,7 +10,7 @@ import type { StudentTeacherNote } from "@/lib/shared/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import { Plus, Trash2 } from "lucide-react";
 
 /** Private, admin-only notes about a student, shown as timestamped cards. */

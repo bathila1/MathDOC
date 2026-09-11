@@ -3,7 +3,7 @@ import { getCertificateByToken } from "@/features/certificates/server/queries";
 import { clientIp, rateLimit } from "@/lib/server/ratelimit";
 import { PrintButton } from "@/features/invoices/client/PrintButton";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import { Award, Download } from "lucide-react";
 
 export const metadata = { title: "Certificate" };

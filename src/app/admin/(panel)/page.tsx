@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { format, startOfDay, endOfDay, addDays } from "date-fns";
+import { addDays } from "date-fns";
+import { formatSchool as format, schoolDayRange } from "@/lib/shared/time";
 import {
   Bell,
   CalendarCheck,
@@ -39,6 +40,10 @@ export default async function AdminDashboard() {
   await requireAdmin();
   const supabase = await createSupabaseServer();
   const now = new Date();
+  // Sri Lankan midnight-to-midnight. date-fns startOfDay/endOfDay would use
+  // the SERVER's day — a UTC one on Vercel, running 05:30 to 05:29 Colombo —
+  // which dropped early-morning sessions out of "today" entirely.
+  const todayRange = schoolDayRange(now);
 
   const [
     todayRes,
@@ -54,8 +59,8 @@ export default async function AdminDashboard() {
       .from("appointments")
       .select("*, availability_slots!inner(*), profiles(full_name)")
       .in("status", ["confirmed", "pending_payment"])
-      .gte("availability_slots.starts_at", startOfDay(now).toISOString())
-      .lte("availability_slots.starts_at", endOfDay(now).toISOString()),
+      .gte("availability_slots.starts_at", todayRange.start)
+      .lte("availability_slots.starts_at", todayRange.end),
     // Shared with the sidebar badge via React cache — see countPendingProofs.
     countPendingProofs(),
     supabase

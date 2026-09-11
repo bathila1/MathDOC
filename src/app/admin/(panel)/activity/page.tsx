@@ -24,7 +24,8 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import { Flag } from "lucide-react";
 
 export const metadata = { title: "Activity" };

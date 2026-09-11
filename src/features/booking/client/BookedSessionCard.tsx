@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import { safeExternalUrl } from "@/lib/shared/url";
 import { MapPin, Video, X } from "lucide-react";
 

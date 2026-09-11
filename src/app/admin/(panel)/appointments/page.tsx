@@ -19,7 +19,7 @@ import type {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatPhone } from "@/lib/shared/phone";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import { CalendarCheck, Laptop, Users } from "lucide-react";
 
 export const metadata = { title: "Appointments" };

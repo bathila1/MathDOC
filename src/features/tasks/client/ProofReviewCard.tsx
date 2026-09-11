@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Check, Clock, ExternalLink, X } from "lucide-react";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 
 export interface ProofForReview {
   id: string;

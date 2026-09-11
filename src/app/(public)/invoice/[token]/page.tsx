@@ -5,7 +5,7 @@ import { PrintButton } from "@/features/invoices/client/PrintButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { format } from "date-fns";
+import { formatSchool as format } from "@/lib/shared/time";
 import { Download } from "lucide-react";
 import { formatPhone } from "@/lib/shared/phone";
 
