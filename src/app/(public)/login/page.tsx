@@ -1,5 +1,5 @@
 import { AuthSplit } from "@/components/site/AuthSplit";
-import { PhoneLoginForm } from "@/features/auth/client/PhoneLoginForm";
+import { EmailLoginForm } from "@/features/auth/client/EmailLoginForm";
 import { redirectIfSignedIn } from "@/lib/server/auth";
 
 export const metadata = { title: "Student login" };
@@ -7,14 +7,18 @@ export const metadata = { title: "Student login" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
   await redirectIfSignedIn(next);
 
   return (
     <AuthSplit>
-      <PhoneLoginForm />
+      <EmailLoginForm
+        linkError={
+          error === "link" || error === "link-browser" ? error : null
+        }
+      />
     </AuthSplit>
   );
 }

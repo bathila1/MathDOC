@@ -26,7 +26,8 @@ export function AddStudentDialog() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -36,16 +37,23 @@ export function AddStudentDialog() {
     setError(null);
     setFieldErrors({});
     startTransition(async () => {
-      const res = await createStudent({ full_name: fullName, phone });
+      const res = await createStudent({
+        full_name: fullName,
+        email,
+        password,
+      });
       if (!res.ok) {
         setError(res.error);
         setFieldErrors(res.fieldErrors ?? {});
         return;
       }
-      toast.success(`${fullName} added. They can log in with that number.`);
+      toast.success(
+        `${fullName} added. They log in with ${email} and the password you set.`
+      );
       setOpen(false);
       setFullName("");
-      setPhone("");
+      setEmail("");
+      setPassword("");
       router.refresh();
     });
   }
@@ -63,8 +71,8 @@ export function AddStudentDialog() {
         <DialogHeader>
           <DialogTitle>Add a student</DialogTitle>
           <DialogDescription>
-            For students who signed up in person. They log in with this number —
-            no password, just the SMS code.
+            For students who enrolled in person. Set a first password and hand
+            it to them — they can change it from their profile page.
           </DialogDescription>
         </DialogHeader>
 
@@ -84,23 +92,46 @@ export function AddStudentDialog() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="new-phone">Mobile number</Label>
+            <Label htmlFor="new-email">Email address</Label>
             <Input
-              id="new-phone"
-              type="tel"
-              inputMode="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="0771234567"
+              id="new-email"
+              type="email"
+              inputMode="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="student@example.com"
             />
-            {fieldErrors.phone && (
-              <p className="text-sm text-destructive">{fieldErrors.phone}</p>
+            {fieldErrors.email && (
+              <p className="text-sm text-destructive">{fieldErrors.email}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-password">First password</Label>
+            <Input
+              id="new-password"
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 10 characters"
+              autoComplete="off"
+            />
+            {fieldErrors.password ? (
+              <p className="text-sm text-destructive">{fieldErrors.password}</p>
+            ) : (
+              // Shown as plain text on purpose: the teacher has to read this
+              // out to the student, and a masked box they cannot check is how
+              // typos become "the login doesn't work".
+              <p className="text-xs text-muted-foreground">
+                At least 10 characters, including a letter and a number. Write
+                it down for them before saving.
+              </p>
             )}
           </div>
 
           <p className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
-            They&apos;ll be asked for their school, grade and guardian details
-            the first time they log in.
+            They&apos;ll be asked for their phone number, school, grade and
+            guardian details the first time they log in.
           </p>
 
           {error && <p className="text-sm text-destructive">{error}</p>}

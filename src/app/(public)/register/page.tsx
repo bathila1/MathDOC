@@ -17,6 +17,7 @@ export default async function RegisterPage() {
         mode={p.profile_completed ? "edit" : "register"}
         initial={{
           full_name: p.full_name,
+          phone: p.phone,
           school: p.school,
           grade: p.grade,
           guardian_name: p.guardian_name,

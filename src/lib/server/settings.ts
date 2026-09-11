@@ -27,6 +27,23 @@ export async function getPaymentsEnabled(): Promise<boolean> {
 }
 
 /**
+ * Whether the SMS gateway may be called at all.
+ *
+ * Defaults to ON (`!== "false"`, not `=== "true"`) so an absent row means
+ * "behave as before" rather than silently muting every message the day this
+ * shipped.
+ *
+ * The point of the switch is the Hutch outage: while the gateway refuses our
+ * credentials every send burns a 15-second timeout and writes an error to the
+ * log, which buries real problems. Turning it off makes "we are not texting
+ * anyone at the moment" a deliberate, visible state instead of a wall of
+ * failures.
+ */
+export async function getSmsEnabled(): Promise<boolean> {
+  return (await getSetting("sms_enabled")) !== "false";
+}
+
+/**
  * Whether to report the underlying cause of a failure instead of a friendly
  * summary. Off by default, and deliberately a stored setting rather than an
  * env var: the point is to diagnose a live production fault without a

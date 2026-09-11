@@ -82,19 +82,100 @@ export const turnstileField = z
   .optional()
   .default("");
 
-export const otpRequestSchema = z.object({
-  phone: phoneField,
+/**
+ * Email as an identity. Lowercased because Supabase treats addresses
+ * case-insensitively and `profiles.email` is uniquely indexed on
+ * `lower(email)` — storing "A@b.lk" verbatim would eventually collide with a
+ * signup for "a@b.lk". 254 is the RFC 5321 maximum.
+ */
+export const emailField = z
+  .string()
+  .trim()
+  .min(1, "Please enter your email address.")
+  .max(254, "That email address is too long.")
+  .transform((v) => v.toLowerCase())
+  .pipe(z.string().email("Please enter a valid email address."));
+
+/**
+ * A NEW password (signup, reset, change).
+ *
+ * Length is the control that actually buys resistance to guessing, so the
+ * floor is 10 rather than Supabase's default 6. The character rule is
+ * deliberately mild — demanding symbols and mixed case mostly produces
+ * "Password1!" and a note stuck to the monitor, which is worse than a longer
+ * simple passphrase.
+ *
+ * The 72-BYTE ceiling is not cosmetic: bcrypt silently ignores everything past
+ * byte 72, so a longer secret would look stronger than it is. Measured in
+ * bytes, not characters, because one emoji or Sinhala glyph is several bytes.
+ *
+ * The letter/number test uses the Unicode classes p{L} and p{N} rather than
+ * [a-zA-Z] and d: students here may well pick a Sinhala or Tamil passphrase,
+ * and an ASCII-only test would reject a perfectly strong one purely for not
+ * being in the Latin script.
+ */
+export const newPasswordField = z
+  .string()
+  .min(10, "Use at least 10 characters.")
+  .refine((v) => new TextEncoder().encode(v).length <= 72, {
+    message: "That password is too long (72 bytes maximum).",
+  })
+  .refine((v) => /\p{L}/u.test(v) && /\p{N}/u.test(v), {
+    message: "Include at least one letter and one number.",
+  })
+  .refine((v) => !/^(.)\1+$/u.test(v), {
+    message: "That password is too simple.",
+  });
+
+/** Shared by every form that asks for a password twice. */
+const confirmPasswordMatches = <T extends { password: string; confirmPassword: string }>(
+  schema: z.ZodType<T>
+) =>
+  schema.refine((v) => v.password === v.confirmPassword, {
+    message: "Both passwords must match.",
+    path: ["confirmPassword"],
+  });
+
+export const signUpSchema = confirmPasswordMatches(
+  z.object({
+    email: emailField,
+    password: newPasswordField,
+    confirmPassword: z.string(),
+    turnstileToken: turnstileField,
+  })
+);
+
+export const emailLoginSchema = z.object({
+  email: emailField,
+  // Deliberately NOT newPasswordField: an existing password only has to be
+  // typed back. Applying today's strength rules at the login gate would lock
+  // out every account created before those rules existed.
+  password: z.string().min(1, "Please enter your password."),
   turnstileToken: turnstileField,
 });
 
-export const otpVerifySchema = z.object({
-  phone: phoneField,
-  code: z
-    .string()
-    .trim()
-    .regex(/^\d{6}$/, "The code is the 6-digit number we sent by SMS."),
+export const forgotPasswordSchema = z.object({
+  email: emailField,
   turnstileToken: turnstileField,
 });
+
+export const resetPasswordSchema = confirmPasswordMatches(
+  z.object({
+    password: newPasswordField,
+    confirmPassword: z.string(),
+  })
+);
+
+export const changePasswordSchema = confirmPasswordMatches(
+  z.object({
+    // Proves the person at the keyboard is the account holder and not someone
+    // who sat down at an unlocked laptop. Supabase's updateUser() does not
+    // check this itself, so the action re-authenticates with it.
+    currentPassword: z.string().min(1, "Please enter your current password."),
+    password: newPasswordField,
+    confirmPassword: z.string(),
+  })
+);
 
 export const adminLoginSchema = z.object({
   // Accepts a plain username ("sir") or a full email address; usernames are
@@ -123,6 +204,10 @@ const requiredText = (max: number, label: string) =>
 
 export const profileSchema = z.object({
   full_name: requiredText(100, "Name"),
+  // Collected here now that login is by email. It used to arrive from the OTP
+  // itself, so nothing ever asked for it; Sir still needs a number to call,
+  // and booking confirmations still text it.
+  phone: phoneField,
   school: requiredText(120, "School name"),
   grade: requiredText(30, "Grade"),
   guardian_name: requiredText(100, "Guardian name"),
@@ -132,10 +217,17 @@ export const profileSchema = z.object({
   address: requiredText(300, "Address"),
 });
 
-/** Teacher adding a student by hand — the student fills in the rest later. */
+/**
+ * Teacher adding a student by hand, for someone who enrolled in person.
+ *
+ * The teacher sets the first password and hands it over face to face, which is
+ * what makes this work with no email delivery configured at all — the student
+ * changes it from their profile page afterwards.
+ */
 export const newStudentSchema = z.object({
   full_name: requiredText(100, "Name"),
-  phone: phoneField,
+  email: emailField,
+  password: newPasswordField,
 });
 
 export const clearDataSchema = z.object({

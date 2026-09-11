@@ -22,6 +22,8 @@ export interface Profile {
   role: Role;
   full_name: string | null;
   phone: string | null;
+  /** Login identity, mirrored from auth.users by trigger (migration 024). */
+  email: string | null;
   school: string | null;
   grade: string | null;
   guardian_name: string | null;

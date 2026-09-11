@@ -1,10 +1,23 @@
-# SMS OTP setup (Hutch + Supabase)
+# SMS setup (Hutch + Supabase)
 
-How student login actually works, and the exact steps to make it work in
-production. There is no simulated login any more — this path must work or
-nobody can sign in.
+> **Student login no longer uses this.** It moved to email + password after the
+> Hutch gateway stopped accepting our credentials and took the whole front door
+> down with it — see **[email-auth-setup.md](email-auth-setup.md)**.
+>
+> Hutch still sends booking confirmations and certificate links, so everything
+> below still applies to those. The OTP chain described in "The chain" is
+> retained as history: `requestOtp` no longer exists, and the Send-SMS hook is
+> only called if you re-enable phone auth in Supabase.
+>
+> **While the gateway is down, turn sending off** at Admin → Settings →
+> **Text messages (SMS)**. Sends then return immediately instead of spending 15
+> seconds each on a gateway that will refuse them. Turn it back on once the
+> credentials are fixed.
 
-## The chain
+How SMS delivery works, and the exact steps to make it work in production.
+There is no simulated fallback — this path works or no message is sent.
+
+## The chain (historic — this was the login path)
 
 ```
 /login  →  requestOtp (server action)

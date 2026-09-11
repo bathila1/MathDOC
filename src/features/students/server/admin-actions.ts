@@ -6,7 +6,6 @@ import { requireAdmin } from "@/lib/server/auth";
 import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { rateLimit } from "@/lib/server/ratelimit";
 import { newStudentSchema } from "@/lib/shared/schemas";
-import { toMsisdn } from "@/lib/shared/phone";
 import {
   ok,
   fail,
@@ -15,16 +14,20 @@ import {
 } from "@/lib/shared/action-result";
 
 /**
- * Add a student by hand, for someone who signed up in person.
+ * Add a student by hand, for someone who enrolled in person.
  *
- * Creates the Supabase auth user with the phone already confirmed, so the
- * student can log in with an OTP straight away — no invite or password. The
- * `on_auth_user_created` trigger creates the matching profile row; we then fill
- * in the name.
+ * Creates the Supabase auth user with the email already confirmed and an
+ * initial password the teacher hands over face to face. Confirming it here is
+ * the point: it means adding a student needs no working outbound email at all,
+ * so this path keeps functioning even when nothing else can reach an inbox.
+ * The student changes the password from their profile page afterwards.
  *
- * `profile_completed` is deliberately left false: school, grade and guardian
- * details are still missing, so the student is sent to /register on first login
- * to finish their own record rather than the teacher guessing.
+ * The `on_auth_user_created` trigger creates the matching profile row; we then
+ * fill in the name.
+ *
+ * `profile_completed` is deliberately left false: phone, school, grade and
+ * guardian details are still missing, so the student is sent to /register on
+ * first login to finish their own record rather than the teacher guessing.
  */
 export async function createStudent(
   input: unknown
@@ -35,39 +38,42 @@ export async function createStudent(
 
   const parsed = newStudentSchema.safeParse(input);
   if (!parsed.success) return fromZodError(parsed.error);
-  const { full_name, phone } = parsed.data;
+  const { full_name, email, password } = parsed.data;
 
   const admin = createSupabaseAdmin();
 
-  // profiles.phone is UNIQUE, so check first and give a useful message instead
-  // of a raw 23505 from the trigger.
+  // profiles.email is uniquely indexed on lower(email); the schema already
+  // lowercased it. Checking first turns a raw 23505 into a message that names
+  // who holds the address.
   const { data: existing } = await admin
     .from("profiles")
     .select("id, full_name")
-    .eq("phone", phone)
+    .eq("email", email)
     .maybeSingle();
   if (existing) {
     return fail(
-      `That number already belongs to ${
+      `That email already belongs to ${
         (existing as { full_name: string | null }).full_name ?? "another student"
       }.`,
-      { phone: "This number is already registered." }
+      { email: "This email is already registered." }
     );
   }
 
-  // Supabase stores auth.users.phone WITHOUT the leading "+" (the trigger adds
-  // it back when writing profiles.phone).
   const { data: created, error } = await admin.auth.admin.createUser({
-    phone: toMsisdn(phone),
-    phone_confirm: true,
+    email,
+    password,
+    email_confirm: true,
   });
 
   if (error || !created.user) {
     console.error("createStudent auth failed:", error?.message);
     return fail(
       error?.message?.includes("already")
-        ? "That number already has an account."
-        : "Couldn't create the student. Please try again."
+        ? "That email already has an account."
+        : "Couldn't create the student. Please try again.",
+      error?.message?.includes("already")
+        ? { email: "This email is already registered." }
+        : undefined
     );
   }
 

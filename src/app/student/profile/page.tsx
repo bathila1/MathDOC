@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { ProfileDetailsCard } from "@/features/students/client/ProfileDetailsCard";
+import { ChangePasswordCard } from "@/features/auth/client/ChangePasswordCard";
 import { ContentWidthToggle } from "@/components/site/ContentWidthToggle";
 import { NotificationStatusAlert } from "@/components/site/NotificationStatusAlert";
 import type {
@@ -111,6 +112,7 @@ export default async function ProfilePage() {
         readOnlyRows={details}
         values={{
           full_name: profile.full_name,
+          phone: profile.phone,
           school: profile.school,
           grade: profile.grade,
           guardian_name: profile.guardian_name,
@@ -118,6 +120,8 @@ export default async function ProfilePage() {
           address: profile.address,
         }}
       />
+
+      <ChangePasswordCard />
 
       <Card>
         <CardHeader>

@@ -45,6 +45,14 @@ export async function saveProfile(
 
   if (error) {
     console.error("saveProfile failed:", error.message);
+    // profiles.phone is UNIQUE. Now that students type their own number rather
+    // than it arriving from the SMS login, a clash is a routine typo (or a
+    // second account) and needs to point at the field, not a shrug.
+    if (error.code === "23505" || /duplicate key|unique/i.test(error.message)) {
+      return fail("That mobile number is already registered to another student.", {
+        phone: "This number is already registered.",
+      });
+    }
     return fail("We couldn't save your details. Please try again.");
   }
 

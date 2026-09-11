@@ -60,6 +60,8 @@ export async function POST(request: NextRequest) {
     // the student ends up reading. A credential failure gets named rather
     // than blamed on the number — it takes an operator to fix, and the
     // generic wording had people re-typing a number that was never wrong.
+    // "disabled" is deliberate, not broken, so it is neither a credential
+    // failure nor worth an alarming log line.
     const credentialFailure =
       result.reason === "gateway_auth" || result.reason === "not_configured";
 

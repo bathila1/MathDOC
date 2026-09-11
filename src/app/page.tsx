@@ -35,9 +35,14 @@ export default async function LandingPage() {
       <header className="border-b">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
           <Logo className="size-12" />
-          <Button size="sm" render={<Link href="/login" />}>
-            Student login
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" render={<Link href="/login" />}>
+              Log in
+            </Button>
+            <Button size="sm" render={<Link href="/signup" />}>
+              Sign up
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -48,7 +53,7 @@ export default async function LandingPage() {
               {content.heroHeading}
             </h1>
             <div className="mt-8">
-              <Button size="lg" render={<Link href="/login" />}>
+              <Button size="lg" render={<Link href="/signup" />}>
                 Get started
               </Button>
             </div>

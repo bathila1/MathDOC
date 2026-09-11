@@ -22,7 +22,11 @@ const TIMEOUT_MS = 8_000;
  * back in the verify response, so a token harvested from the (cheap, public)
  * student-login widget cannot be replayed against the admin-login action.
  */
-export type TurnstileAction = "student-login" | "otp-verify" | "admin-login";
+export type TurnstileAction =
+  | "student-login"
+  | "student-signup"
+  | "password-reset"
+  | "admin-login";
 
 export interface TurnstileResult {
   ok: boolean;

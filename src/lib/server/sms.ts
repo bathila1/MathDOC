@@ -1,5 +1,6 @@
 import "server-only";
 import { toMsisdn } from "@/lib/shared/phone";
+import { getSmsEnabled } from "@/lib/server/settings";
 
 /**
  * Hutch Bulk SMS gateway (https://bsms.hutch.lk) — OAuth 2.0.
@@ -225,6 +226,8 @@ async function getAccessToken(forceRefresh = false): Promise<TokenResult> {
  * error on the login form.
  */
 export type SendSmsFailure =
+  /** Switched off by the teacher in Admin → Settings. Not a fault. */
+  | "disabled"
   /** HUTCH_SMS_* missing from the environment. */
   | "not_configured"
   /** Hutch refused our account credentials. */
@@ -260,6 +263,18 @@ export async function sendSms(
   message: string,
   campaign = "MathDOC"
 ): Promise<SendSmsResult> {
+  // Checked before anything else, including the credential check: when the
+  // teacher has switched sending off this is an expected state, so it must not
+  // spend a 15-second gateway timeout or write an error to the log.
+  if (!(await getSmsEnabled())) {
+    console.info("SMS not sent: sending is switched off in Admin → Settings.");
+    return {
+      sent: false,
+      reason: "disabled",
+      error: "SMS sending is switched off.",
+    };
+  }
+
   if (!smsConfigured()) {
     console.error(
       "SMS not sent: Hutch credentials are missing (HUTCH_SMS_USERNAME / " +

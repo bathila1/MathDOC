@@ -16,6 +16,9 @@ import { Textarea } from "@/components/ui/textarea";
 
 export const PROFILE_FIELDS = [
   { name: "full_name", label: "Full name", placeholder: "A. B. Perera" },
+  // Asked for here now that login is by email. It used to arrive from the SMS
+  // login itself, so the form never had to collect it.
+  { name: "phone", label: "Mobile number", placeholder: "0771234567" },
   { name: "school", label: "School", placeholder: "Your school" },
   { name: "grade", label: "Grade / Year", placeholder: "Grade 11" },
   { name: "guardian_name", label: "Parent / guardian name", placeholder: "" },

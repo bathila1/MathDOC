@@ -3,12 +3,14 @@ import {
   getDebugErrorsEnabled,
   getPaymentsEnabled,
   getSetting,
+  getSmsEnabled,
 } from "@/lib/server/settings";
 import { PaymentsToggle } from "@/features/settings/client/PaymentsToggle";
 import { AdminNotificationSettings } from "@/features/settings/client/AdminNotificationSettings";
 import { SiteContentSettings } from "@/features/settings/client/SiteContentSettings";
 import { DataManagement } from "@/features/settings/client/DataManagement";
 import { DebugErrorsToggle } from "@/features/settings/client/DebugErrorsToggle";
+import { SmsGatewayToggle } from "@/features/settings/client/SmsGatewayToggle";
 import {
   getSiteContent,
   getHeroImageUrl,
@@ -26,9 +28,10 @@ export const metadata = { title: "Settings" };
 
 export default async function AdminSettingsPage() {
   await requireAdmin();
-  const [paymentsEnabled, debugErrors, notifyPairs, siteContent] =
+  const [paymentsEnabled, smsEnabled, debugErrors, notifyPairs, siteContent] =
     await Promise.all([
       getPaymentsEnabled(),
+      getSmsEnabled(),
       getDebugErrorsEnabled(),
       Promise.all(
         ADMIN_NOTIFY_TYPES.map(
@@ -94,6 +97,22 @@ export default async function AdminSettingsPage() {
         </CardHeader>
         <CardContent>
           <DataManagement />
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Text messages (SMS)</CardTitle>
+          <CardDescription>
+            Booking confirmations and certificate links are sent by SMS through
+            Hutch. Turn this off while the gateway is down: nothing is texted,
+            and the site stops spending 15 seconds per message waiting for a
+            reply that never comes. Everything else — booking, certificates,
+            login — carries on as normal.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SmsGatewayToggle enabled={smsEnabled} />
         </CardContent>
       </Card>
 

@@ -19,9 +19,9 @@ import { createSupabaseAdmin } from "./supabase-admin";
  */
 
 type LimiterName =
-  | "otp" // OTP request: strict — per phone
-  | "otp_verify" // code entry attempts
-  | "login" // admin password attempts
+  | "signup" // new account creation
+  | "password_reset" // "email me a reset link"
+  | "login" // password attempts (student and admin)
   | "form" // profile save, survey submit, review actions...
   | "booking" // slot booking + payment bypass
   | "upload" // presign requests
@@ -30,8 +30,12 @@ type LimiterName =
   | "public_page"; // invoice / certificate pages per IP
 
 const configs: Record<LimiterName, { requests: number; windowMs: number }> = {
-  otp: { requests: 3, windowMs: 15 * 60_000 },
-  otp_verify: { requests: 8, windowMs: 15 * 60_000 },
+  // Per IP this is generous enough for a family sharing a connection and mean
+  // enough to stop a script filling the table with junk accounts.
+  signup: { requests: 5, windowMs: 60 * 60_000 },
+  // Each one sends mail on our quota, and a flood is also a way to harass
+  // somebody's inbox, so it is the tightest of the three.
+  password_reset: { requests: 4, windowMs: 60 * 60_000 },
   login: { requests: 8, windowMs: 15 * 60_000 },
   form: { requests: 30, windowMs: 10 * 60_000 },
   booking: { requests: 10, windowMs: 10 * 60_000 },

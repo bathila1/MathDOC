@@ -218,8 +218,8 @@ Vercel → project → **Settings → Environment Variables** → scope **Produc
 `HUTCH_SMS_BASE_URL` is optional and defaults to `https://bsms.hutch.lk/api`.
 
 > ⚠️ **`TURNSTILE_SECRET_KEY` is not optional in production.** The server fails
-> closed without it: student login, OTP verification and teacher login all
-> reject every attempt, and the Vercel log says
+> closed without it: student login, signup, password reset and teacher login
+> all reject every attempt, and the Vercel log says
 > `TURNSTILE_SECRET_KEY is not set — refusing to accept the request`. This is
 > deliberate — a bot check that silently disables itself because a variable
 > wasn't copied is worse than no check, because you would believe you were
@@ -388,5 +388,8 @@ a row.
 
 ## Related
 
-- [sms-otp-setup.md](sms-otp-setup.md) — how the OTP chain works in detail
+- [email-auth-setup.md](email-auth-setup.md) — student login (email + password):
+  migration, SMTP, email templates, and moving existing students across
+- [sms-otp-setup.md](sms-otp-setup.md) — the Hutch SMS gateway (booking
+  confirmations and certificates; no longer the login path)
 - [../SECURITY.md](../SECURITY.md) — security model and hardening notes
