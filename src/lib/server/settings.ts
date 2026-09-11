@@ -1,19 +1,58 @@
 import "server-only";
+import { cache } from "react";
 import { createSupabaseAdmin } from "./supabase-admin";
 
 /**
  * Admin-managed key/value settings (see the `settings` table). Reads/writes go
  * through the service role so they work in any server context; the admin
  * Settings actions gate who may change them.
+ *
+ * THE WHOLE TABLE IS READ AT ONCE, and only once per request.
+ *
+ * It used to be a query per key. That is invisible locally and expensive in
+ * production, where each round-trip to Supabase costs 100ms+ and they add up
+ * per page: the Settings page alone fired nine — one for payments, one for
+ * SMS, one for debug errors, and one for each of the five notification
+ * preferences. The table holds a handful of tiny rows, so fetching all of them
+ * costs the same as fetching one, and every caller in the request then reads
+ * from memory.
+ *
+ * Staleness: `cache()` lives for a single request. A write followed by a read
+ * in the SAME request would see the old value — no caller does that, and every
+ * setter calls revalidatePath so the next render re-reads.
  */
-export async function getSetting(key: string): Promise<string | null> {
+const allSettings = cache(async (): Promise<Map<string, string>> => {
   const admin = createSupabaseAdmin();
-  const { data } = await admin
-    .from("settings")
-    .select("value")
-    .eq("key", key)
-    .maybeSingle();
-  return data?.value ?? null;
+  const { data, error } = await admin.from("settings").select("key, value");
+  if (error) {
+    // Fail soft: callers fall back to their defaults rather than the page
+    // dying because one preference could not be read.
+    console.error("Could not read settings:", error.message);
+    return new Map();
+  }
+  return new Map(
+    (data as { key: string; value: string }[] | null)?.map((r) => [
+      r.key,
+      r.value,
+    ]) ?? []
+  );
+});
+
+export async function getSetting(key: string): Promise<string | null> {
+  return (await allSettings()).get(key) ?? null;
+}
+
+/** Several at once, from the same single read. */
+export async function getSettings(
+  keys: readonly string[]
+): Promise<Map<string, string>> {
+  const all = await allSettings();
+  return new Map(
+    keys.flatMap((k) => {
+      const v = all.get(k);
+      return v === undefined ? [] : [[k, v] as [string, string]];
+    })
+  );
 }
 
 export async function setSetting(key: string, value: string): Promise<void> {

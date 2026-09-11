@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/server/auth";
+import { withAdmin } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { countPendingProofs } from "@/features/tasks/server/proofs";
 import type {
@@ -37,7 +37,6 @@ type ApptRow = Appointment & {
 };
 
 export default async function AdminDashboard() {
-  await requireAdmin();
   const supabase = await createSupabaseServer();
   const now = new Date();
   // Sri Lankan midnight-to-midnight. date-fns startOfDay/endOfDay would use
@@ -54,7 +53,10 @@ export default async function AdminDashboard() {
     registrationsRes,
     flaggedRes,
     messagesRes,
-  ] = await Promise.all([
+  // withAdmin runs the guard and these queries together instead of one after
+  // the other — see lib/server/auth.ts. Everything below is RLS-scoped.
+  ] = await withAdmin(() =>
+    Promise.all([
     supabase
       .from("appointments")
       .select("*, availability_slots!inner(*), profiles(full_name)")
@@ -104,7 +106,8 @@ export default async function AdminDashboard() {
       .eq("seen_by_admin", false)
       .order("created_at", { ascending: false })
       .limit(20),
-  ]);
+    ])
+  );
 
   const today = ((todayRes.data ?? []) as ApptRow[]).sort(
     (a, b) =>

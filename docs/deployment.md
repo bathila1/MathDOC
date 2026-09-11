@@ -388,6 +388,8 @@ a row.
 
 ## Related
 
+- [performance.md](performance.md) — where load time goes, what was
+  optimised, and the one region setting that matters most
 - [email-auth-setup.md](email-auth-setup.md) — student login (email + password):
   migration, SMTP, email templates, and moving existing students across
 - [sms-otp-setup.md](sms-otp-setup.md) — the Hutch SMS gateway (booking

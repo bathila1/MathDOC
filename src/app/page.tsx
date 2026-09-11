@@ -67,7 +67,10 @@ export default async function LandingPage() {
                 className="aspect-square w-full rounded-lg border object-cover"
               />
             ) : (
-              <TeacherAvatar className="aspect-square w-full rounded-lg border object-cover" />
+              <TeacherAvatar
+                className="aspect-square w-full rounded-lg border object-cover"
+                sizes="(min-width: 640px) 15rem, 60vw"
+              />
             )}
           </div>
         </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requireStudent } from "@/lib/server/auth";
+import { redirect } from "next/navigation";
+import { sessionUserId, withStudent } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import type { Appointment, AvailabilitySlot } from "@/lib/shared/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,15 +15,21 @@ export const metadata = { title: "My sessions" };
 type ApptRow = Appointment & { availability_slots: AvailabilitySlot };
 
 export default async function SessionsPage() {
-  const { user } = await requireStudent();
+  // The id is read from the session cookie so these queries can start without
+  // waiting on the profiles round-trip; withStudent then overlaps the guard
+  // with them. Everything here is RLS-scoped — see lib/server/auth.ts.
+  const userId = await sessionUserId();
+  if (!userId) redirect("/login");
   const supabase = await createSupabaseServer();
 
-  const { data } = await supabase
-    .from("appointments")
-    .select("*, availability_slots(*)")
-    .eq("student_id", user.id)
-    .neq("status", "cancelled")
-    .order("created_at", { ascending: false });
+  const { data } = await withStudent(() =>
+    supabase
+      .from("appointments")
+      .select("*, availability_slots(*)")
+      .eq("student_id", userId)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false })
+  );
 
   // "Upcoming" = still to happen AND not already ticked off by Sir, so the
   // student sees the same state the teacher does.

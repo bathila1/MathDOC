@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAdmin } from "@/lib/server/auth";
+import { withAdmin } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import {
   Pagination,
@@ -63,7 +63,6 @@ export default async function AdminAppointmentsPage({
     view?: string;
   }>;
 }) {
-  await requireAdmin();
   const sp = await searchParams;
   const status = sp.status && validStatus.has(sp.status) ? sp.status : "all";
   const mode = sp.mode && validMode.has(sp.mode) ? sp.mode : "all";
@@ -85,7 +84,9 @@ export default async function AdminAppointmentsPage({
   // `code` comes from migration 011 (a generated column). Searching before that
   // migration is applied simply returns nothing rather than breaking the page.
   if (q) query = query.ilike("code", `%${q}%`);
-  const { data, count } = await query;
+  // withAdmin runs the guard and this query together instead of one after
+  // the other — see lib/server/auth.ts. The query is RLS-scoped.
+  const { data, count } = await withAdmin(() => query);
 
   const rows = (data ?? []) as Row[];
 

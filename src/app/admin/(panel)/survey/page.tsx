@@ -1,5 +1,5 @@
 import { createSupabaseServer } from "@/lib/server/supabase";
-import { requireAdmin } from "@/lib/server/auth";
+import { withAdmin } from "@/lib/server/auth";
 import { getAllSurveyQuestions } from "@/features/survey/server/queries";
 import { AdminSurveyQuestions } from "@/features/survey/client/AdminSurveyQuestions";
 import { AdminDefaultTasks } from "@/features/tasks/client/AdminDefaultTasks";
@@ -9,16 +9,19 @@ import { Separator } from "@/components/ui/separator";
 export const metadata = { title: "Survey questions" };
 
 export default async function AdminSurveyPage() {
-  await requireAdmin();
   const supabase = await createSupabaseServer();
 
-  const [questions, { data: templates }] = await Promise.all([
-    getAllSurveyQuestions(),
-    supabase
-      .from("default_tasks")
-      .select("*")
-      .order("sort_order", { ascending: true }),
-  ]);
+  // withAdmin runs the guard and these queries together instead of one after
+  // the other — see lib/server/auth.ts. Everything below is RLS-scoped.
+  const [questions, { data: templates }] = await withAdmin(() =>
+    Promise.all([
+      getAllSurveyQuestions(),
+      supabase
+        .from("default_tasks")
+        .select("*")
+        .order("sort_order", { ascending: true }),
+    ])
+  );
 
   return (
     <div className="space-y-8">

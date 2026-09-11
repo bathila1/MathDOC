@@ -12,7 +12,7 @@ export function AuthSplit({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen lg:h-screen lg:overflow-hidden">
       {/* fixed poster */}
       <div className="fixed inset-y-0 left-0 hidden w-[63%] lg:block">
-        <TeacherAvatar className="absolute inset-0 size-full" />
+        <TeacherAvatar className="absolute inset-0 size-full" priority />
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/25" />
         <div className="absolute bottom-12 left-12 max-w-lg text-white">
           {/* The tile carries the wordmark itself — no separate text needed. */}

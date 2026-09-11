@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { requireStudent } from "@/lib/server/auth";
+import { redirect } from "next/navigation";
+import {
+  requireStudent,
+  sessionUserId,
+  withStudent,
+} from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { getActiveBooking } from "@/features/booking/server/queries";
 import { BookedSessionCard } from "@/features/booking/client/BookedSessionCard";
@@ -29,26 +34,34 @@ export const metadata = { title: "My plan" };
 type TaskRow = Task & { appointments: { created_at: string } | null };
 
 export default async function StudentDashboard() {
-  const { user, profile } = await requireStudent();
+  // The id is read from the session cookie so these queries can start without
+  // waiting on the profiles round-trip; withStudent then overlaps the guard
+  // with them. Everything here is RLS-scoped — see lib/server/auth.ts.
+  const userId = await sessionUserId();
+  if (!userId) redirect("/login");
   const supabase = await createSupabaseServer();
 
-  const [booking, taskRes, certRes, proofRes] = await Promise.all([
-    getActiveBooking(user.id),
-    supabase
-      .from("tasks")
-      .select("*, appointments!tasks_appointment_id_fkey(created_at)")
-      .eq("student_id", user.id),
-    supabase
-      .from("certificates")
-      .select("*")
-      .eq("student_id", user.id)
-      .order("issued_at", { ascending: false }),
-    supabase
-      .from("proof_submissions")
-      .select("*")
-      .eq("student_id", user.id)
-      .order("submitted_at", { ascending: false }),
-  ]);
+  const [booking, taskRes, certRes, proofRes] = await withStudent(() =>
+    Promise.all([
+      getActiveBooking(userId),
+      supabase
+        .from("tasks")
+        .select("*, appointments!tasks_appointment_id_fkey(created_at)")
+        .eq("student_id", userId),
+      supabase
+        .from("certificates")
+        .select("*")
+        .eq("student_id", userId)
+        .order("issued_at", { ascending: false }),
+      supabase
+        .from("proof_submissions")
+        .select("*")
+        .eq("student_id", userId)
+        .order("submitted_at", { ascending: false }),
+    ])
+  );
+  // Request-cached by withStudent above — no second query.
+  const { user, profile } = await requireStudent();
 
   let allTasks = orderTasks((taskRes.data ?? []) as TaskRow[]);
   const certificates = (certRes.data ?? []) as Certificate[];

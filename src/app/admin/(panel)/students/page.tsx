@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServer } from "@/lib/server/supabase";
-import { requireAdmin } from "@/lib/server/auth";
+import { withAdmin } from "@/lib/server/auth";
 import {
   Pagination,
   PAGE_SIZE,
@@ -36,7 +36,6 @@ export default async function AdminStudentsPage({
     view?: string;
   }>;
 }) {
-  await requireAdmin();
   const sp = await searchParams;
   const cat = sp.category && validCat.has(sp.category) ? sp.category : "all";
   const q = (sp.q ?? "").replace(/[%,()]/g, " ").trim();
@@ -55,7 +54,9 @@ export default async function AdminStudentsPage({
   if (cat === "unset") query = query.is("category", null);
   else if (cat !== "all") query = query.eq("category", cat);
   if (q) query = query.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`);
-  const { data, count } = await query;
+  // withAdmin runs the guard and this query together instead of one after
+  // the other — see lib/server/auth.ts. The query is RLS-scoped.
+  const { data, count } = await withAdmin(() => query);
 
   const students = (data ?? []) as Profile[];
 

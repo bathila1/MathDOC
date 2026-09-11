@@ -57,6 +57,13 @@ const nextConfig: NextConfig = {
   // web-push uses Node crypto/https; keep it out of the bundler so it runs
   // from node_modules at runtime (otherwise sends can silently fail).
   serverExternalPackages: ["web-push"],
+  images: {
+    // AVIF first, WebP second; the browser takes whichever it understands.
+    formats: ["image/avif", "image/webp"],
+    // Optimised variants are immutable — the URL changes when the source does,
+    // so there is no reason to re-fetch them for a month.
+    minimumCacheTTL: 2_592_000,
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

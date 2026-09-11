@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/server/auth";
+import { withAdmin } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { getDownloadUrl } from "@/lib/server/files";
 import {
@@ -33,20 +33,23 @@ export default async function ProofsPage({
 }: {
   searchParams: Promise<{ page?: string }>;
 }) {
-  await requireAdmin();
   const page = pageFrom((await searchParams).page);
   const [from, to] = rangeFor(page);
 
   const supabase = await createSupabaseServer();
-  const { data, count } = await supabase
-    .from("proof_submissions")
-    .select(
-      "id, submitted_at, student_note, file_keys, student_id, time_spent_seconds, tasks(title, appointment_id), profiles(full_name)",
-      { count: "exact" }
-    )
-    .eq("status", "pending")
-    .order("submitted_at", { ascending: true })
-    .range(from, to);
+  // withAdmin runs the guard and these queries together instead of one after
+  // the other — see lib/server/auth.ts. Everything below is RLS-scoped.
+  const { data, count } = await withAdmin(() =>
+    supabase
+      .from("proof_submissions")
+      .select(
+        "id, submitted_at, student_note, file_keys, student_id, time_spent_seconds, tasks(title, appointment_id), profiles(full_name)",
+        { count: "exact" }
+      )
+      .eq("status", "pending")
+      .order("submitted_at", { ascending: true })
+      .range(from, to)
+  );
 
   const rows = (data ?? []) as unknown as ProofRow[];
 

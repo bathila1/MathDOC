@@ -128,3 +128,61 @@ export async function requireAdmin(): Promise<AuthContext> {
   if (auth.profile.role !== "admin") redirect("/student");
   return auth;
 }
+
+/**
+ * Run a page's data fetch CONCURRENTLY with the access check.
+ *
+ * Pages used to `await requireAdmin()` and only then start querying: two
+ * round-trips to Supabase in series. Locally that is invisible; in production
+ * each one costs 100ms+, so it was roughly a quarter of a second before any
+ * HTML could be produced, on every single admin page. Starting both together
+ * removes one of them.
+ *
+ * SAFE ONLY FOR RLS-SCOPED FETCHES. `fetcher` must query through
+ * `createSupabaseServer()`, which runs as the visitor: a non-admin gets empty
+ * results and is redirected anyway, so nothing crosses a boundary. Never pass
+ * a fetcher that uses `createSupabaseAdmin()` — the service role bypasses RLS,
+ * and the guard you are racing is the only thing in front of it.
+ *
+ * Callers needing the profile can still `await requireAdmin()` afterwards;
+ * getAuth() is request-cached, so that costs nothing.
+ */
+export async function withAdmin<T>(fetcher: () => PromiseLike<T>): Promise<T> {
+  // Promise.resolve so a Supabase query builder (a thenable, not a Promise)
+  // can be passed straight in.
+  const pending = Promise.resolve(fetcher());
+  // When the guard redirects it throws, and nothing ever awaits `pending`.
+  // Attach a no-op catch so that cannot surface as an unhandled rejection.
+  pending.catch(() => {});
+  await requireAdmin();
+  return pending;
+}
+
+/**
+ * The session's user id straight from the cookie, with NO round-trip.
+ *
+ * Student pages need the id to build their queries, and used to get it from
+ * requireStudent() — which meant waiting on the profiles query before any page
+ * query could even start. The id is already in the JWT, so read it locally and
+ * let withStudent() overlap the guard with the data fetch.
+ *
+ * Untrusted on its own (the signature is not checked here), and that is fine:
+ * every query it feeds runs under RLS, where `auth.uid()` comes from the
+ * VERIFIED token. A tampered sub yields no rows, and requireStudent() — still
+ * awaited before anything is rendered — redirects them regardless.
+ */
+export async function sessionUserId(): Promise<string | null> {
+  const supabase = await createSupabaseServer();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session ? subFromToken(session.access_token) : null;
+}
+
+/** The same overlap for student pages. See withAdmin for the safety rule. */
+export async function withStudent<T>(fetcher: () => PromiseLike<T>): Promise<T> {
+  const pending = Promise.resolve(fetcher());
+  pending.catch(() => {});
+  await requireStudent();
+  return pending;
+}

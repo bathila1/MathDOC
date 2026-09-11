@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/server/auth";
+import { withAdmin } from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import {
   AdminCalendar,
@@ -9,13 +9,16 @@ import { subDays } from "date-fns";
 export const metadata = { title: "Availability" };
 
 export default async function AvailabilityPage() {
-  await requireAdmin();
   const supabase = await createSupabaseServer();
-  const { data } = await supabase
-    .from("availability_slots")
-    .select("*, appointments(id, status, profiles(full_name))")
-    .gt("starts_at", subDays(new Date(), 7).toISOString())
-    .order("starts_at", { ascending: true });
+  // withAdmin runs the guard and these queries together instead of one after
+  // the other — see lib/server/auth.ts. Everything below is RLS-scoped.
+  const { data } = await withAdmin(() =>
+    supabase
+      .from("availability_slots")
+      .select("*, appointments(id, status, profiles(full_name))")
+      .gt("starts_at", subDays(new Date(), 7).toISOString())
+      .order("starts_at", { ascending: true })
+  );
 
   return (
     <div className="space-y-6">

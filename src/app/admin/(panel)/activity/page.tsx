@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServer } from "@/lib/server/supabase";
-import { requireAdmin } from "@/lib/server/auth";
+import { withAdmin } from "@/lib/server/auth";
 import {
   Pagination,
   PAGE_SIZE,
@@ -35,17 +35,21 @@ export default async function AdminActivityPage({
 }: {
   searchParams: Promise<{ page?: string }>;
 }) {
-  await requireAdmin();
   const page = pageFrom((await searchParams).page);
   const [from, to] = rangeFor(page);
 
   const supabase = await createSupabaseServer();
-  const { data, count } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact" })
-    .eq("role", "student")
-    .order("last_login_at", { ascending: false, nullsFirst: false })
-    .range(from, to);
+  // withAdmin runs the guard and these queries together instead of one after
+  // the other — see lib/server/auth.ts. Everything below is RLS-scoped.
+  // The second stage below genuinely depends on these ids, so it stays serial.
+  const { data, count } = await withAdmin(() =>
+    supabase
+      .from("profiles")
+      .select("*", { count: "exact" })
+      .eq("role", "student")
+      .order("last_login_at", { ascending: false, nullsFirst: false })
+      .range(from, to)
+  );
   const students = (data ?? []) as Profile[];
   const ids = students.map((s) => s.id);
 

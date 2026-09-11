@@ -1,5 +1,5 @@
 import "server-only";
-import { createSupabaseAdmin } from "@/lib/server/supabase-admin";
+import { getSettings } from "@/lib/server/settings";
 import { getDownloadUrl } from "@/lib/server/files";
 import {
   SITE_CONTENT_KEYS,
@@ -8,21 +8,16 @@ import {
 } from "@/lib/shared/site-content";
 
 /**
- * Load all editable landing-page content in ONE query rather than a getSetting()
- * round-trip per field — this runs on the public home page, so it is on the
- * critical path for every first-time visitor.
+ * Load all editable landing-page content without a round-trip of its own.
+ *
+ * This runs on the public home page, so it is on the critical path for every
+ * first-time visitor. It used to be one query here; now it reads from the
+ * request-wide settings snapshot (lib/server/settings.ts), so a page that also
+ * needs, say, the payments flag pays for one query between them rather than two.
  */
 export async function getSiteContent(): Promise<SiteContent> {
-  const admin = createSupabaseAdmin();
-  const keys = Object.values(SITE_CONTENT_KEYS);
-  const { data } = await admin
-    .from("settings")
-    .select("key, value")
-    .in("key", keys);
+  const byKey = await getSettings(Object.values(SITE_CONTENT_KEYS));
 
-  const byKey = new Map(
-    ((data ?? []) as { key: string; value: string }[]).map((r) => [r.key, r.value])
-  );
   const pick = (k: string): string | null => {
     const v = byKey.get(k);
     return v && v.trim() ? v.trim() : null;

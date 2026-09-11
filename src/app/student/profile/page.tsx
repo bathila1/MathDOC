@@ -1,5 +1,10 @@
 import Link from "next/link";
-import { requireStudent } from "@/lib/server/auth";
+import { redirect } from "next/navigation";
+import {
+  requireStudent,
+  sessionUserId,
+  withStudent,
+} from "@/lib/server/auth";
 import { createSupabaseServer } from "@/lib/server/supabase";
 import { ProfileDetailsCard } from "@/features/students/client/ProfileDetailsCard";
 import { ChangePasswordCard } from "@/features/auth/client/ChangePasswordCard";
@@ -30,25 +35,33 @@ export const metadata = { title: "My profile" };
 type ApptRow = Appointment & { availability_slots: AvailabilitySlot };
 
 export default async function ProfilePage() {
-  const { user, profile } = await requireStudent();
+  // The id is read from the session cookie so these queries can start without
+  // waiting on the profiles round-trip; withStudent then overlaps the guard
+  // with them. Everything here is RLS-scoped — see lib/server/auth.ts.
+  const userId = await sessionUserId();
+  if (!userId) redirect("/login");
   const supabase = await createSupabaseServer();
 
-  const [apptRes, certRes, noteRes] = await Promise.all([
-    supabase
-      .from("appointments")
-      .select("*, availability_slots(*)")
-      .eq("student_id", user.id),
-    supabase
-      .from("certificates")
-      .select("*")
-      .eq("student_id", user.id)
-      .order("issued_at", { ascending: false }),
-    supabase
-      .from("session_notes")
-      .select("*")
-      .eq("student_id", user.id)
-      .order("created_at", { ascending: false }),
-  ]);
+  const [apptRes, certRes, noteRes] = await withStudent(() =>
+    Promise.all([
+      supabase
+        .from("appointments")
+        .select("*, availability_slots(*)")
+        .eq("student_id", userId),
+      supabase
+        .from("certificates")
+        .select("*")
+        .eq("student_id", userId)
+        .order("issued_at", { ascending: false }),
+      supabase
+        .from("session_notes")
+        .select("*")
+        .eq("student_id", userId)
+        .order("created_at", { ascending: false }),
+    ])
+  );
+  // Request-cached by withStudent above — no second query.
+  const { profile } = await requireStudent();
 
   const past = ((apptRes.data ?? []) as ApptRow[])
     .filter(
